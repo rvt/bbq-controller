@@ -26,7 +26,7 @@ public:
         return crcRetreived == crcCalculated;
     }
 
-private:
+public:
     static uint16_t crc16(uint8_t* a, uint16_t length) {
         uint16_t crc = 0;
 

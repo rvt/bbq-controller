@@ -9,7 +9,7 @@
 
 // Run with make; ./tests [GRAPH] > out.csv
 // Plot with https://plot.ly/create/#/
-TEST_CASE("Graph Controller against simulated oven", "[GRAPH]") {
+TEST_CASE("Graph Controller against simulated oven", "[GRAPH][.]") {
     MockedOven oven;
     MockedTemperature* mockedTemp = new MockedTemperature(oven.temperature());
     std::shared_ptr<TemperatureSensor> uMockedTemp(mockedTemp);
@@ -42,7 +42,7 @@ TEST_CASE("Graph Controller against simulated oven", "[GRAPH]") {
     }
 }
 
-TEST_CASE("Should convert char values to other types", "[propertyvalue][ALL]") {
+TEST_CASE("Should convert char values to other types", "[propertyvalue][ALL][.]") {
     MockedOven oven;
     MockedTemperature* mockedTemp = new MockedTemperature(oven.temperature());
     std::shared_ptr<TemperatureSensor> uMockedTemp(mockedTemp);

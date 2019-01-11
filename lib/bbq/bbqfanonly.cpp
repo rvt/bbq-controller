@@ -155,7 +155,7 @@ void BBQFanOnly::handle() {
     m_fuzzy->fuzzify();
 
     // This provides a small filter to ensure that our fan doesnt jump to much
-    m_fanCurrentSpeed = m_fanCurrentSpeed + ( m_fuzzy->defuzzify(FAN_OUTPUT) - m_fanCurrentSpeed) * 0.25f;
+    m_fanCurrentSpeed = m_fuzzy->defuzzify(FAN_OUTPUT);
 
     // Finally set fan
     m_fan->speed(m_fanCurrentSpeed);

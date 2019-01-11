@@ -5,7 +5,6 @@
 class PWMVentilator : public Ventilator {
 private:
     uint8_t m_pin;
-    float m_speed;
     float m_minThreshold;
 public:
     /**
@@ -13,6 +12,6 @@ public:
      * p_minThreshold : Minimum value where we turn on the fan, below that we set the pwm to 0
      */
     PWMVentilator(uint8_t p_pin, float p_minThreshold);
-    virtual void speed(float speed);
-    virtual float speed();
+private:
+    virtual float setVentilator();
 };

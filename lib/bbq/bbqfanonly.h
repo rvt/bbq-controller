@@ -60,9 +60,10 @@ public:
      * Cretae a fuzzy set from a vector of floats
      * Warning don´t change to &data !!
      */
-    template<std::size_t SIZE>    
-    static FuzzySet* fuzzyFromVector(std::array<float, SIZE> &data, bool flipped) {
+    template<std::size_t SIZE>
+    static FuzzySet* fuzzyFromVector(std::array<float, SIZE>& data, bool flipped) {
         std::array<float, SIZE> cpy = data;
+
         // Only flip and negate when we have a dataset of 4 items
         if (flipped && (SIZE == 4)) {
             std::reverse(cpy.begin(), cpy.end());

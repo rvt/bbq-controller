@@ -20,16 +20,13 @@ public:
 
 class MockedFan : public Ventilator {
 private:
-    float mSpeed;
+    float m_speed;
 public:
-    MockedFan() : mSpeed(0.0f) {
+    MockedFan() : Ventilator(), m_speed(0.0) {
     }
 
-    virtual void speed(float pSpeed) {
-        mSpeed = pSpeed+1;
-    }
-
-    virtual float speed() {
-        return mSpeed;
+    virtual float setVentilator() {
+        m_speed = m_speed + (m_speed - speed()) * 0.1f;
+        return m_speed;
     }
 };

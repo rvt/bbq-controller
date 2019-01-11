@@ -71,6 +71,8 @@ std::unique_ptr<AnalogIn> analogIn(nullptr);
 // Settings
 SettingsDTO settingsDTO;
 
+uint16_t lastUpdateCRC = 0;
+
 // Eeprom storage
 // wait 500ms after last commit, then commit no more often than every 30s
 Settings eepromSaveHandler(
@@ -95,12 +97,13 @@ Settings mqttSaveHandler(
 []() {
 
     std::string configString = settingsDTO.getConfigString();
+
     if (configString.size() > 0) {
-Serial.print("\n");
-Serial.print(configString.c_str());
-Serial.print("\n");
-Serial.print(properties.get("mqttConfigStateTopic").getCharPtr());
-Serial.print("\n");
+        Serial.print("\n");
+        Serial.print(configString.c_str());
+        Serial.print("\n");
+        Serial.print(properties.get("mqttConfigStateTopic").getCharPtr());
+        Serial.print("\n");
         publishToMQTT(properties.get("mqttConfigStateTopic").getCharPtr(), configString.c_str());
     }
 
@@ -171,7 +174,6 @@ void verifyFingerprint() {
  */
 void publishToMQTT(const char* topic, const char* payload) {
     if (mqttClient.publish(topic, payload, true)) {
-        Serial.println("Publish 1");
         DEBUG_PRINT(F("INFO: MQTT message publish succeeded. Topic: "));
         DEBUG_PRINT(topic);
         DEBUG_PRINT(F(". Payload: "));
@@ -202,11 +204,17 @@ void handleCmd(const char* topic, const char* p_payload) {
             if (strcmp(values.key(), "sp") == 0) {
                 temperature = values.asFloat();
             }
+
+            // Fan 1 override ( we don´t want this as an settings so if we loose MQTT connection we can always unplug)
+            if (strcmp(values.key(), "f1o") == 0) {
+                ventilator1->speedOverride(values.asFloat());
+            }
+
             if (strcmp(values.key(), "ta") == 0) {
                 config.temp_alpha = values.asFloat();
             }
 
-            config.fan_low = getConfigArray("fl", values.key(),values.asChar(), config.fan_low);
+            config.fan_low = getConfigArray("fl", values.key(), values.asChar(), config.fan_low);
             config.fan_medium = getConfigArray("fm", values.key(), values.asChar(), config.fan_medium);
             config.fan_high = getConfigArray("fh", values.key(), values.asChar(), config.fan_high);
 
@@ -217,10 +225,11 @@ void handleCmd(const char* topic, const char* p_payload) {
             config.temp_change_fast = getConfigArray("tcf", values.key(), values.asChar(), config.temp_change_fast);
         });
 
-        if (temperature > 20 && temperature < 260) {
+        if (temperature > 15 && temperature < 260) {
             bbqController->setPoint(temperature);
             settingsDTO.data()->setPoint = temperature;
         }
+
         // Copy to settings
         settingsDTO.data()->temp_alpha = config.temp_alpha;
         settingsDTO.data()->fan_low = config.fan_low;
@@ -331,7 +340,7 @@ int numberOfFrames = *(&numberOfFrames + 1) - numberOfFrames;
 * lc = Low charcoal alert
 */
 void publishStatus() {
-    char* format = "to=%.2f t2=%.2f sp=%.2f f1=%.2f lo=%i lc=%i";
+    const char* format = "to=%.2f t2=%.2f sp=%.2f f1=%.2f lo=%i lc=%i f1o=%.1f";
     char buffer[(4 + 6) * 6 + 16]; // 10 characters per item times extra items to be sure
     sprintf(buffer, format,
             temperatureSensor1->get(),
@@ -339,9 +348,16 @@ void publishStatus() {
             bbqController->setPoint(),
             ventilator1->speed(),
             bbqController->lidOpen(),
-            bbqController->lowCharcoal()
+            bbqController->lowCharcoal(),
+            ventilator1->speedOverride()
            );
-    publishToMQTT(properties.get("mqttStatusTopic").getCharPtr(), buffer);
+
+    // Quick hack to only update when data actually changed
+    uint16_t thisCrc = CRCEEProm::crc16((uint8_t*)buffer, strlen(buffer));
+    if (thisCrc!=lastUpdateCRC) {
+        publishToMQTT(properties.get("mqttStatusTopic").getCharPtr(), buffer);
+    }
+    lastUpdateCRC = thisCrc;
 }
 
 ///////////////////////////////////////////////////////////////////////////

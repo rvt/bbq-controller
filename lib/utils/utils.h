@@ -5,6 +5,8 @@
 #include <array>
 #include <cstring>
 #include <optparser.h>
+#include <algorithm>
+
 
 std::vector<float> getConfigVector(
     const char* lookForKey,
@@ -30,10 +32,16 @@ std::array<float, SIZE> getConfigArray(
                 totalValues++;
             }
         });
-        if (totalValues==SIZE) {
+
+        if (totalValues == SIZE) {
             return outValues;
         }
     }
 
     return inValues;
+}
+
+template <typename T>
+static T between(const T& n, const T& lower, const T& upper) {
+    return std::max(lower, std::min(n, upper));
 }
