@@ -2,6 +2,7 @@
 
 
 MAX31855sensor::MAX31855sensor(Adafruit_MAX31855* p_MAX31855) :
+    TemperatureSensor(),
     m_MAX31855(p_MAX31855),
     m_lastTemp(-1.0) {
 }

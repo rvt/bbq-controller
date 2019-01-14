@@ -66,7 +66,7 @@ MockedTemperature* mockedTemp2 = new MockedTemperature(30.0);
 // END: For demo/test mode
 float analogKnobTemperatureSetPoint; // Temperature setpoint from analog knob
 
-std::unique_ptr<AnalogIn> analogIn(nullptr);
+std::unique_ptr<NumericInput> analogIn(nullptr);
 
 // Settings
 SettingsDTO settingsDTO;
@@ -124,8 +124,6 @@ State* CONNECTMQTT;
 State* PUBLISHONLINE;
 State* SUBSCRIBECOMMANDTOPIC;
 State* WAITFORCOMMANDCAPTURE;
-// Boot sequence setup
-State* bootSequenceStates[7];
 
 std::unique_ptr<StateMachine> bootSequence(nullptr);
 
@@ -354,9 +352,11 @@ void publishStatus() {
 
     // Quick hack to only update when data actually changed
     uint16_t thisCrc = CRCEEProm::crc16((uint8_t*)buffer, strlen(buffer));
-    if (thisCrc!=lastUpdateCRC) {
+
+    if (thisCrc != lastUpdateCRC) {
         publishToMQTT(properties.get("mqttStatusTopic").getCharPtr(), buffer);
     }
+
     lastUpdateCRC = thisCrc;
 }
 
@@ -507,14 +507,15 @@ void setup() {
     WAITFORCOMMANDCAPTURE = new StateTimed(3000, []() {
         return TESTMQTTCONNECTION;
     });
-    bootSequenceStates[0] = BOOTSEQUENCESTART;
-    bootSequenceStates[1] = DELAYEDMQTTCONNECTION;
-    bootSequenceStates[2] = TESTMQTTCONNECTION;
-    bootSequenceStates[3] = CONNECTMQTT;
-    bootSequenceStates[4] = PUBLISHONLINE;
-    bootSequenceStates[5] = SUBSCRIBECOMMANDTOPIC;
-    bootSequenceStates[6] = WAITFORCOMMANDCAPTURE;
-    bootSequence.reset(new StateMachine(7, bootSequenceStates));
+    bootSequence.reset(new StateMachine({
+        BOOTSEQUENCESTART,
+        DELAYEDMQTTCONNECTION,
+        TESTMQTTCONNECTION,
+        CONNECTMQTT,
+        PUBLISHONLINE,
+        SUBSCRIBECOMMANDTOPIC,
+        WAITFORCOMMANDCAPTURE
+    }));
 
     startOTA();
     setupWiFi(properties);
@@ -557,7 +558,7 @@ void setup() {
     ventilator1.reset(new PWMVentilator(FAN1_PIN, 10.0));
 #endif
 
-    analogIn.reset(new AnalogIn(50.0f, 220.0f));
+    analogIn.reset(new AnalogIn(BUTTON_PIN, false, 50.0f, 50.0f, 220.0f, 0.1));
     analogKnobTemperatureSetPoint = 50.0;
     bbqController.reset(new BBQFanOnly(temperatureSensor1, ventilator1));
 
@@ -590,6 +591,8 @@ void setup() {
     ui.setFrames(frames, 4);
     ui.setOverlays(overlays, 1);
     ui.init();
+
+    display.flipScreenVertically();
 
     // Start boot sequence
     bootSequence->start();

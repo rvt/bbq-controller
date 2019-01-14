@@ -32,6 +32,7 @@
 
 BBQFanOnly::BBQFanOnly(std::shared_ptr<TemperatureSensor> pTempSensor,
                        std::shared_ptr<Ventilator> pFan) :
+    BBQ(),
     m_tempSensor(pTempSensor),
     m_fan(pFan),
     m_fuzzy(new Fuzzy()),
@@ -160,7 +161,7 @@ void BBQFanOnly::handle() {
     // Finally set fan
     m_fan->speed(m_fanCurrentSpeed);
 
-#ifdef UNIT_TEST
+#ifdef UNIT_TEST_OTHER
     std::cout << " f3:" << m_fuzzy->defuzzify(3) << " td:" << std::setw(6) << m_lastTempError << " ch:" << std::setw(6) << tempDiff * 1000;
 
     for (int i = 0; i < 20; i++) {

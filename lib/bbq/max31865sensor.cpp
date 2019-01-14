@@ -2,6 +2,7 @@
 
 
 MAX31865sensor::MAX31865sensor(Adafruit_MAX31865* p_MAX31865, float RNOMINAL, float RREF) :
+    TemperatureSensor(),
     m_MAX31865(p_MAX31865),
     m_RNominal(RNOMINAL),
     m_Rref(RREF),

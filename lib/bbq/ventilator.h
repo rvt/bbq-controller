@@ -14,7 +14,7 @@ public:
      * Set normal speed operation
      */
     void speed(float p_speed) {
-        m_speed = between(p_speed,0.0f, 100.0f);
+        m_speed = between(p_speed, 0.0f, 100.0f);
         setVentilator();
     }
 
@@ -30,7 +30,7 @@ public:
      * Set override speed
      */
     void speedOverride(float p_speed) {
-        m_overrideSetting = between(p_speed,-1.0f, 100.0f);
+        m_overrideSetting = between(p_speed, -1.0f, 100.0f);
     }
     float speedOverride() const {
         return m_overrideSetting;

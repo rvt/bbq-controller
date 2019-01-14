@@ -11,7 +11,7 @@ set(CATCH_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(Catch INTERFACE)
 target_include_directories(Catch INTERFACE ${CATCH_INCLUDE_DIR})
 
-ADD_DEFINITIONS(-DUNIT_TEST_)
+ADD_DEFINITIONS(-DUNIT_TEST)
 
 set(LIB_SOURCES
     ../.piolibdeps/eFLL/FuzzyComposition.cpp

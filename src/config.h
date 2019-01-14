@@ -75,6 +75,10 @@
 #define FAN1_PIN 3
 #endif
 
+#ifndef BUTTON_PIN
+#define BUTTON_PIN 6
+#endif
+
 
 
 // The value of the Rref resistor. Use 430.0 for PT100 and 4300.0 for PT1000
