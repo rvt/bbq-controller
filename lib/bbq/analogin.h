@@ -13,18 +13,19 @@
  */
 class AnalogIn : public NumericInput {
 private:
-    uint8_t m_button;
-    bool m_invert;
-    float m_value;
-    float m_min;
-    float m_max;
-    float m_minIncrement;
+    uint8_t m_button;        // Button pin
+    bool m_invert;           // Wether the button should respond inverted
+    float m_value;           // Current value after handle
+    float m_min;             // Minimum value possible
+    float m_max;             // Maximum value possible
+    float m_minIncrement;    // Minimum increment
 
-    float m_alpha;
-    float m_previousRaw;
-    uint32_t m_previousTime;
+    float m_alpha;           // Alpfa value for filter ( 0 < n <= 1)
+    float m_rawValue;        // Previous value
+    uint32_t m_previousTime; // Previous time when we handled the analog input
 private:
-    float readAnalogDiff();
+    float readAnalog();
+    float getAnalog();
 public:
     AnalogIn(uint8_t p_button, bool p_invert, float m_initValue, float p_min, float p_max, float p_minIncrement);
     void handle();
