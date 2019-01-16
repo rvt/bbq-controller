@@ -15,7 +15,7 @@ extern "C" uint32_t digitalRead(uint8_t);
 #endif
 
 #define READS_PER_SEC 10
-#define READS_MILLIS 1000 / READS_PER_SEC
+#define READS_MILLIS (1000 / READS_PER_SEC)
 
 // we expect in 4 seconds from min to max as fast rotation
 // (analog range / 4 seconds) / numer of times we read per millisecond
@@ -23,7 +23,7 @@ extern "C" uint32_t digitalRead(uint8_t);
 #define MEDIUM_TICK_VALUE FAST_TICK_VALUE / 2
 #define SLOW_TICK_VALUE MEDIUM_TICK_VALUE / 2
 
-AnalogIn::AnalogIn(uint8_t p_button, bool p_invert, float p_initValue, float p_min, float p_max, float p_minIncrement) :
+AnalogIn::AnalogIn(uint8_t p_button, bool p_invert, float p_initValue, float p_min, float p_max, float p_minIncrement, float p_alpha) :
     NumericInput(),
     m_button(p_button),
     m_invert(p_invert),
@@ -31,7 +31,7 @@ AnalogIn::AnalogIn(uint8_t p_button, bool p_invert, float p_initValue, float p_m
     m_min(p_min),
     m_max(p_max),
     m_minIncrement(p_minIncrement),
-    m_alpha(0.5f),
+    m_alpha(p_alpha),
     m_rawValue(0.0f),
     m_previousTime(0) {
 }
@@ -45,13 +45,13 @@ void AnalogIn::init() {
 
 void AnalogIn::handle() {
 
-    if (millis() - m_previousTime >= 100) {
+    if (millis() - m_previousTime >= READS_MILLIS) {
         m_previousTime += READS_MILLIS;
 
         // Debounce???
         if (digitalRead(m_button) ^ m_invert) {
 
-            float diff = getAnalog() - readAnalog();
+            float diff = - (getAnalog() - readAnalog());
             float absoluteDiff = std::fabs(diff);
 
             // Prevent some jitter
@@ -59,6 +59,7 @@ void AnalogIn::handle() {
 
                 float direction = diff >= 0 ? 1.0f : -1.0f;
                 float mul = 100.0f;
+
                 if (absoluteDiff < SLOW_TICK_VALUE) {
                     mul = 1.0f;
                 } else if (absoluteDiff < MEDIUM_TICK_VALUE) {

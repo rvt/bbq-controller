@@ -5,7 +5,6 @@
 #include <demo.h>
 
 
-
 /** very simple oven simulation
  * airflow == temperature
  */

@@ -8,3 +8,4 @@
 
 #include "src/test_controller.hpp"
 #include "src/test_utils.hpp"
+#include "src/test_analogin.hpp"

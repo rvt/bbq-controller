@@ -27,7 +27,7 @@ private:
     float readAnalog();
     float getAnalog();
 public:
-    AnalogIn(uint8_t p_button, bool p_invert, float m_initValue, float p_min, float p_max, float p_minIncrement);
+    AnalogIn(uint8_t p_button, bool p_invert, float m_initValue, float p_min, float p_max, float p_minIncrement, float p_alpha = 0.1);
     void handle();
     virtual void init();
     virtual float value() const;

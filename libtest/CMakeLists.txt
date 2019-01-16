@@ -5,6 +5,7 @@ project(cmake_test)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_BUILD_TYPE Debug)
 
 # Prepare "Catch" library for other executables
 set(CATCH_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -25,6 +26,7 @@ set(LIB_SOURCES
     ../.piolibdeps/eFLL/FuzzySet.cpp
     ../.piolibdeps/opt-parser/src/optparser.cpp
     ../lib/bbq/bbqfanonly.cpp
+    ../lib/bbq/analogin.cpp
     ../lib/utils/utils.cpp
     ../lib/utils/makestring.cpp
 )

@@ -1,7 +1,17 @@
+[![Build Status](https://api.travis-ci.org/rvt/bbq.svg?branch=master)](https://www.travis-ci.org/rvt/bbq)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 # bbq-controller
 Fuzzy logic based BBQ controller
 
-A Fuzzy logec based BBQ controller based on Fuzzy Logic with the following features:
+### Currently under heavy development 
+* Implement menu for a few settings like change temperature or manual fan control
+* Test analog input potentiometer (just need ot create the HW)
+* Test digital thermometer max31865
+* Test digital thermometer max31855
+* Test PWM fan control
+
+A Fuzzy logic based BBQ controller based on Fuzzy Logic with the following features:
 
 * OLed display of temperature readout, setting and fan speed
 * Get and Set Fuzzy logic sets configuration without re-compilation
@@ -10,6 +20,7 @@ A Fuzzy logec based BBQ controller based on Fuzzy Logic with the following featu
 * Ventilator override over MQTT
 * Parts of code tested with catch2
 * tested with OpenHAB + InfluxDB + Grafana
+* Unit tested with catch2
 
 # Note
 

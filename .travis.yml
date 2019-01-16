@@ -1,0 +1,27 @@
+# Continuous Integration (CI) is the practice, in software
+# engineering, of merging all developer working copies with a shared mainline
+# several times a day < http://docs.platformio.org/en/stable/ci/index.html >
+
+language: python
+python:
+    - "2.7"
+
+sudo: false
+
+install:
+    - |
+      if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then
+        CMAKE_URL="http://www.cmake.org/files/v3.5/cmake-3.5.1-Linux-x86_64.tar.gz"
+        mkdir -p ${DEPS_DIR}/cmake
+        travis_retry wget --no-check-certificate --quiet -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C ${DEPS_DIR}/cmake
+        export PATH=${DEPS_DIR}/cmake/bin:${PATH}
+      fi
+
+script:
+    - echo "Run tests on Travis.CI Linux machine"
+    - cd tests
+    - mkdir -p build
+    - cd build
+    - cmake ../
+    - make
+    - ./tests
