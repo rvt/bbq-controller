@@ -7,3 +7,5 @@
 setup.h
 .idea
 build
+.vscode
+*.sh

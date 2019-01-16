@@ -1,4 +1,4 @@
-[![Build Status](https://api.travis-ci.org/rvt/bbq.svg?branch=master)](https://www.travis-ci.org/rvt/bbq)
+[![Build Status](https://api.travis-ci.org/rvt/bbq-controller.svg?branch=master)](https://www.travis-ci.org/rvt/bbq-controller)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # bbq-controller
