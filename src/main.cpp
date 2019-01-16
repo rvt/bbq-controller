@@ -18,7 +18,7 @@
 #include <icons.h>
 #include <crceeprom.h>
 #include <pwmventilator.h>
-#include <makeString.h>
+#include <makestring.h>
 
 #include <max31865sensor.h>
 #include <max31855sensor.h>
