@@ -1,6 +1,9 @@
 #pragma once
 
 #include <stdint.h>
+#include <numericinput.h>
+#include <analogin.h>
+#include <memory>
 
 /**
  * Numeric input using the analog to digital converter
@@ -10,15 +13,19 @@
  * When at the end of the potentiometer just release the button. Re-posotion the potentiometer
  * and press the button for more adjustments
  */
-class AnalogIn {
+class NumericKnob : public NumericInput {
 private:
-    float m_alpha;           // Alpfa value for filter ( 0 < n <= 1)
-    float m_rawValue;        // Previous value
-    float m_diff;
+    std::shared_ptr<AnalogIn>  m_analogIn;
+    float m_value;
+    float m_min;             // Minimum value possible
+    float m_max;             // Maximum value possible
+    float m_minIncrement;    // Minimum increment
+private:
 public:
-    AnalogIn(float p_alpha = 0.1);
+
+    NumericKnob(const std::shared_ptr<AnalogIn>& p_analogIn, float m_initValue, float p_min, float p_max, float p_minIncrement);
     void handle();
     void init();
-    float value() const;
-    float valueDiff() const;
+
+    virtual float value() const;
 };

@@ -24,7 +24,7 @@
 #include <max31855sensor.h>
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient/releases/tag/v2.6
 
-
+#include "displaycontroller.h"
 #include <ArduinoOTA.h>
 #include <ESP_EEPROM.h>
 #include <settings.h>
@@ -40,7 +40,7 @@
 
 
 // of transitions
-volatile uint32_t transitionCounter = 1;
+volatile uint32_t counter50TimesSec = 1;
 
 // Number calls per second we will be handling
 #define FRAMES_PER_SECOND        10
@@ -66,7 +66,7 @@ MockedTemperature* mockedTemp2 = new MockedTemperature(30.0);
 // END: For demo/test mode
 float analogKnobTemperatureSetPoint; // Temperature setpoint from analog knob
 
-std::unique_ptr<NumericInput> analogIn(nullptr);
+std::shared_ptr<AnalogIn> analogIn = std::make_shared<AnalogIn>(0.1f);
 
 // Settings
 SettingsDTO settingsDTO;
@@ -263,72 +263,6 @@ void handleCmd(const char* topic, const char* p_payload) {
 #endif
 }
 
-///////////////////////////////////////////////////////////////////////////
-//  UI Rendering
-///////////////////////////////////////////////////////////////////////////
-
-void updatdisplayFrame1(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
-    char buffer[32];
-    // Set Temperature
-    display->setFont(ArialMT_Plain_24);
-    display->setTextAlignment(TEXT_ALIGN_LEFT);
-    sprintf(buffer, "%.1f°C", bbqController->setPoint());
-    display->drawString(x + 0 + knob_width + 4, y + 20, buffer);
-    display->drawXbm(0, y + 20, knob_width, knob_height, knob_bits);
-}
-
-void disdplayOverlay(OLEDDisplay* display, OLEDDisplayUiState* state) {
-    char buffer[32];
-    // Current temperature speed
-    display->setFont(ArialMT_Plain_10);
-    display->setTextAlignment(TEXT_ALIGN_RIGHT);
-
-    sprintf(buffer, "%.1f°C", temperatureSensor1->get());
-    display->drawString(128, 0, buffer);
-
-    if (WiFi.status() == WL_CONNECTED) {
-        display->drawXbm(0, 0, wifiicon10x10_width, wifiicon10x10_height, wifi10x10_png_bits);
-    }
-
-    if (mqttClient.connected())  {
-        display->drawXbm(wifiicon10x10_width + 4, 0, mqttcloud_width, mqttcloud_height, mqttcloud_bits);
-    }
-}
-
-void updatdisplayFrame2(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
-    char buffer[32];
-    // Current temperature speed
-    display->setFont(ArialMT_Plain_24);
-    display->setTextAlignment(TEXT_ALIGN_LEFT);
-    sprintf(buffer, "1 %.1f°C", temperatureSensor1->get());
-    display->drawString(x + 0 + thermometer_width + 4, y + 20, buffer);
-    display->drawXbm(0, y + 20, thermometer_width, thermometer_height, (uint8_t*)thermometer_bits);
-}
-
-void updatdisplayFrame3(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
-    char buffer[32];
-    // Current temperature speed
-    display->setFont(ArialMT_Plain_24);
-    display->setTextAlignment(TEXT_ALIGN_LEFT);
-    sprintf(buffer, "2 %.1f°C", temperatureSensor2->get());
-    display->drawString(x + 0 + thermometer_width + 4, y + 20, buffer);
-    display->drawXbm(0, y + 20, thermometer_width, thermometer_height, (uint8_t*)thermometer_bits);
-}
-
-void updatdisplayFrame4(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
-    char buffer[32];
-    // Ventilator speed
-    display->setFont(ArialMT_Plain_24);
-    display->setTextAlignment(TEXT_ALIGN_LEFT);
-    sprintf(buffer, "%3.0f%%", ventilator1->speed());
-    display->drawString(x + 0 + fan_width + 4, y + 20, buffer);
-    display->drawXbm(0, y + 20, fan_width, fan_height, fan_bits);
-}
-
-FrameCallback frames[] = { updatdisplayFrame1, updatdisplayFrame2, updatdisplayFrame3, updatdisplayFrame4};
-int numberOfFrames = *(&numberOfFrames + 1) - numberOfFrames;
-
-
 /*
 * Publish current status
 * to = temperature oven
@@ -443,7 +377,6 @@ void startOTA() {
 //  SETUP() AND LOOP()
 ///////////////////////////////////////////////////////////////////////////
 
-OverlayCallback overlays[] = { disdplayOverlay };
 
 void setup() {
     // Enable serial port
@@ -558,7 +491,8 @@ void setup() {
     ventilator1.reset(new PWMVentilator(FAN1_PIN, 10.0));
 #endif
 
-    analogIn.reset(new AnalogIn(BUTTON_PIN, false, 50.0f, 50.0f, 220.0f, 0.1));
+    //    analogIn.reset(new AnalogIn(BUTTON_PIN, false, 50.0f, 50.0f, 220.0f, 0.1));
+
     analogKnobTemperatureSetPoint = 50.0;
     bbqController.reset(new BBQFanOnly(temperatureSensor1, ventilator1));
 
@@ -575,8 +509,6 @@ void setup() {
 
         bbqController->config(config);
         bbqController->setPoint(data.setPoint);
-    } else {
-        bbqController->setPoint(analogIn->value());
     }
 
     bbqController->init();
@@ -588,8 +520,8 @@ void setup() {
     ui.setIndicatorPosition(BOTTOM);
     ui.setIndicatorDirection(LEFT_RIGHT);
     ui.setFrameAnimation(SLIDE_UP);
-    ui.setFrames(frames, 4);
-    ui.setOverlays(overlays, 1);
+    //ui.setFrames(normalRunScreens.data(), normalRunScreens.size());
+    //ui.setOverlays(displayOverlay.data(), displayOverlay.size());
     ui.init();
 
     display.flipScreenVertically();
@@ -609,48 +541,40 @@ void loop() {
 
     if (remainingTimeBudget > 0 && currentMillis - effectPeriodStartMillis >= EFFECT_PERIOD_CALLBACK) {
         effectPeriodStartMillis += EFFECT_PERIOD_CALLBACK;
-        transitionCounter++;
-        uint8_t slot = 0;
+        counter50TimesSec++;
+        uint8_t slot50 = 0;
 
         // Handle BBQ control
-        if (transitionCounter % 5 == slot++) {
-            bbqController->handle();
-        }
-
-        // Handle temperature reading
-        if (transitionCounter % 5 == slot++) {
+        if (counter50TimesSec % 5 == slot50++) {
+            analogIn -> handle();
             temperatureSensor1->handle();
+            temperatureSensor2->handle();
+        } else if (counter50TimesSec % 5 == slot50++) {
+            bbqController -> handle();
         }
 
         // once a second publish status to mqtt
-        if (transitionCounter % 50 == slot++) {
+        if (counter50TimesSec % 50 == slot50++) {
             publishStatus();
         }
 
-        if (transitionCounter % NUMBER_OF_SLOTS == slot++) {
+        if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             ArduinoOTA.handle();
-        } else if (transitionCounter % NUMBER_OF_SLOTS == slot++) {
-            float probeTemp = round(analogIn->value() * 2.0f) / 2.0f;
-
-            // Only set new temperature when it changes more then half a degree
-            if (fabs(probeTemp - analogKnobTemperatureSetPoint) > 0.5) {
-                analogKnobTemperatureSetPoint = probeTemp;
-                bbqController->setPoint(analogKnobTemperatureSetPoint);
-            }
-        } else if (transitionCounter % NUMBER_OF_SLOTS == slot++) {
+        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             bootSequence->handle();
-        } else if (transitionCounter % NUMBER_OF_SLOTS == slot++) {
+        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             mqttClient.loop();
-        } else if (transitionCounter % NUMBER_OF_SLOTS == slot++) {
+        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             eepromSaveHandler.handle();
-        } else if (transitionCounter % NUMBER_OF_SLOTS == slot++) {
+        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             mqttSaveHandler.handle();
-        } else if (transitionCounter % NUMBER_OF_SLOTS == slot++) {
+        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             settingsDTO.reset();
         }
 
+
 #if defined(ARILUX_DEBUG_TELNET)
-        else if (transitionCounter % NUMBER_OF_SLOTS == slot++) {
+        else if (counter50TimesSec % NUMBER_OF_SLOTS == slot++) {
         }
 
 #endif
