@@ -8,4 +8,5 @@
 
 #include "src/test_controller.hpp"
 #include "src/test_utils.hpp"
-#include "src/test_analogin.hpp"
+#include "src/test_numericknob.hpp"
+#include "src/test_digitalknob.hpp"

@@ -8,6 +8,7 @@
 #include <OLEDDisplayUi.h>
 #include <bbqfanonly.h>
 #include <statemachine.h>
+#include <digitalinput.h>
 
 
 class DisplayController {

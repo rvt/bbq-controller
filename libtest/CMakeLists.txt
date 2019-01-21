@@ -28,6 +28,7 @@ set(LIB_SOURCES
     ../lib/bbq/bbqfanonly.cpp
     ../lib/bbq/analogin.cpp
     ../lib/bbq/numericknob.cpp
+    ../lib/bbq/digitalknob.cpp
     ../lib/bbq/analogin.cpp
     ../lib/utils/utils.cpp
     ../lib/utils/makestring.cpp

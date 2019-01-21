@@ -23,7 +23,7 @@ void DisplayController::init() {
     };
 
     displayOverlay = {
-           normalOverlayDisplay
+        normalOverlayDisplay
     };
 
     State* STATE_MENU;
