@@ -40,9 +40,9 @@ DigitalKnob::DigitalKnob(uint8_t p_pin, int16_t p_alpha) :
     DigitalInput(),
     m_rawValue(0x00),
     m_value({}),
-    m_status({0x00}),
-    m_pin(p_pin),
-    m_alpha(p_alpha) {
+        m_status({0x00}),
+        m_pin(p_pin),
+m_alpha(p_alpha) {
 }
 
 void DigitalKnob::init() {

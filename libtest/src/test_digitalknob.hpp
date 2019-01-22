@@ -68,6 +68,45 @@ SCENARIO("Digital Knob", "[DigitalKnob]") {
         }
     }
 
+    // Same pattern as double click with a little bit flip in the center
+    GIVEN("we double click with error") {
+        digitalReadStubbed = true;
+
+        for (int i = 0; i < 8; i++) {
+            dn->handle();
+        }
+
+        digitalReadStubbed = false;
+
+        for (int i = 0; i < 6; i++) {
+            dn->handle();
+        }
+
+        digitalReadStubbed = true;
+        dn->handle();
+        digitalReadStubbed = false;
+
+        for (int i = 0; i < 7; i++) {
+            dn->handle();
+        }
+
+        digitalReadStubbed = true;
+
+        for (int i = 0; i < 9; i++) {
+            dn->handle();
+        }
+
+        THEN("should be be double clicked only") {
+            REQUIRE(dn->current() == true);
+            REQUIRE(dn->isSingle() == false);
+            REQUIRE(dn->isDouble() == false);
+            REQUIRE(dn->isLong() == false);
+            dn->resetButtons();
+            REQUIRE(dn->isSingle() == false);
+            REQUIRE(dn->current() == true);
+        }
+    }
+
     GIVEN("we single click") {
         digitalReadStubbed = true;
 
@@ -105,7 +144,6 @@ SCENARIO("Digital Knob", "[DigitalKnob]") {
             REQUIRE(dn->isSingle() == false);
             REQUIRE(dn->isDouble() == false);
             REQUIRE(dn->isLong() == true);
-
             dn->resetButtons();
             REQUIRE(dn->isLong() == false);
             REQUIRE(dn->current() == false);

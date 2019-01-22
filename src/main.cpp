@@ -29,6 +29,7 @@
 #include <ESP_EEPROM.h>
 #include <settings.h>
 #include <analogin.h>
+#include <digitalknob.h>
 #include <Fuzzy.h>
 
 #include "settingsdto.h"
@@ -54,6 +55,14 @@ typedef PropertyValue PV ;
 Properties properties;
 SSD1306Brzo display(0x3c, WIRE_SDA, WIRE_SCL);
 OLEDDisplayUi ui(&display);
+DisplayController displayController;
+
+// We rerquire at least one screen or else the OLEDDisplayUi will crash as there is no
+// check if any frames exists
+void startScreen(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+    display->drawXbm(x, y, logo_width, logo_height, logo_bits);
+}
+std::array<FrameCallback, 1> startScreens = { startScreen };
 
 std::unique_ptr<BBQFanOnly> bbqController(nullptr);
 std::shared_ptr<TemperatureSensor> temperatureSensor1(nullptr);
@@ -67,6 +76,7 @@ MockedTemperature* mockedTemp2 = new MockedTemperature(30.0);
 float analogKnobTemperatureSetPoint; // Temperature setpoint from analog knob
 
 std::shared_ptr<AnalogIn> analogIn = std::make_shared<AnalogIn>(0.1f);
+DigitalKnob digitalKnob(BUTTON_PIN);;
 
 // Settings
 SettingsDTO settingsDTO;
@@ -514,20 +524,25 @@ void setup() {
     bbqController->init();
 
     // Start UI
-    ui.setTargetFPS(50);
+    // Don´t set this to high as we want to have time left for the controller to do it´s work
+    ui.setTargetFPS(30);
+    ui.setTimePerTransition(250);
+
     ui.setActiveSymbol(activeSymbol);
     ui.setInactiveSymbol(inactiveSymbol);
     ui.setIndicatorPosition(BOTTOM);
     ui.setIndicatorDirection(LEFT_RIGHT);
     ui.setFrameAnimation(SLIDE_UP);
-    //ui.setFrames(normalRunScreens.data(), normalRunScreens.size());
-    //ui.setOverlays(displayOverlay.data(), displayOverlay.size());
+    ui.setFrames(startScreens.data(), startScreens.size());
     ui.init();
 
     display.flipScreenVertically();
 
     // Start boot sequence
     bootSequence->start();
+
+    // Init display controller
+    displayController.init();
 
     Serial.println(F("End Setup"));
     // Avoid running towards millis() when loop starts since we do effectPeriodStartMillis += EFFECT_PERIOD_CALLBACK;
@@ -544,20 +559,26 @@ void loop() {
         counter50TimesSec++;
         uint8_t slot50 = 0;
 
-        // Handle BBQ control
+        // DigitalKnob (the button) must be handled at 50 times/sec to correct handle presses and double presses
+        // As it´s based on a shift register to time the clicks
+        digitalKnob.handle();
+
+        // Handle BBQ inputs 10 times a sec
         if (counter50TimesSec % 5 == slot50++) {
             analogIn -> handle();
             temperatureSensor1->handle();
             temperatureSensor2->handle();
+            // Fuzzy logic control 10 times/sec
         } else if (counter50TimesSec % 5 == slot50++) {
             bbqController -> handle();
         }
 
-        // once a second publish status to mqtt
+        // once a second publish status to mqtt (if there are changes)
         if (counter50TimesSec % 50 == slot50++) {
             publishStatus();
         }
 
+        // Maintenance stuff
         if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             ArduinoOTA.handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
@@ -570,6 +591,8 @@ void loop() {
             mqttSaveHandler.handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             settingsDTO.reset();
+        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
+            displayController.handle();
         }
 
 
@@ -578,5 +601,6 @@ void loop() {
         }
 
 #endif
+
     }
 }
