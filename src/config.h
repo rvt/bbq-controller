@@ -72,11 +72,11 @@
 
 
 #ifndef FAN1_PIN
-#define FAN1_PIN 3
+#define FAN1_PIN 14
 #endif
 
 #ifndef BUTTON_PIN
-#define BUTTON_PIN 6
+#define BUTTON_PIN 12
 #endif
 
 

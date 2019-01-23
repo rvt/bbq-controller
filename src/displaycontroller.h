@@ -3,17 +3,18 @@
 #include <memory>
 #include <array>
 #include <cstddef>
+#include <algorithm>
 
 #include <OLEDDisplay.h>
 #include <OLEDDisplayUi.h>
 #include <bbqfanonly.h>
 #include <statemachine.h>
 #include <digitalinput.h>
+#include <numericknob.h>
 
 
 class DisplayController {
 private:
-    int foo;
 public:
     void init();
     uint32_t handle();
@@ -27,6 +28,11 @@ private:
     static void currentTemperatureSetting(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
     static void currentTemperatureSensor1(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
     static void currentTemperatureSensor2(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
+
+    static void menu1(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
+    static void menu2(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
+    static void menu3(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
+
     static void currentFanSpeed(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
     static void normalOverlayDisplay(OLEDDisplay* display, OLEDDisplayUiState* state);
 

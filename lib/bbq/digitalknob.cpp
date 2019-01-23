@@ -33,15 +33,16 @@ extern "C" uint32_t digitalRead(uint8_t);
 #define DIGITAL_KNOB_DOUBLE_CLICK_TMASK 0b0001111000000000000000000111100
 #define DIGITAL_KNOB_LONG_PRESS_MASK    0b000000000000011111111111111111111111111111111111111111111111111
 
-DigitalKnob::DigitalKnob(uint8_t p_pin) : DigitalKnob(p_pin, 150) {
+DigitalKnob::DigitalKnob(uint8_t p_pin) : DigitalKnob(p_pin, true, 150) {
 }
 
-DigitalKnob::DigitalKnob(uint8_t p_pin, int16_t p_alpha) :
+DigitalKnob::DigitalKnob(uint8_t p_pin, bool p_invert, int16_t p_alpha) :
     DigitalInput(),
     m_rawValue(0x00),
     m_value({}),
         m_status({0x00}),
         m_pin(p_pin),
+        m_invert(p_invert),
 m_alpha(p_alpha) {
 }
 
@@ -51,12 +52,9 @@ void DigitalKnob::init() {
 
 void DigitalKnob::handle() {
     // Debounce input
-    auto correction = ((digitalRead(m_pin) ? 0xff : 0) - m_rawValue) * 100;
+    int16_t correction = ((digitalRead(m_pin)^m_invert ? 0xff : 0) - m_rawValue) * 100;
     m_rawValue = m_rawValue + correction / m_alpha;
     m_rawValue = std::max((int16_t)0, std::min(m_rawValue, (int16_t)0xff));
-
-    // Check status current button
-    bool current = m_value[DIGITAL_KNOB_CURRENT];
 
     // Hysteresis for digital input
     if (m_rawValue > DIGITAL_KNOB_HIGH) {
@@ -107,5 +105,5 @@ bool DigitalKnob::isLong() const {
 }
 
 void DigitalKnob::resetButtons() {
-    m_value = 0x00;
+    m_value = 0x00 | m_value[DIGITAL_KNOB_CURRENT];
 }

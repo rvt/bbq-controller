@@ -36,9 +36,6 @@ NumericKnob::NumericKnob(const std::shared_ptr<AnalogIn>& p_analogIn,
     m_minIncrement(p_minIncrement) {
 }
 
-void NumericKnob::init() {
-}
-
 void NumericKnob::handle() {
 
 

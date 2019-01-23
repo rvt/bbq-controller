@@ -10,7 +10,7 @@
 SCENARIO("Digital Knob", "[DigitalKnob]") {
     //            std::cout << i << " ! " << dn->intern() << ":" << dn->presses() << "\n";
 
-    DigitalKnob* dn = new DigitalKnob(1, 100);
+    DigitalKnob* dn = new DigitalKnob(1, false, 100);
     digitalReadStubbed = false;
     dn->init();
     dn->handle();
@@ -23,7 +23,7 @@ SCENARIO("Digital Knob", "[DigitalKnob]") {
             REQUIRE(dn->isLong() == false);
         }
         THEN("Should correctly debounce") {
-            DigitalKnob* db = new DigitalKnob(1, 150);
+            DigitalKnob* db = new DigitalKnob(1, false, 150);
             digitalReadStubbed = true;
             dn->handle();
             REQUIRE(db->current() == false);
@@ -128,6 +128,7 @@ SCENARIO("Digital Knob", "[DigitalKnob]") {
             REQUIRE(dn->isLong() == false);
             dn->resetButtons();
             REQUIRE(dn->isSingle() == false);
+            REQUIRE(dn->current() == false);
         }
     }
 
@@ -146,7 +147,7 @@ SCENARIO("Digital Knob", "[DigitalKnob]") {
             REQUIRE(dn->isLong() == true);
             dn->resetButtons();
             REQUIRE(dn->isLong() == false);
-            REQUIRE(dn->current() == false);
+            REQUIRE(dn->current() == true);
         }
 
     }

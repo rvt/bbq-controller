@@ -44,7 +44,7 @@
 volatile uint32_t counter50TimesSec = 1;
 
 // Number calls per second we will be handling
-#define FRAMES_PER_SECOND        10
+#define FRAMES_PER_SECOND        50
 #define EFFECT_PERIOD_CALLBACK   (1000 / FRAMES_PER_SECOND)
 
 // Keep track when the last time we ran the effect state changes
@@ -76,7 +76,7 @@ MockedTemperature* mockedTemp2 = new MockedTemperature(30.0);
 float analogKnobTemperatureSetPoint; // Temperature setpoint from analog knob
 
 std::shared_ptr<AnalogIn> analogIn = std::make_shared<AnalogIn>(0.1f);
-DigitalKnob digitalKnob(BUTTON_PIN);;
+DigitalKnob digitalKnob(BUTTON_PIN, true, 110);
 
 // Settings
 SettingsDTO settingsDTO;
@@ -531,6 +531,7 @@ void setup() {
     ui.setActiveSymbol(activeSymbol);
     ui.setInactiveSymbol(inactiveSymbol);
     ui.setIndicatorPosition(BOTTOM);
+    ui.disableAllIndicators();
     ui.setIndicatorDirection(LEFT_RIGHT);
     ui.setFrameAnimation(SLIDE_UP);
     ui.setFrames(startScreens.data(), startScreens.size());
@@ -549,7 +550,7 @@ void setup() {
     effectPeriodStartMillis = millis();
 }
 
-#define NUMBER_OF_SLOTS 12
+#define NUMBER_OF_SLOTS 10
 void loop() {
     const uint32_t currentMillis = millis();
     int remainingTimeBudget = ui.update();
@@ -557,28 +558,32 @@ void loop() {
     if (remainingTimeBudget > 0 && currentMillis - effectPeriodStartMillis >= EFFECT_PERIOD_CALLBACK) {
         effectPeriodStartMillis += EFFECT_PERIOD_CALLBACK;
         counter50TimesSec++;
-        uint8_t slot50 = 0;
 
         // DigitalKnob (the button) must be handled at 50 times/sec to correct handle presses and double presses
         // As it´s based on a shift register to time the clicks
         digitalKnob.handle();
 
         // Handle BBQ inputs 10 times a sec
-        if (counter50TimesSec % 5 == slot50++) {
+        if (counter50TimesSec % 5 == 0) {
             analogIn -> handle();
             temperatureSensor1->handle();
             temperatureSensor2->handle();
             // Fuzzy logic control 10 times/sec
-        } else if (counter50TimesSec % 5 == slot50++) {
+        } else if (counter50TimesSec % 5 == 1) {
             bbqController -> handle();
+        } else if (counter50TimesSec % 5 == 2) {
+            displayController.handle();
         }
 
+
         // once a second publish status to mqtt (if there are changes)
-        if (counter50TimesSec % 50 == slot50++) {
+        if (counter50TimesSec % 50 == 0) {
             publishStatus();
         }
 
         // Maintenance stuff
+        uint8_t slot50 = 0;
+
         if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             ArduinoOTA.handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
@@ -591,8 +596,6 @@ void loop() {
             mqttSaveHandler.handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             settingsDTO.reset();
-        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
-            displayController.handle();
         }
 
 

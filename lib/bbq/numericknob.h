@@ -25,7 +25,6 @@ public:
 
     NumericKnob(const std::shared_ptr<AnalogIn>& p_analogIn, float m_initValue, float p_min, float p_max, float p_minIncrement);
     void handle();
-    void init();
 
     virtual float value() const;
 };

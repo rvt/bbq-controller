@@ -24,10 +24,11 @@ private:
     BITS64 m_status;
     uint8_t m_pin;
     int16_t  m_alpha;
+    bool m_invert;
 public:
 
     DigitalKnob(uint8_t p_pin);
-    DigitalKnob(uint8_t p_pin, int16_t p_alpha);
+    DigitalKnob(uint8_t p_pin, bool p_invert, int16_t p_alpha);
     void handle();
     void init();
 
