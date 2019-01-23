@@ -37,8 +37,6 @@ NumericKnob::NumericKnob(const std::shared_ptr<AnalogIn>& p_analogIn,
 }
 
 void NumericKnob::handle() {
-
-
     float diff = m_analogIn->valueDiff();
     float absoluteDiff = std::fabs(diff);
 

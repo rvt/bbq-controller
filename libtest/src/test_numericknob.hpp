@@ -14,7 +14,6 @@ SCENARIO("Numeric Input", "[NumericInput]") {
 
     digitalReadPinStubbed = 0;
     analogReadStubbed = 512;
-    ni.init();
     ai->init();
     // GIVEN("a situation where the button is not pressed") {
     //     digitalReadStubbed = 0;
