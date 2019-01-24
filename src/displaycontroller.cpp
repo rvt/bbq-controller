@@ -231,7 +231,7 @@ void DisplayController::menu3(OLEDDisplay* display, OLEDDisplayUiState* state, i
     } else if (value==0) {
         sprintf(buffer, "Set: Off");
     } else {
-        sprintf(buffer, "Set: %i", value);
+        sprintf(buffer, "Set: %i%%", value);
     }
     display->drawString(x + 40, y + 22, buffer);
     display->drawXbm(x, y + 20, fan_width, fan_height, fan_bits);
