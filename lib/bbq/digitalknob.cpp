@@ -22,16 +22,17 @@ extern "C" uint32_t digitalRead(uint8_t);
 #define DIGITAL_KNOB_IS_CLICK 4
 
 //Hysteresis to detect low/high states for debounce
-#define DIGITAL_KNOB_HIGH 200
-#define DIGITAL_KNOB_LOW 100
+#define DIGITAL_KNOB_HIGH 175
+#define DIGITAL_KNOB_LOW 125
 
 // Bitmasks for detething the type of press based on the type of press 32 or 64 bit
-#define DIGITAL_KNOB_SINGLE_CLICK_MASK  0b0000011111111000000000000000000
-#define DIGITAL_KNOB_SINGLE_CLICK_TMASK 0b0000000111100000000000000000000
+#define DIGITAL_KNOB_SINGLE_CLICK_AMASK 0b00000111111111111000000000000000
+#define DIGITAL_KNOB_SINGLE_CLICK_TMASK 0b00000000111111100000000000000000
 
-#define DIGITAL_KNOB_DOUBLE_CLICK_MASK  0b0111111110000000000000011111111
-#define DIGITAL_KNOB_DOUBLE_CLICK_TMASK 0b0001111000000000000000000111100
-#define DIGITAL_KNOB_LONG_PRESS_MASK    0b000000000000011111111111111111111111111111111111111111111111111
+#define DIGITAL_KNOB_DOUBLE_CLICK_AMASK 0b00001111111100000000000111111110
+#define DIGITAL_KNOB_DOUBLE_CLICK_TMASK 0b00000011110000000000000001111000
+#define DIGITAL_KNOB_LONG_PRESS_AMASK   0b11111111111111111111111111111111
+#define DIGITAL_KNOB_LONG_PRESS_TMASK   0b00000001111111111111111111111111
 
 DigitalKnob::DigitalKnob(uint8_t p_pin) : DigitalKnob(p_pin, true, 150) {
 }
@@ -67,22 +68,27 @@ void DigitalKnob::handle() {
     m_status.m_status64 = m_status.m_status64 << 1;
     m_status.m_status8[0] = m_status.m_status8[0] | m_value[DIGITAL_KNOB_CURRENT];
 
+    // Reset buttons if they where not captured
+    if (m_status.m_status32[0] == 0x00) {
+        resetButtons();
+    }
+
     // detect long press
-    if (m_status.m_status64 == DIGITAL_KNOB_LONG_PRESS_MASK) {
+    if ((m_status.m_status32[0] | DIGITAL_KNOB_LONG_PRESS_AMASK) == DIGITAL_KNOB_LONG_PRESS_AMASK &&
+        (m_status.m_status32[0] & DIGITAL_KNOB_LONG_PRESS_TMASK) == DIGITAL_KNOB_LONG_PRESS_TMASK) {
         m_value.set(DIGITAL_KNOB_IS_LONG_PRESS);
-        m_status.m_status64 = 0x00;
     }
 
     // Detect single click
-    if ((m_status.m_status32[0] | DIGITAL_KNOB_SINGLE_CLICK_MASK) == DIGITAL_KNOB_SINGLE_CLICK_MASK &&
-        (m_status.m_status32[0] &  DIGITAL_KNOB_SINGLE_CLICK_TMASK) == DIGITAL_KNOB_SINGLE_CLICK_TMASK) {
+    if ((m_status.m_status32[0] | DIGITAL_KNOB_SINGLE_CLICK_AMASK) == DIGITAL_KNOB_SINGLE_CLICK_AMASK &&
+        (m_status.m_status32[0] & DIGITAL_KNOB_SINGLE_CLICK_TMASK) == DIGITAL_KNOB_SINGLE_CLICK_TMASK) {
         m_value.set(DIGITAL_KNOB_IS_SINGLE_CLICK);
         m_status.m_status64 = 0x00;
     }
 
     // Detect double click
-    if ((m_status.m_status32[0] | DIGITAL_KNOB_DOUBLE_CLICK_MASK) == DIGITAL_KNOB_DOUBLE_CLICK_MASK &&
-        (m_status.m_status32[0] &  DIGITAL_KNOB_DOUBLE_CLICK_TMASK) == DIGITAL_KNOB_DOUBLE_CLICK_TMASK) {
+    if ((m_status.m_status32[0] | DIGITAL_KNOB_DOUBLE_CLICK_AMASK) == DIGITAL_KNOB_DOUBLE_CLICK_AMASK &&
+        (m_status.m_status32[0] & DIGITAL_KNOB_DOUBLE_CLICK_TMASK) == DIGITAL_KNOB_DOUBLE_CLICK_TMASK) {
         m_value.set(DIGITAL_KNOB_IS_DOUBLE_CLICK);
         m_status.m_status64 = 0x00;
     }
@@ -93,17 +99,23 @@ bool DigitalKnob::current() const {
 }
 
 bool DigitalKnob::isSingle() const {
-    return m_value[DIGITAL_KNOB_IS_SINGLE_CLICK];
+    bool v = m_value[DIGITAL_KNOB_IS_SINGLE_CLICK];
+    m_value.reset(DIGITAL_KNOB_IS_SINGLE_CLICK);
+    return v;
 }
 
 bool DigitalKnob::isDouble() const {
-    return m_value[DIGITAL_KNOB_IS_DOUBLE_CLICK];
+    bool v = m_value[DIGITAL_KNOB_IS_DOUBLE_CLICK];
+    m_value.reset(DIGITAL_KNOB_IS_DOUBLE_CLICK);
+    return v;
 }
 
 bool DigitalKnob::isLong() const {
-    return m_value[DIGITAL_KNOB_IS_LONG_PRESS];
+    bool v = m_value[DIGITAL_KNOB_IS_LONG_PRESS];
+    m_value.reset(DIGITAL_KNOB_IS_LONG_PRESS);
+    return v;
 }
 
-void DigitalKnob::resetButtons() {
+void DigitalKnob::resetButtons() const {
     m_value = 0x00 | m_value[DIGITAL_KNOB_CURRENT];
 }

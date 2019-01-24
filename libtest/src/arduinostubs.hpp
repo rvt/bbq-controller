@@ -10,9 +10,9 @@ extern "C" uint32_t millis() {
 };
 
 
-int analogReadStubbed = 0;
+int16_t analogReadStubbed = 0;
 uint8_t analogReadPinStubbed = 0;
-extern "C" int analogRead(uint8_t pin) {
+extern "C" int16_t analogRead(uint8_t pin) {
     analogReadPinStubbed = pin;
     return analogReadStubbed;
 };

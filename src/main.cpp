@@ -75,7 +75,7 @@ MockedTemperature* mockedTemp2 = new MockedTemperature(30.0);
 // END: For demo/test mode
 float analogKnobTemperatureSetPoint; // Temperature setpoint from analog knob
 
-std::shared_ptr<AnalogIn> analogIn = std::make_shared<AnalogIn>(0.1f);
+std::shared_ptr<AnalogIn> analogIn = std::make_shared<AnalogIn>(0.2f);
 DigitalKnob digitalKnob(BUTTON_PIN, true, 110);
 
 // Settings
@@ -562,17 +562,17 @@ void loop() {
         // DigitalKnob (the button) must be handled at 50 times/sec to correct handle presses and double presses
         // As it´s based on a shift register to time the clicks
         digitalKnob.handle();
+        displayController.handle();
+        analogIn -> handle();
 
         // Handle BBQ inputs 10 times a sec
         if (counter50TimesSec % 5 == 0) {
-            analogIn -> handle();
             temperatureSensor1->handle();
             temperatureSensor2->handle();
             // Fuzzy logic control 10 times/sec
         } else if (counter50TimesSec % 5 == 1) {
             bbqController -> handle();
         } else if (counter50TimesSec % 5 == 2) {
-            displayController.handle();
         }
 
 

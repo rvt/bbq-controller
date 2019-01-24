@@ -15,7 +15,7 @@ SCENARIO("Digital Knob", "[DigitalKnob]") {
     dn->init();
     dn->handle();
 
-    GIVEN("at time zero.") {
+    GIVEN("A stubbed digital button.") {
         THEN("should all be false") {
             REQUIRE(dn->current() == false);
             REQUIRE(dn->isSingle() == false);
@@ -47,24 +47,25 @@ SCENARIO("Digital Knob", "[DigitalKnob]") {
 
         digitalReadStubbed = false;
 
-        for (int i = 0; i < 14; i++) {
+        for (int i = 0; i < 11; i++) {
             dn->handle();
         }
 
         digitalReadStubbed = true;
 
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < 8; i++) {
             dn->handle();
         }
 
+        digitalReadStubbed = false;
+        dn->handle();
 
         THEN("should be be double clicked only") {
-            REQUIRE(dn->current() == true);
+            REQUIRE(dn->current() == false);
             REQUIRE(dn->isSingle() == false);
             REQUIRE(dn->isDouble() == true);
+            REQUIRE(dn->isDouble() == false); // Should reset itself
             REQUIRE(dn->isLong() == false);
-            dn->resetButtons();
-            REQUIRE(dn->isSingle() == false);
         }
     }
 
@@ -101,22 +102,19 @@ SCENARIO("Digital Knob", "[DigitalKnob]") {
             REQUIRE(dn->isSingle() == false);
             REQUIRE(dn->isDouble() == false);
             REQUIRE(dn->isLong() == false);
-            dn->resetButtons();
-            REQUIRE(dn->isSingle() == false);
-            REQUIRE(dn->current() == true);
         }
     }
 
     GIVEN("we single click") {
         digitalReadStubbed = true;
 
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 12; i++) {
             dn->handle();
         }
 
         digitalReadStubbed = false;
 
-        for (int i = 0; i < 18; i++) {
+        for (int i = 0; i < 15; i++) {
             dn->handle();
         }
 
@@ -124,11 +122,9 @@ SCENARIO("Digital Knob", "[DigitalKnob]") {
         THEN("should be be single clicked only") {
             REQUIRE(dn->current() == false);
             REQUIRE(dn->isSingle() == true);
+            REQUIRE(dn->isSingle() == false); // Should reset itself
             REQUIRE(dn->isDouble() == false);
             REQUIRE(dn->isLong() == false);
-            dn->resetButtons();
-            REQUIRE(dn->isSingle() == false);
-            REQUIRE(dn->current() == false);
         }
     }
 
@@ -145,9 +141,16 @@ SCENARIO("Digital Knob", "[DigitalKnob]") {
             REQUIRE(dn->isSingle() == false);
             REQUIRE(dn->isDouble() == false);
             REQUIRE(dn->isLong() == true);
-            dn->resetButtons();
-            REQUIRE(dn->isLong() == false);
-            REQUIRE(dn->current() == true);
+            REQUIRE(dn->isLong() == false); // Should reset
+            dn->handle();
+            REQUIRE(dn->isLong() == true); // But should be back after the next handle
+        }
+        THEN("should be be long press only") {
+            REQUIRE(dn->isLong() == true);
+            digitalReadStubbed = false;
+            dn->handle();
+            REQUIRE(dn->isLong() == false); // Should reset at the first off bit
+
         }
 
     }

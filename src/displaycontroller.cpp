@@ -6,6 +6,7 @@
 #include "icons.h"
 #include <digitalknob.h>
 #include <memory>
+#include <math.h>
 
 /* Technical debt, all these externals should be passed to the display object somehow */
 extern std::unique_ptr<BBQFanOnly> bbqController;
@@ -23,7 +24,7 @@ static std::unique_ptr<NumericKnob> m_numericKnob;
 
 void DisplayController::init() {
 
-    m_numericKnob.reset(new NumericKnob(analogIn, 90, 90, 240, 0.5));
+    m_numericKnob.reset(new NumericKnob(analogIn, 90, 90, 240, 0.1));
 
     startScreens = {
         startScreen
@@ -52,7 +53,7 @@ void DisplayController::init() {
         return STATE_WAITLOGO;
     });
 
-    STATE_WAITLOGO = new StateTimed((100), [&]() {
+    STATE_WAITLOGO = new StateTimed((2500), [&]() {
         // Display splash screen
         return STATE_CHANGETORUNSCREEN;
     });
@@ -66,7 +67,7 @@ void DisplayController::init() {
     });
 
     STATE_RUNSCREEN = new State([&]() {
-        if (digitalKnob.current()) {
+        if (digitalKnob.isSingle()) {
             return STATE_CHANGETOMENUSCREEN;
         }
 
@@ -80,8 +81,12 @@ void DisplayController::init() {
     });
 
     STATE_SELECTMENUITEM = new State([&]() {
-        if (!digitalKnob.current()) {
+        if (digitalKnob.isSingle()) {
             return STATE_CHANGETORUNSCREEN;
+        }
+
+        if (digitalKnob.isLong()) {
+            m_numericKnob->handle();
         }
 
         return STATE_SELECTMENUITEM;
@@ -110,7 +115,6 @@ void DisplayController::init() {
 }
 
 uint32_t DisplayController::handle() {
-    m_numericKnob->handle();
     menuSequence->handle();
     return 0;
 }
@@ -162,8 +166,9 @@ void DisplayController::startScreen(OLEDDisplay* display, OLEDDisplayUiState* st
 void DisplayController::menu1(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     display->setFont(ArialMT_Plain_24);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
+    float value = round(m_numericKnob->value() * 2.0f) / 2.0f;
     char buffer[16];
-    sprintf(buffer, "2 %.1f°C", m_numericKnob->value());
+    sprintf(buffer, "2 %.1f°C", value);
     display->drawString(x + 0, y + 20, buffer);
 }
 

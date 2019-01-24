@@ -14,9 +14,6 @@ extern "C" uint32_t digitalRead(uint8_t);
 #define A0 0xa0
 #endif
 
-#define READS_PER_SEC 10
-#define READS_MILLIS (1000 / READS_PER_SEC)
-
 AnalogIn::AnalogIn(float p_alpha) :
     m_alpha(p_alpha),
     m_rawValue(0.0f),

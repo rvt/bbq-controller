@@ -7,8 +7,8 @@
 
 /**
  * Numeric input using the analog to digital converter
- * The idea is dat we can let thi behave like a rotational encoder with a analog potentiometer
- * The value will only change when the button is pressed.
+ * The idea is dat we can let this behave like a rotational encoder with a analog potentiometer
+ * The value will only change when the button is pressed (by calling handle() or not )
  * This allows you to ´rewind´ back when rotation is fast and allow for fine grained setting while rotating slow
  * When at the end of the potentiometer just release the button. Re-posotion the potentiometer
  * and press the button for more adjustments
@@ -19,11 +19,20 @@ private:
     float m_value;
     float m_min;             // Minimum value possible
     float m_max;             // Maximum value possible
-    float m_minIncrement;    // Minimum increment
+    float m_velocity;    // Minimum increment
 private:
 public:
 
-    NumericKnob(const std::shared_ptr<AnalogIn>& p_analogIn, float m_initValue, float p_min, float p_max, float p_minIncrement);
+    NumericKnob(
+        const std::shared_ptr<AnalogIn>& p_analogIn,
+        float m_initValue,
+        float p_min,
+        float p_max,
+        float p_velocity);
+    /*
+    * Call at a rate of 50 handles7sec. This is needed because the difference of values is used and
+    * they are based on timings
+    */
     void handle();
 
     virtual float value() const;
