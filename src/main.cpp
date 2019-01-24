@@ -569,10 +569,8 @@ void loop() {
         if (counter50TimesSec % 5 == 0) {
             temperatureSensor1->handle();
             temperatureSensor2->handle();
-            // Fuzzy logic control 10 times/sec
         } else if (counter50TimesSec % 5 == 1) {
             bbqController -> handle();
-        } else if (counter50TimesSec % 5 == 2) {
         }
 
 
