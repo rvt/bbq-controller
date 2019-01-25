@@ -19,13 +19,12 @@ public:
     }
 
     float speed() const {
-        if (m_overrideSetting >= 0.0) {
-            return m_overrideSetting;
-        } else {
-            return m_speed;
-        }
+        return isOverride() ? m_overrideSetting : m_speed;
     }
 
+    bool isOverride() const {
+        return m_overrideSetting >= 0.0;
+    }
     /**
      * Set override speed
      */

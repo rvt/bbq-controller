@@ -15,12 +15,13 @@
  */
 class NumericKnob : public NumericInput {
 private:
-    std::shared_ptr<AnalogIn>  m_analogIn;
+    const std::shared_ptr<AnalogIn>  m_analogIn;
     float m_value;
-    float m_min;             // Minimum value possible
-    float m_max;             // Maximum value possible
-    float m_velocity;    // Minimum increment
+    const float m_min;             // Minimum value possible
+    const float m_max;             // Maximum value possible
+    const float m_velocity;    // Minimum increment
 private:
+    float validValue(float p_value) const ;
 public:
 
     NumericKnob(
@@ -36,4 +37,5 @@ public:
     void handle();
 
     virtual float value() const;
+    virtual void value(float p_value);
 };

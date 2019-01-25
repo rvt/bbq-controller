@@ -28,11 +28,14 @@ static std::unique_ptr<NumericKnob> m_temperatureSetPointKnob;
 static std::unique_ptr<NumericKnob> m_fanOverrideKnob;
 static std::unique_ptr<NumericKnob> m_menuKnob;
 
+#define MENU_BLOCK_SIZE 6
+#define MENU_FONT_NAME ArialMT_Plain_10
+#define MENU_FONT_SIZE 10
 
 void DisplayController::init() {
 
-    m_temperatureSetPointKnob.reset(new NumericKnob(analogIn, 90, 90, 240, 0.1));
-    m_fanOverrideKnob.reset(new NumericKnob(analogIn, -1, -1, 100, 1));
+    m_temperatureSetPointKnob.reset(new NumericKnob(analogIn, bbqController->setPoint(), 90, 240, 0.1));
+    m_fanOverrideKnob.reset(new NumericKnob(analogIn, ventilator1->speedOverride(), -1, 100, 0.1));
     m_menuKnob.reset(new NumericKnob(analogIn, 0, 0, 2, 0.01));
 
     startScreens = {
@@ -51,9 +54,9 @@ void DisplayController::init() {
     };
 
     menuScreens = {
-        menu1,
-        menu2,
-        menu3
+        menuMain,
+        menuSetDesiredTemperature,
+        menuOverrideFan
     };
 
     STATE_STARTSCREEN = new State([&]() {
@@ -76,39 +79,52 @@ void DisplayController::init() {
     });
 
     STATE_RUNSCREEN = new State([&]() {
-        if (digitalKnob.isSingle()) {
-            return STATE_CHANGETOMENUSCREEN;
+        if (digitalKnob.isEdgeUp()) {
+            return STATE_CHANGETOMENUBUTTONRELEASE;
         }
 
         return STATE_RUNSCREEN;
     });
 
+    STATE_CHANGETOMENUBUTTONRELEASE = new State([&]() {
+        if (digitalKnob.current() == false) {
+            // Clears the internal status so we don´t get a false click later
+            digitalKnob.reset();
+            return STATE_CHANGETOMENUSCREEN;
+        }
+
+        return STATE_CHANGETOMENUBUTTONRELEASE;
+    });
+
     STATE_CHANGETOMENUSCREEN = new State([&]() {
         ui.setFrames(menuScreens.data(), menuScreens.size());
+        ui.switchToFrame(0);
         ui.disableAutoTransition();
+        m_menuKnob->value(0);
         return STATE_SELECTMENUITEM;
     });
 
     STATE_SELECTMENUITEM = new State([&]() {
-        uint8_t menu = ((int)m_menuKnob->value());
+        uint8_t menu = ((int)round(m_menuKnob->value()));
 
         if (digitalKnob.isSingle()) {
+            ui.switchToFrame(menu);
+
             switch (menu) {
                 case 0 :
                     return STATE_CHANGETORUNSCREEN;
 
                 case 1 :
+                    m_temperatureSetPointKnob->value(bbqController->setPoint());
                     return STATE_SETTEMP;
 
                 case 2 :
+                    m_fanOverrideKnob->value(ventilator1->speedOverride());
                     return STATE_SETFAN;
             };
-
-            return STATE_CHANGETORUNSCREEN;
         }
 
         m_menuKnob->handle();
-        ui.switchToFrame(menu);
         return STATE_SELECTMENUITEM;
     });
 
@@ -117,10 +133,10 @@ void DisplayController::init() {
             float value = round(m_temperatureSetPointKnob->value() * 2.0f) / 2.0f;
             settingsDTO.data()->setPoint = value;
             bbqController->setPoint(value);
-            return STATE_SELECTMENUITEM;
+            return STATE_CHANGETOMENUSCREEN;
         }
 
-        if (digitalKnob.isLong()) {
+        if (!digitalKnob.isLong()) {
             m_temperatureSetPointKnob->handle();
         }
 
@@ -131,10 +147,10 @@ void DisplayController::init() {
         if (digitalKnob.isSingle()) {
             float value = round(m_fanOverrideKnob->value());
             ventilator1->speedOverride(value);
-            return STATE_SELECTMENUITEM;
+            return STATE_CHANGETOMENUSCREEN;
         }
 
-        if (digitalKnob.isLong()) {
+        if (!digitalKnob.isLong()) {
             m_fanOverrideKnob->handle();
         }
 
@@ -147,6 +163,7 @@ void DisplayController::init() {
         STATE_CHANGETORUNSCREEN,
         STATE_RUNSCREEN,
         STATE_CHANGETOMENUSCREEN,
+        STATE_CHANGETOMENUBUTTONRELEASE,
         STATE_SELECTMENUITEM,
         STATE_SETTEMP,
         STATE_SETFAN
@@ -162,7 +179,6 @@ uint32_t DisplayController::handle() {
 
 void DisplayController::currentTemperatureSetting(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     char buffer[16];
-    // Set Temperature
     display->setFont(ArialMT_Plain_24);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
     sprintf(buffer, "%.1f°C", bbqController->setPoint());
@@ -172,7 +188,6 @@ void DisplayController::currentTemperatureSetting(OLEDDisplay* display, OLEDDisp
 
 void DisplayController::currentTemperatureSensor1(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     char buffer[16];
-    // Current temperature speed
     display->setFont(ArialMT_Plain_24);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
     sprintf(buffer, "1 %.1f°C", 1.0f/*temperatureSensor1->get()*/);
@@ -182,7 +197,6 @@ void DisplayController::currentTemperatureSensor1(OLEDDisplay* display, OLEDDisp
 
 void DisplayController::currentTemperatureSensor2(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     char buffer[16];
-    // Current temperature speed
     display->setFont(ArialMT_Plain_24);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
     sprintf(buffer, "2 %.1f°C", temperatureSensor2->get());
@@ -191,11 +205,27 @@ void DisplayController::currentTemperatureSensor2(OLEDDisplay* display, OLEDDisp
 }
 
 void DisplayController::currentFanSpeed(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+    display->setFont(ArialMT_Plain_10);
+    display->setTextAlignment(TEXT_ALIGN_RIGHT);
+    float value = ventilator1->speedOverride();
+
+    if (ventilator1->isOverride()) {
+        display->drawString(x + 128, y + 20, "Manual");
+    } else {
+        display->drawString(x + 128, y + 20, "Auto");
+    }
+
     char buffer[16];
-    // Ventilator speed
     display->setFont(ArialMT_Plain_24);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
-    sprintf(buffer, "%3.0f%%", ventilator1->speed());
+    value = ventilator1->speed();
+
+    if (value < 0.1) {
+        sprintf(buffer, "Off");
+    } else {
+        sprintf(buffer, "%3.0f%%", ventilator1->speed());
+    }
+
     display->drawString(x + 0 + fan_width + 4, y + 20, buffer);
     display->drawXbm(x, y + 20, fan_width, fan_height, fan_bits);
 }
@@ -204,14 +234,34 @@ void DisplayController::startScreen(OLEDDisplay* display, OLEDDisplayUiState* st
     display->drawXbm(x, y, logo_width, logo_height, logo_bits);
 }
 
-void DisplayController::menu1(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
-    display->setFont(ArialMT_Plain_10);
+void DisplayController::menuMain(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+    display->setFont(MENU_FONT_NAME);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
-    display->drawString(x + 10, y + 20, "1) Set Temperature");
-    display->drawString(x + 10, y + 16 + 16, "2) Override fan");
+
+    uint8_t menu = ((int)round(m_menuKnob->value()));
+    uint8_t markerPos = -6;
+
+    switch (menu) {
+        case 0:
+            markerPos = 12;
+            break;
+
+        case 1:
+            markerPos = 24;
+            break;
+
+        case 2:
+            markerPos = 36;
+            break;
+    }
+
+    display->fillRect(x + 0,   y + (MENU_FONT_SIZE / 2 - (MENU_BLOCK_SIZE / 2)) - 1 + markerPos + (MENU_BLOCK_SIZE / 2), MENU_BLOCK_SIZE, MENU_BLOCK_SIZE);
+    display->drawString(x + 8, y + 12, "Back");
+    display->drawString(x + 8, y + 24, "Set Temperature");
+    display->drawString(x + 8, y + 36, "Override fan");
 }
 
-void DisplayController::menu2(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+void DisplayController::menuSetDesiredTemperature(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     display->setFont(ArialMT_Plain_16);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
     float value = round(m_temperatureSetPointKnob->value() * 2.0f) / 2.0f;
@@ -221,18 +271,20 @@ void DisplayController::menu2(OLEDDisplay* display, OLEDDisplayUiState* state, i
     display->drawXbm(x, y + 20, thermometer_width, thermometer_height, (uint8_t*)thermometer_bits);
 }
 
-void DisplayController::menu3(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+void DisplayController::menuOverrideFan(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     display->setFont(ArialMT_Plain_16);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
     int16_t value = round(m_fanOverrideKnob->value());
     char buffer[16];
-    if (value==-1) {
+
+    if (value == -1) {
         sprintf(buffer, "Set: Auto");
-    } else if (value==0) {
+    } else if (value == 0) {
         sprintf(buffer, "Set: Off");
     } else {
         sprintf(buffer, "Set: %i%%", value);
     }
+
     display->drawString(x + 40, y + 22, buffer);
     display->drawXbm(x, y + 20, fan_width, fan_height, fan_bits);
 }

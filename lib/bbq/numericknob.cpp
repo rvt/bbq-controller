@@ -31,10 +31,18 @@ void NumericKnob::handle() {
     float diff = m_analogIn->valueDiff();
 
     if (diff < -JITTER_THRESHOLD || diff > JITTER_THRESHOLD) {
-        m_value = std::max(m_min, std::min(m_value + diff * m_velocity, m_max));
+        m_value = validValue(m_value + diff * m_velocity);
     }
+}
+
+float NumericKnob::validValue(float p_value) const {
+    return std::max(m_min, std::min(p_value, m_max));
 }
 
 float NumericKnob::value() const {
     return m_value;
+}
+
+void NumericKnob::value(float p_value) {
+    m_value = validValue(p_value);
 }

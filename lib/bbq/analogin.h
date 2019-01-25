@@ -12,7 +12,7 @@
  */
 class AnalogIn {
 private:
-    float m_alpha;           // Alpfa value for filter ( 0 < n <= 1)
+    const float m_alpha;           // Alpfa value for filter ( 0 < n <= 1)
     float m_rawValue;        // Previous value
     float m_diff;
 public:

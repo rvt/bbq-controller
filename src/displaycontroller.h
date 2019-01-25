@@ -29,9 +29,9 @@ private:
     static void currentTemperatureSensor1(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
     static void currentTemperatureSensor2(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
 
-    static void menu1(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
-    static void menu2(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
-    static void menu3(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
+    static void menuMain(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
+    static void menuSetDesiredTemperature(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
+    static void menuOverrideFan(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
 
     static void currentFanSpeed(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y);
     static void normalOverlayDisplay(OLEDDisplay* display, OLEDDisplayUiState* state);
@@ -51,6 +51,7 @@ private:
     State* STATE_SELECTMENUITEM;
     State* STATE_SETTEMP;
     State* STATE_SETFAN;
+    State* STATE_CHANGETOMENUBUTTONRELEASE;
     std::unique_ptr<StateMachine> menuSequence;
 
 

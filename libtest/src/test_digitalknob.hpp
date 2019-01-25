@@ -154,4 +154,30 @@ SCENARIO("Digital Knob", "[DigitalKnob]") {
         }
 
     }
+
+    GIVEN("we want to detect edges") {
+        dn->resetButtons();
+        dn->reset();
+
+        THEN("should detect edge up") {
+            digitalReadStubbed = false;
+            dn->handle();
+            digitalReadStubbed = true;
+            dn->handle();
+            REQUIRE(dn->isEdgeUp() == true); //
+            REQUIRE(dn->isEdgeUp() == false); // Should reset
+            dn->handle();
+            REQUIRE(dn->isEdgeUp() == false); // Should stay reset
+        }
+        THEN("should detect edge down") {
+            digitalReadStubbed = true;
+            dn->handle();
+            digitalReadStubbed = false;
+            dn->handle();
+            REQUIRE(dn->isEdgeDown() == true); //
+            REQUIRE(dn->isEdgeDown() == false); // Should reset
+            dn->handle();
+            REQUIRE(dn->isEdgeDown() == false); // Should stay reset
+        }
+    }
 }

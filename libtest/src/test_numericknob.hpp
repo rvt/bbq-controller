@@ -24,28 +24,28 @@ SCENARIO("Numeric Input", "[NumericInput]") {
             REQUIRE(ni.value() == Approx(150.0));
         }
         THEN("Input should change a little when analog changes a little") {
-            REQUIRE(ni.value() == 150.0);
+            REQUIRE(ni.value() == Approx(150.0));
             analogReadStubbed = analogReadStubbed + 5;
             ai->handle();
             ni.handle();
             REQUIRE(ni.value() == Approx(150.5));
         }
         THEN("Input should change more when analog changes a more") {
-            REQUIRE(ni.value() == 150.0);
+            REQUIRE(ni.value() == Approx(150.0));
             analogReadStubbed = analogReadStubbed + 10;
             ai->handle();
             ni.handle();
             REQUIRE(ni.value() == Approx(151.0));
         }
         THEN("Input should change a lot when analog changes a fast") {
-            REQUIRE(ni.value() == 150.0);
+            REQUIRE(ni.value() == Approx(150.0));
             analogReadStubbed = analogReadStubbed + 20;
             ai->handle();
             ni.handle();
             REQUIRE(ni.value() == Approx(152.0));
         }
         THEN("Input should change back a lot when analog changes a fast") {
-            REQUIRE(ni.value() == 150.0);
+            REQUIRE(ni.value() == Approx(150.0));
             analogReadStubbed = analogReadStubbed - 20;
             ai->handle();
             ni.handle();
@@ -53,7 +53,7 @@ SCENARIO("Numeric Input", "[NumericInput]") {
         }
 
         THEN("Input should limit at minimum value") {
-            REQUIRE(ni.value() == 150.0);
+            REQUIRE(ni.value() == Approx(150.0));
             analogReadStubbed = 1024;
             ai->handle();
 
@@ -67,7 +67,7 @@ SCENARIO("Numeric Input", "[NumericInput]") {
         }
 
         THEN("Input should limit at maximum value") {
-            REQUIRE(ni.value() == 150.0);
+            REQUIRE(ni.value() == Approx(150.0));
             analogReadStubbed = 0;
             ai->handle();
 
@@ -77,6 +77,33 @@ SCENARIO("Numeric Input", "[NumericInput]") {
                 ni.handle();
             }
 
+            REQUIRE(ni.value() == Approx(240.0));
+        }
+
+        THEN("Should beable to set value") {
+            REQUIRE(ni.value() == Approx(150.0));
+            analogReadStubbed = 0;
+            ai->handle();
+            ni.handle();
+            ni.value(180.0);
+            ai->handle();
+            ni.handle();
+            REQUIRE(ni.value() == Approx(180.0));
+        }
+        THEN("Should beable to set value not higher or lower than min and max") {
+            REQUIRE(ni.value() == Approx(150.0));
+            analogReadStubbed = 0;
+            ai->handle();
+            ni.handle();
+            ni.value(0.0);
+            ai->handle();
+            ni.handle();
+            REQUIRE(ni.value() == Approx(90.0));
+            ai->handle();
+            ni.handle();
+            ni.value(300.0);
+            ai->handle();
+            ni.handle();
             REQUIRE(ni.value() == Approx(240.0));
         }
     }
