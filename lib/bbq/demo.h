@@ -10,7 +10,7 @@ private:
 public:
     MockedTemperature(float pTemperature) : mTemperature(pTemperature) {
     }
-    virtual float get() {
+    virtual float get() const {
         return mTemperature;
     }
     void set(float pTemperature) {

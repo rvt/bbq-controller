@@ -190,7 +190,7 @@ void DisplayController::currentTemperatureSensor1(OLEDDisplay* display, OLEDDisp
     char buffer[16];
     display->setFont(ArialMT_Plain_24);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
-    sprintf(buffer, "1 %.1f°C", 1.0f/*temperatureSensor1->get()*/);
+    sprintf(buffer, "1 %.1f°C", temperatureSensor1->get());
     display->drawString(x + 0 + thermometer_width + 4, y + 20, buffer);
     display->drawXbm(x, y + 20, thermometer_width, thermometer_height, (uint8_t*)thermometer_bits);
 }
@@ -209,10 +209,10 @@ void DisplayController::currentFanSpeed(OLEDDisplay* display, OLEDDisplayUiState
     display->setTextAlignment(TEXT_ALIGN_RIGHT);
     float value = ventilator1->speedOverride();
 
-    if (ventilator1->isOverride()) {
-        display->drawString(x + 128, y + 20, "Manual");
-    } else {
+    if (!ventilator1->isOverride()) {
         display->drawString(x + 128, y + 20, "Auto");
+    } else {
+        display->drawString(x + 128, y + 20 + 10, "Manual");
     }
 
     char buffer[16];
@@ -239,7 +239,7 @@ void DisplayController::menuMain(OLEDDisplay* display, OLEDDisplayUiState* state
     display->setTextAlignment(TEXT_ALIGN_LEFT);
 
     uint8_t menu = ((int)round(m_menuKnob->value()));
-    uint8_t markerPos = -6;
+    int8_t markerPos = -6;
 
     switch (menu) {
         case 0:

@@ -6,8 +6,8 @@
 class MAX31865sensor : public TemperatureSensor {
 private:
     Adafruit_MAX31865* m_MAX31865;
-    float m_RNominal;
-    float m_Rref;
+    const float m_RNominal;
+    const float m_Rref;
     float m_lastTemp;
 public:
     MAX31865sensor(Adafruit_MAX31865* p_adafruit_MAX31865, float p_RNominal, float p_Rref);

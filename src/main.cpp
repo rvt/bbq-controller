@@ -20,6 +20,7 @@
 #include <pwmventilator.h>
 #include <makestring.h>
 
+#include <spi.h> // Include for harware SPI
 #include <max31865sensor.h>
 #include <max31855sensor.h>
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient/releases/tag/v2.6
@@ -53,6 +54,8 @@ volatile uint32_t effectPeriodStartMillis = 0;
 
 typedef PropertyValue PV ;
 Properties properties;
+
+// Display System
 SSD1306Brzo display(0x3c, WIRE_SDA, WIRE_SCL);
 OLEDDisplayUi ui(&display);
 DisplayController displayController;
@@ -64,6 +67,7 @@ void startScreen(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int
 }
 std::array<FrameCallback, 1> startScreens = { startScreen };
 
+// bbqCOntroller, sensors and ventilators
 std::unique_ptr<BBQFanOnly> bbqController(nullptr);
 std::shared_ptr<TemperatureSensor> temperatureSensor1(nullptr);
 std::shared_ptr<TemperatureSensor> temperatureSensor2(nullptr);
@@ -73,7 +77,7 @@ std::shared_ptr<Ventilator> ventilator1(nullptr);
 MockedTemperature* mockedTemp1 = new MockedTemperature(20.0);
 MockedTemperature* mockedTemp2 = new MockedTemperature(30.0);
 // END: For demo/test mode
-float analogKnobTemperatureSetPoint; // Temperature setpoint from analog knob
+
 
 std::shared_ptr<AnalogIn> analogIn = std::make_shared<AnalogIn>(0.2f);
 DigitalKnob digitalKnob(BUTTON_PIN, true, 110);
@@ -81,6 +85,7 @@ DigitalKnob digitalKnob(BUTTON_PIN, true, 110);
 // Settings
 SettingsDTO settingsDTO;
 
+// CRC value of last update to MQTT
 uint16_t lastUpdateCRC = 0;
 
 // Eeprom storage
@@ -89,7 +94,6 @@ Settings eepromSaveHandler(
     500,
     30000,
 []() {
-
     CRCEEProm::write(0, *settingsDTO.data());
     EEPROM.commit();
 },
@@ -109,11 +113,8 @@ Settings mqttSaveHandler(
     std::string configString = settingsDTO.getConfigString();
 
     if (configString.size() > 0) {
-        Serial.print("\n");
-        Serial.print(configString.c_str());
-        Serial.print("\n");
-        Serial.print(properties.get("mqttConfigStateTopic").getCharPtr());
-        Serial.print("\n");
+        Serial.println(configString.c_str());
+        Serial.println(properties.get("mqttConfigStateTopic").getCharPtr());
         publishToMQTT(properties.get("mqttConfigStateTopic").getCharPtr(), configString.c_str());
     }
 
@@ -123,18 +124,14 @@ Settings mqttSaveHandler(
 }
 );
 
-
-
-
+// State machine states and configurations
 State* BOOTSEQUENCESTART;
-//State* SETUPSERIAL;
 State* DELAYEDMQTTCONNECTION;
 State* TESTMQTTCONNECTION;
 State* CONNECTMQTT;
 State* PUBLISHONLINE;
 State* SUBSCRIBECOMMANDTOPIC;
 State* WAITFORCOMMANDCAPTURE;
-
 std::unique_ptr<StateMachine> bootSequence(nullptr);
 
 
@@ -380,7 +377,6 @@ void startOTA() {
         }
     });
     ArduinoOTA.begin();
-    ArduinoOTA.handle();
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -392,7 +388,6 @@ void setup() {
     // Enable serial port
     Serial.begin(115200);
     delay(50);
-    Serial.println(F("Starting"));
     Serial.print(F("Hostname: "));
     // setup Strings
     loadConfiguration(properties);
@@ -490,20 +485,21 @@ void setup() {
     temperatureSensor2.reset(mockedTemp2);
     ventilator1.reset(new MockedFan());
 #else
-    Adafruit_MAX31865* max31865 = new Adafruit_MAX31865(PIN_SPI_SCK);
-    max31865->begin(MAX31865_2WIRE);
-    temperatureSensor1.reset(new MAX31865sensor(max31865, RREF_OVEN, RNOMINAL_OVEN));
+    Adafruit_MAX31865* max31865 = new Adafruit_MAX31865(SPI_MAX31865_CS_PIN, SPI_SDI_PIN, SPI_SDO_PIN, SPI_CLK_PIN);
+    max31865->begin(MAX31865_3WIRE);
+    temperatureSensor1.reset(new MAX31865sensor(max31865, RNOMINAL_OVEN, RREF_OVEN));
 
-    Adafruit_MAX31855* max31855 = new Adafruit_MAX31855(PIN_SPI_SCK);
-    max31855->begin();
-    temperatureSensor2.reset(new MAX31855sensor(max31855));
+    temperatureSensor2.reset(mockedTemp2);
+
+//    Adafruit_MAX31855* max31855 = new Adafruit_MAX31855(PIN_SPI_SCK);
+//    max31855->begin();
+//    temperatureSensor2.reset(new MAX31855sensor(max31855));
 
     ventilator1.reset(new PWMVentilator(FAN1_PIN, 10.0));
 #endif
 
     //    analogIn.reset(new AnalogIn(BUTTON_PIN, false, 50.0f, 50.0f, 220.0f, 0.1));
 
-    analogKnobTemperatureSetPoint = 50.0;
     bbqController.reset(new BBQFanOnly(temperatureSensor1, ventilator1));
 
     if (loadedFromEEPROM) {
@@ -560,22 +556,22 @@ void loop() {
         counter50TimesSec++;
 
         // DigitalKnob (the button) must be handled at 50 times/sec to correct handle presses and double presses
-        // As it´s based on a shift register to time the clicks
         digitalKnob.handle();
-        displayController.handle();
+        // Handle analog input
         analogIn -> handle();
+        // Handle display updates and menu
+        displayController.handle();
 
         // Handle BBQ inputs 10 times a sec
         if (counter50TimesSec % 5 == 0) {
-            temperatureSensor1->handle();
             temperatureSensor2->handle();
         } else if (counter50TimesSec % 5 == 1) {
             bbqController -> handle();
         }
 
-
         // once a second publish status to mqtt (if there are changes)
         if (counter50TimesSec % 50 == 0) {
+            temperatureSensor1->handle();
             publishStatus();
         }
 
@@ -596,12 +592,6 @@ void loop() {
             settingsDTO.reset();
         }
 
-
-#if defined(ARILUX_DEBUG_TELNET)
-        else if (counter50TimesSec % NUMBER_OF_SLOTS == slot++) {
-        }
-
-#endif
 
     }
 }

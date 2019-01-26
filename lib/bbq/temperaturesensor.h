@@ -2,7 +2,7 @@
 
 class TemperatureSensor {
 public:
-    virtual float get() = 0;
+    virtual float get() const = 0;
     virtual void handle() {
     };
 };

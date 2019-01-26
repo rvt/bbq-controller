@@ -49,6 +49,8 @@
 #define TEMPERATURE_DUMMY_TOPIC                "dummy"
 #define MQTT_CONFIG_TOPIC_STATE_TEMPLATE       "%s/config/state"
 #define MQTT_CONFIG_TOPIC                      "config"
+#define MQTT_LASTWILL_ONLINE       "online"
+#define MQTT_LASTWILL_OFFLINE      "offline"
 
 // Base hostname, used for the MQTT Client ID and OTA hostname
 #ifndef HOSTNAME_TEMPLATE
@@ -72,11 +74,33 @@
 
 
 #ifndef FAN1_PIN
-#define FAN1_PIN 14
+#define FAN1_PIN 2
+#endif
+
+
+#ifndef SPI_SDO_PIN
+#define SPI_SDO_PIN -1 /*Set to -1 for HW SPI, connects to pin 12 on ESP8266*/
+#endif
+
+#ifndef SPI_SDI_PIN
+#define SPI_SDI_PIN -1 /*Set to -1 for HW SPI, connects to pin 13 on ESP8266*/
+#endif
+
+#ifndef SPI_CLK_PIN
+#define SPI_CLK_PIN -1 /*Set to -1 for HW SPI, connects to pin 14 on ESP8266*/
+#endif
+
+// Pin 15 didn´t make the esp start up so we skipped it and took 3
+#ifndef SPI_MAX31865_CS_PIN
+#define SPI_MAX31865_CS_PIN 3
+#endif
+
+#ifndef SPI_MAX31855_CS_PIN
+#define SPI_MAX31855_CS_PIN 1
 #endif
 
 #ifndef BUTTON_PIN
-#define BUTTON_PIN 12
+#define BUTTON_PIN 0
 #endif
 
 
@@ -85,12 +109,10 @@
 #ifndef RREF_OVEN
 #define RREF_OVEN      430.0
 #endif
+
 // The 'nominal' 0-degrees-C resistance of the sensor
 // 100.0 for PT100, 1000.0 for PT1000
 #ifndef RNOMINAL_OVEN
 #define RNOMINAL_OVEN  100.0
 #endif
-
-#define MQTT_LASTWILL_ONLINE       "online"
-#define MQTT_LASTWILL_OFFLINE      "offline"
 

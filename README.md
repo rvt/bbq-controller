@@ -5,35 +5,32 @@
 Fuzzy logic based BBQ controller
 
 ### Currently under heavy development 
-* Implement menu for a few settings like change temperature or manual fan control
-* Test analog input potentiometer (just need ot create the HW)
-* Test digital thermometer max31865
 * Test digital thermometer max31855
 * Test PWM fan control
+* Implement Farenheit display
 
 A Fuzzy logic based BBQ controller based on Fuzzy Logic with the following features:
 
-* OLed display of temperature readout, setting and fan speed
+* Oled display of temperature readout, setting and fan speed
 * Get and Set Fuzzy logic sets configuration without re-compilation
 * Store and Load last settings and confuguration in EEPROM for offline controlling your BBQ (no WIFI needed)
-* Change temperature setting with analog knob or over MQTT 
-* Ventilator override over MQTT
+* Change temperature setting with build in menu or over MQTT 
+* Ventilator override over MQTT or via menu
 * Parts of code tested with catch2
-* tested with OpenHAB + InfluxDB + Grafana
-* Unit tested with catch2
+* Tested with OpenHAB + InfluxDB + Grafana
+
 
 # Note
 
 This is still work in progress and has not yet been field tested and development has been done using a simulator during unit tests so here is my TODO:
-* Connect and test both temperature sensors
+* Connect and test MAX31855 temperature sensor for meat monitor
 * Connect and test fan controller
-* Change PWM frequency for more accurate fan control
 * Test Lid open detection
 * Test and implement low choarcoal detection
 * Implement 'stall' delection and alerting [More about stall](https://amazingribs.com/more-technique-and-science/more-cooking-science/understanding-and-beating-barbecue-stall-bane-all)
 
 # Tests
-- tested on wemos ESP8266
+- Tested on wemos ESP8266 [Wemos® Nodemcu Wifi And ESP8266 NodeMCU + 1.3 Inch OLED](https://www.banggood.com/Wemos-Nodemcu-Wifi-And-ESP8266-NodeMCU-1_3-Inch-OLED-Board-White-p-1160048.html)
 
 # Run unit tests (requires cmake to be installed)
 - ```cd libtest```
@@ -42,11 +39,57 @@ This is still work in progress and has not yet been field tested and development
 - ```make```
 - ```./tests```
 
+See also [https://travis-ci.org/rvt/bbq-controller](https://travis-ci.org/rvt/bbq-controller)
+
 # Compilation
-To build your version use platform io for compilation copy
-```setup_example.h``` to ```setup.h``` and modify the contents to your needs.
+To build your version use platform io for compilation: Copy
+```setup_example.h``` to ```setup.h``` and modify the contents to your needs so it can connect to your wifi and potentioally your MQTT broker.
 Then run ```pio run``` to compile the binary. This will download the needed dependencies.
 
 To upload to your wemos device run the following command (OSX):
 ```platformio run --target upload -e wemos --upload-port /dev/cu.SLAB_USBtoUART```
 
+# MQTT Messages
+
+MQTT is used to change it´s configuration and monitor your BBQ (along side the OLED display if used).
+
+I use [MQTT Spy](https://github.com/eclipse/paho.mqtt-spy/releases)  to spy for messages and use OpenHAB to push the status messages into influxdb. Since the controller only talks to a MQTT message broker, you are free to use any other tools for that, I hear that [Node-RED](https://nodered.org) is pretty cool.
+
+### Status messages
+
+Topic: ```BBQ/XXXXXXXX/config/state```
+
+Status messages are send  to an MQTT broker each time anow of the following variables as shown in the table are changed. Status messages are great to monitor the progress during cooking.
+
+| name | type  |  Meaning | value  | Unit  | Note |
+|---   |---    |---       |---     |---    |---   |
+| to   | float | Temperature sensor 1, usually pit temp  | 0...250 |  celsius ||
+| t2   | float | Temperature sensor 2, usually pit temp  | 0...250 | celsius  | |
+| sp   | float | Setpoint temperature  | 90...240  | celsius  | |
+| f1   | float | Ventilator 1 speed  | 0..100  | % | |
+| f1o  | float | Ventilator 1 speed override  | -1..100  | %  | When set > -1 it´s in override mode |
+| lo   | bool | Lid Open detection  | 0 or 1  | 1 When lid open is detected  |
+| lc   | bool | Low Charcoal detection  | 0 or 1  | 1 When low charcoal is detected |
+
+Example message:
+```to=130.5 t2=60.2 sp=130.0 f1=25 lo=0 lc=0 f1o=-1```
+
+
+## Hardware needed
+
+* Wemos® Nodemcu Wifi And ESP8266 NodeMCU + 1.3 Inch OLED
+* Linear 10K Potentiometer
+* Push Button
+* Theromcouple for meet temperature measurement
+* Thermocouple for Pit temperature measurement [RTD Pt100](https://www.banggood.com/RTD-Pt100-Temperature-Sensor-2m-Cable-Probe-98mm-3-Wires-50400Degree-p-923736.html?rmmds=search)
+* Sensor module for meat Probe [MAX31855](https://www.banggood.com/MAX31855-MAX6675-SPI-K-Thermocouple-Temperature-Sensor-Module-Board-For-Arduino-p-1193988.html?rmmds=search&cur_warehouse=CN)
+* Sensor module for pit (PT100) probe [MAX31865](https://www.banggood.com/GY-31865-MAX31865-Temperature-Sensor-Module-RTD-Digital-Conversion-Module-p-1416434.html?rmmds=search&cur_warehouse=CN)
+* 5V Ventilator 
+* Some box to put it all in
+
+If you use the above hardware you have to re-configure the MAX31865 sensor module for 3-Wrire configuration. This is described on this page : [Adafruit 4-Wire RTDs](https://learn.adafruit.com/adafruit-max31865-rtd-pt100-amplifier/rtd-wiring-config)
+
+Additional documentation from the official website:
+
+[MAX31865](https://www.maximintegrated.com/en/products/sensors/MAX31865.html)
+[MAX31855](https://www.maximintegrated.com/en/products/sensors/MAX31855.html)
