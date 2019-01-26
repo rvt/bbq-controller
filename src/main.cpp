@@ -20,7 +20,7 @@
 #include <pwmventilator.h>
 #include <makestring.h>
 
-#include <spi.h> // Include for harware SPI
+// #include <spi.h> // Include for harware SPI
 #include <max31865sensor.h>
 #include <max31855sensor.h>
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient/releases/tag/v2.6
