@@ -28,7 +28,7 @@ public:
 
 public:
     bool modified() const {
-        return !memcmp(&m_data, &l_data, sizeof(m_data)) == 0;
+        return memcmp(&m_data, &l_data, sizeof(m_data));
     }
 
     SettingsDTOData* data() {
@@ -46,9 +46,9 @@ public:
     std::string getConfigString() {
         return makeString("sp=%.1f"
                           " ta=%.1f"
-                          " fl=%.1f,%.1f,%.1f,%.1f"
-                          " fm=%.1f,%.1f,%.1f,%.1f"
-                          " fh=%.1f,%.1f,%.1f,%.1f"
+                          " fl1=%.1f,%.1f,%.1f,%.1f"
+                          " fm1=%.1f,%.1f,%.1f,%.1f"
+                          " fh1=%.1f,%.1f,%.1f,%.1f"
                           " tel=%.1f,%.1f"
                           " tem=%.1f,%.1f,%.1f,%.1f"
                           " teh=%.1f,%.1f,%.1f,%.1f"

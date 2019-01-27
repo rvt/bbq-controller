@@ -59,13 +59,13 @@ I use [MQTT Spy](https://github.com/eclipse/paho.mqtt-spy/releases)  to spy for 
 
 Topic: ```BBQ/XXXXXXXX/config/state```
 
-Status messages are send  to an MQTT broker each time anow of the following variables as shown in the table are changed. Status messages are great to monitor the progress during cooking.
+Status messages are send to an MQTT broker each time any of the following variables changed. Status messages are great to monitor the progress during cooking.
 
 | name | type  |  Meaning | value  | Unit  | Note |
 |---   |---    |---       |---     |---    |---   |
-| to   | float | Temperature sensor 1, usually pit temp  | 0...250 |  celsius ||
-| t2   | float | Temperature sensor 2, usually pit temp  | 0...250 | celsius  | |
-| sp   | float | Setpoint temperature  | 90...240  | celsius  | |
+| to   | float | Temperature sensor 1, usually pit temp  | 0..250 |  celsius ||
+| t2   | float | Temperature sensor 2, usually pit temp  | 0..250 | celsius  | |
+| sp   | float | Setpoint temperature  | 90..240  | celsius  | |
 | f1   | float | Ventilator 1 speed  | 0..100  | % | |
 | f1o  | float | Ventilator 1 speed override  | -1..100  | %  | When set > -1 it´s in override mode |
 | lo   | bool | Lid Open detection  | 0 or 1  | 1 When lid open is detected  |
@@ -73,6 +73,34 @@ Status messages are send  to an MQTT broker each time anow of the following vari
 
 Example message:
 ```to=130.5 t2=60.2 sp=130.0 f1=25 lo=0 lc=0 f1o=-1```
+
+### Config messages
+
+Topic: ```BBQ/XXXXXXXX/config```
+Topic: ```BBQ/XXXXXXXX/config/state``` each time any of the variables are changed the configuration is published to this topic
+
+The controller uses a single topic to configure the behavior.
+
+| name | type  |  Meaning | value  | Default | Unit  | Note |
+|---   |---    |---       |---     |---      |---    |---   |
+| sp   | float | Set the desired temperature | 90..240 | 30.0 | Celsius |
+| f1o  | float | Override fan 1 | -1-100 | -1 | % | -1 will set it to auto mode, eg let the controller handle the speed. Any value > -0.5 will be in override |
+| ta   | float | Alpha value to filter the temperature so we can detect rise/fall in temperature | 0.01..1.0 | 0.1 | - | |
+| fl1  | float,float,float,float | Fuzzy set for Low Fan |  0-100 | 0.0,0.0,0.0,50.0 | % | |
+| fm1  | float,float,float,float | Fuzzy set for Medium Fan |  0-100 | 25.0,50.0,50.0,75.0 | % | |
+| fh1  | float,float,float,float | Fuzzy set for Hight Fan |  0-100 | 50.0,100.0,100.0,100.0 | % | |
+| tel  | float,float,float,float | Fuzzy set for low temperature error |  0-XX | 0.0,10.0 | Celsius | |
+| tem  | float,float,float,float | Fuzzy set for medium temperature error |  0-XX | 0.0,15.0,15.0,30.0 | Celsius | |
+| teh  | float,float,float,float | Fuzzy set for high temperature error |  0-XX | 15.0,200.0,200.0,200.0 | Celsius | |
+| tcf  | float,float,float,float | Fuzzy set for temperature drop detection |  0-XX | 10.0,20.0,20.0,30.0 | Celsius | |
+
+Example messages to ```BBQ/XXXXXXXX/config```:
+
+* ```sp=130.0``` Set the desired pit temp to 130 degree Celsius
+* ```f1o=55``` Override fan speed to 55%
+* ```f1o=-1 sp=180.0``` Enable auto mode and set desired temp to 180Celsius in one configuration line
+* ```fl1=0.0,0.0,0.0,50.0``` Update Fuzzy Set for fan 1, this will re-configure the BBQ controller
+
 
 
 ## Hardware needed

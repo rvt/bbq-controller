@@ -219,9 +219,9 @@ void handleCmd(const char* topic, const char* p_payload) {
                 config.temp_alpha = values.asFloat();
             }
 
-            config.fan_low = getConfigArray("fl", values.key(), values.asChar(), config.fan_low);
-            config.fan_medium = getConfigArray("fm", values.key(), values.asChar(), config.fan_medium);
-            config.fan_high = getConfigArray("fh", values.key(), values.asChar(), config.fan_high);
+            config.fan_low = getConfigArray("fl1", values.key(), values.asChar(), config.fan_low);
+            config.fan_medium = getConfigArray("fm1", values.key(), values.asChar(), config.fan_medium);
+            config.fan_high = getConfigArray("fh1", values.key(), values.asChar(), config.fan_high);
 
             config.temp_error_low = getConfigArray("tel", values.key(), values.asChar(), config.temp_error_low);
             config.temp_error_medium = getConfigArray("tem", values.key(), values.asChar(), config.temp_error_medium);
@@ -230,7 +230,7 @@ void handleCmd(const char* topic, const char* p_payload) {
             config.temp_change_fast = getConfigArray("tcf", values.key(), values.asChar(), config.temp_change_fast);
         });
 
-        if (temperature > 15 && temperature < 260) {
+        if (temperature > 90.0f && temperature < 240.0f) {
             bbqController->setPoint(temperature);
             settingsDTO.data()->setPoint = temperature;
         }
