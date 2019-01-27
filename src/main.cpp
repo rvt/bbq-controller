@@ -485,9 +485,10 @@ void setup() {
     temperatureSensor2.reset(mockedTemp2);
     ventilator1.reset(new MockedFan());
 #else
-    Adafruit_MAX31865* max31865 = new Adafruit_MAX31865(SPI_MAX31865_CS_PIN, SPI_SDI_PIN, SPI_SDO_PIN, SPI_CLK_PIN);
-    max31865->begin(MAX31865_3WIRE);
-    temperatureSensor1.reset(new MAX31865sensor(max31865, RNOMINAL_OVEN, RREF_OVEN));
+    auto sensor = new MAX31865sensor(SPI_MAX31865_CS_PIN, SPI_SDI_PIN, SPI_SDO_PIN, SPI_CLK_PIN, RNOMINAL_OVEN, RREF_OVEN);
+    sensor->begin(MAX31865_3WIRE);
+
+    temperatureSensor1.reset(sensor);
 
     temperatureSensor2.reset(mockedTemp2);
 
@@ -564,14 +565,11 @@ void loop() {
 
         // Handle BBQ inputs 10 times a sec
         if (counter50TimesSec % 5 == 0) {
-            temperatureSensor2->handle();
-        } else if (counter50TimesSec % 5 == 1) {
             bbqController -> handle();
         }
 
         // once a second publish status to mqtt (if there are changes)
         if (counter50TimesSec % 50 == 0) {
-            temperatureSensor1->handle();
             publishStatus();
         }
 
@@ -590,7 +588,13 @@ void loop() {
             mqttSaveHandler.handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             settingsDTO.reset();
+        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
+            temperatureSensor1->handle();
+        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
+            temperatureSensor2->handle();
         }
+
+
 
 
     }
