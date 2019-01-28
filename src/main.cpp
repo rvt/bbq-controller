@@ -80,7 +80,7 @@ uint16_t lastUpdateCRC = 0;
 // wait 500ms after last commit, then commit no more often than every 30s
 Settings eepromSaveHandler(
     500,
-    30000,
+    10000,
 []() {
     CRCEEProm::write(0, *settingsDTO.data());
     EEPROM.commit();

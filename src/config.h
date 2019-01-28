@@ -78,16 +78,20 @@
 #endif
 
 
+/*
+ * Only tested is hardware SPI.
+ * Software SPI introduces long delays in Adafruit classes so try to avoid it at all cost
+*/
 #ifndef SPI_SDO_PIN
-#define SPI_SDO_PIN -1 /*Set to -1 for HW SPI, connects to pin 12 on ESP8266*/
+#define SPI_SDO_PIN -1 /* Set to -1 for HW SPI, connects to pin 12 on ESP8266 */
 #endif
 
 #ifndef SPI_SDI_PIN
-#define SPI_SDI_PIN -1 /*Set to -1 for HW SPI, connects to pin 13 on ESP8266*/
+#define SPI_SDI_PIN -1 /* Set to -1 for HW SPI, connects to pin 13 on ESP8266 */
 #endif
 
 #ifndef SPI_CLK_PIN
-#define SPI_CLK_PIN -1 /*Set to -1 for HW SPI, connects to pin 14 on ESP8266*/
+#define SPI_CLK_PIN -1 /* Set to -1 for HW SPI, connects to pin 14 on ESP8266 */
 #endif
 
 // Pin 15 didn´t make the esp start up so we skipped it and took 3
@@ -102,8 +106,6 @@
 #ifndef BUTTON_PIN
 #define BUTTON_PIN 0
 #endif
-
-
 
 // The value of the Rref resistor. Use 430.0 for PT100 and 4300.0 for PT1000
 #ifndef RREF_OVEN
