@@ -5,19 +5,22 @@
 #include <cstddef>
 #include <algorithm>
 
-#include <OLEDDisplay.h>
-#include <OLEDDisplayUi.h>
 #include <bbqfanonly.h>
 #include <statemachine.h>
 #include <digitalinput.h>
 #include <numericknob.h>
+#include <OLEDDisplayUi.h>
 
+class SSD1306Brzo;
+class OLEDDisplay;
+class OLEDDisplayUiState;
 
-class DisplayController {
-private:
+class SSD1306DisplayController {
 public:
     void init();
     uint32_t handle();
+    SSD1306DisplayController(uint8_t m_wireSda,  uint8_t m_wireScl);
+    virtual ~SSD1306DisplayController();
 
 private:
     ///////////////////////////////////////////////////////////////////////////
@@ -53,6 +56,10 @@ private:
     State* STATE_SETFAN;
     State* STATE_CHANGETOMENUBUTTONRELEASE;
     std::unique_ptr<StateMachine> menuSequence;
+
+    SSD1306Brzo* display;
+    OLEDDisplayUi* ui;
+    uint32_t m_lastMillis;;
 
 
 };

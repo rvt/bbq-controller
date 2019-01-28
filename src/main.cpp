@@ -9,9 +9,6 @@
 #include <ESP8266WiFi.h>  // https://github.com/esp8266/Arduino
 #include <ESP8266mDNS.h>
 
-#include <brzo_i2c.h>
-#include "SSD1306Brzo.h"
-#include <OLEDDisplayUi.h>
 #include <propertyutils.h>
 #include <optparser.h>
 #include <utils.h>
@@ -25,7 +22,7 @@
 #include <max31855sensor.h>
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient/releases/tag/v2.6
 
-#include "displaycontroller.h"
+#include "ssd1306displaycontroller.h"
 #include <ArduinoOTA.h>
 #include <ESP_EEPROM.h>
 #include <settings.h>
@@ -56,16 +53,7 @@ typedef PropertyValue PV ;
 Properties properties;
 
 // Display System
-SSD1306Brzo display(0x3c, WIRE_SDA, WIRE_SCL);
-OLEDDisplayUi ui(&display);
-DisplayController displayController;
-
-// We rerquire at least one screen or else the OLEDDisplayUi will crash as there is no
-// check if any frames exists
-void startScreen(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
-    display->drawXbm(x, y, logo_width, logo_height, logo_bits);
-}
-std::array<FrameCallback, 1> startScreens = { startScreen };
+SSD1306DisplayController ssd1306displayController(WIRE_SDA, WIRE_SCL);
 
 // bbqCOntroller, sensors and ventilators
 std::unique_ptr<BBQFanOnly> bbqController(nullptr);
@@ -520,27 +508,11 @@ void setup() {
 
     bbqController->init();
 
-    // Start UI
-    // Don´t set this to high as we want to have time left for the controller to do it´s work
-    ui.setTargetFPS(30);
-    ui.setTimePerTransition(250);
-
-    ui.setActiveSymbol(activeSymbol);
-    ui.setInactiveSymbol(inactiveSymbol);
-    ui.setIndicatorPosition(BOTTOM);
-    ui.disableAllIndicators();
-    ui.setIndicatorDirection(LEFT_RIGHT);
-    ui.setFrameAnimation(SLIDE_UP);
-    ui.setFrames(startScreens.data(), startScreens.size());
-    ui.init();
-
-    display.flipScreenVertically();
-
     // Start boot sequence
     bootSequence->start();
 
     // Init display controller
-    displayController.init();
+    ssd1306displayController.init();
 
     Serial.println(F("End Setup"));
     // Avoid running towards millis() when loop starts since we do effectPeriodStartMillis += EFFECT_PERIOD_CALLBACK;
@@ -550,7 +522,7 @@ void setup() {
 #define NUMBER_OF_SLOTS 10
 void loop() {
     const uint32_t currentMillis = millis();
-    int remainingTimeBudget = ui.update();
+    int remainingTimeBudget = ssd1306displayController.handle();
 
     if (remainingTimeBudget > 0 && currentMillis - effectPeriodStartMillis >= EFFECT_PERIOD_CALLBACK) {
         effectPeriodStartMillis += EFFECT_PERIOD_CALLBACK;
@@ -560,8 +532,6 @@ void loop() {
         digitalKnob.handle();
         // Handle analog input
         analogIn -> handle();
-        // Handle display updates and menu
-        displayController.handle();
 
         // Handle BBQ inputs 10 times a sec
         if (counter50TimesSec % 5 == 0) {

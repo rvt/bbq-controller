@@ -1,5 +1,5 @@
 
-#include "displaycontroller.h"
+#include "SSD1306DisplayController.h"
 #include <icons.h>
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
@@ -10,13 +10,20 @@
 #include "settingsdto.h"
 #include <ventilator.h>
 
+#include <brzo_i2c.h>
+#include "SSD1306Brzo.h"
+#include <OLEDDisplayUi.h>
+#include <OLEDDisplay.h>
+
+#define FRAMES_PER_SECOND        50
+#define MILLIS_PER_FRAME   (1000 / FRAMES_PER_SECOND)
+
 /* Technical debt, all these externals should be passed to the display object somehow */
 extern std::unique_ptr<BBQFanOnly> bbqController;
 extern std::shared_ptr<TemperatureSensor> temperatureSensor1;
 extern std::shared_ptr<TemperatureSensor> temperatureSensor2;
 extern std::shared_ptr<Ventilator> ventilator1;
 extern PubSubClient mqttClient;
-extern OLEDDisplayUi ui;
 extern DigitalKnob digitalKnob;
 extern std::shared_ptr<AnalogIn> analogIn;
 extern SettingsDTO settingsDTO;
@@ -32,7 +39,18 @@ static std::unique_ptr<NumericKnob> m_menuKnob;
 #define MENU_FONT_NAME ArialMT_Plain_10
 #define MENU_FONT_SIZE 10
 
-void DisplayController::init() {
+SSD1306DisplayController::SSD1306DisplayController(uint8_t m_wireSda,  uint8_t m_wireScl) : 
+    display(new SSD1306Brzo(0x3c, m_wireSda, m_wireScl)),
+    ui(new OLEDDisplayUi(display)),
+    m_lastMillis(0) {
+}
+
+SSD1306DisplayController::~SSD1306DisplayController() {
+    delete ui;
+    delete display;
+}
+
+void SSD1306DisplayController::init() {
 
     m_temperatureSetPointKnob.reset(new NumericKnob(analogIn, bbqController->setPoint(), 90, 240, 0.1));
     m_fanOverrideKnob.reset(new NumericKnob(analogIn, ventilator1->speedOverride(), -1, 100, 0.1));
@@ -60,8 +78,8 @@ void DisplayController::init() {
     };
 
     STATE_STARTSCREEN = new State([&]() {
-        ui.setOverlays(displayOverlay.data(), displayOverlay.size());
-        ui.setFrames(startScreens.data(), startScreens.size());
+        ui->setOverlays(displayOverlay.data(), displayOverlay.size());
+        ui->setFrames(startScreens.data(), startScreens.size());
         return STATE_WAITLOGO;
     });
 
@@ -71,10 +89,10 @@ void DisplayController::init() {
     });
 
     STATE_CHANGETORUNSCREEN = new State([&]() {
-        ui.setOverlays(displayOverlay.data(), displayOverlay.size());
-        ui.setFrames(normalRunScreens.data(), normalRunScreens.size());
-        ui.enableAllIndicators();
-        ui.enableAutoTransition();
+        ui->setOverlays(displayOverlay.data(), displayOverlay.size());
+        ui->setFrames(normalRunScreens.data(), normalRunScreens.size());
+        ui->enableAllIndicators();
+        ui->enableAutoTransition();
         return STATE_RUNSCREEN;
     });
 
@@ -97,9 +115,9 @@ void DisplayController::init() {
     });
 
     STATE_CHANGETOMENUSCREEN = new State([&]() {
-        ui.setFrames(menuScreens.data(), menuScreens.size());
-        ui.switchToFrame(0);
-        ui.disableAutoTransition();
+        ui->setFrames(menuScreens.data(), menuScreens.size());
+        ui->switchToFrame(0);
+        ui->disableAutoTransition();
         m_menuKnob->value(0);
         return STATE_SELECTMENUITEM;
     });
@@ -108,7 +126,7 @@ void DisplayController::init() {
         uint8_t menu = ((int)round(m_menuKnob->value()));
 
         if (digitalKnob.isSingle()) {
-            ui.switchToFrame(menu);
+            ui->switchToFrame(menu);
 
             switch (menu) {
                 case 0 :
@@ -169,15 +187,40 @@ void DisplayController::init() {
         STATE_SETFAN
     }));
 
+
+
+    // Start UI
+    // Don´t set this to high as we want to have time left for the controller to do it´s work
+    ui->setTargetFPS(30);
+    ui->setTimePerTransition(250);
+
+    ui->setActiveSymbol(activeSymbol);
+    ui->setInactiveSymbol(inactiveSymbol);
+    ui->setIndicatorPosition(BOTTOM);
+    ui->disableAllIndicators();
+    ui->setIndicatorDirection(LEFT_RIGHT);
+    ui->setFrameAnimation(SLIDE_UP);
+    ui->setFrames(startScreens.data(), startScreens.size());
+    ui->init();
+
+    display->flipScreenVertically();
+
     menuSequence->start();
+
 }
 
-uint32_t DisplayController::handle() {
-    menuSequence->handle();
-    return 0;
+uint32_t SSD1306DisplayController::handle() {
+    uint32_t budget =  ui->update();
+    uint32_t currentMillis = millis();
+    if (budget>0 && (currentMillis - m_lastMillis) >= MILLIS_PER_FRAME) {
+        m_lastMillis = currentMillis;
+       menuSequence->handle();
+    }
+
+    return budget;
 }
 
-void DisplayController::currentTemperatureSetting(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+void SSD1306DisplayController::currentTemperatureSetting(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     char buffer[16];
     display->setFont(ArialMT_Plain_24);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
@@ -186,7 +229,7 @@ void DisplayController::currentTemperatureSetting(OLEDDisplay* display, OLEDDisp
     display->drawXbm(x, y + 20, knob_width, knob_height, knob_bits);
 }
 
-void DisplayController::currentTemperatureSensor1(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+void SSD1306DisplayController::currentTemperatureSensor1(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     char buffer[16];
     display->setFont(ArialMT_Plain_24);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
@@ -195,7 +238,7 @@ void DisplayController::currentTemperatureSensor1(OLEDDisplay* display, OLEDDisp
     display->drawXbm(x, y + 20, thermometer_width, thermometer_height, (uint8_t*)thermometer_bits);
 }
 
-void DisplayController::currentTemperatureSensor2(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+void SSD1306DisplayController::currentTemperatureSensor2(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     char buffer[16];
     display->setFont(ArialMT_Plain_24);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
@@ -204,7 +247,7 @@ void DisplayController::currentTemperatureSensor2(OLEDDisplay* display, OLEDDisp
     display->drawXbm(x, y + 20, thermometer_width, thermometer_height, (uint8_t*)thermometer_bits);
 }
 
-void DisplayController::currentFanSpeed(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+void SSD1306DisplayController::currentFanSpeed(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     display->setFont(ArialMT_Plain_10);
     display->setTextAlignment(TEXT_ALIGN_RIGHT);
     float value = ventilator1->speedOverride();
@@ -230,11 +273,11 @@ void DisplayController::currentFanSpeed(OLEDDisplay* display, OLEDDisplayUiState
     display->drawXbm(x, y + 20, fan_width, fan_height, fan_bits);
 }
 
-void DisplayController::startScreen(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+void SSD1306DisplayController::startScreen(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     display->drawXbm(x, y, logo_width, logo_height, logo_bits);
 }
 
-void DisplayController::menuMain(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+void SSD1306DisplayController::menuMain(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     display->setFont(MENU_FONT_NAME);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
 
@@ -261,7 +304,7 @@ void DisplayController::menuMain(OLEDDisplay* display, OLEDDisplayUiState* state
     display->drawString(x + 8, y + 36, "Override fan");
 }
 
-void DisplayController::menuSetDesiredTemperature(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+void SSD1306DisplayController::menuSetDesiredTemperature(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     display->setFont(ArialMT_Plain_16);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
     float value = round(m_temperatureSetPointKnob->value() * 2.0f) / 2.0f;
@@ -271,7 +314,7 @@ void DisplayController::menuSetDesiredTemperature(OLEDDisplay* display, OLEDDisp
     display->drawXbm(x, y + 20, thermometer_width, thermometer_height, (uint8_t*)thermometer_bits);
 }
 
-void DisplayController::menuOverrideFan(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+void SSD1306DisplayController::menuOverrideFan(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     display->setFont(ArialMT_Plain_16);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
     int16_t value = round(m_fanOverrideKnob->value());
@@ -289,7 +332,7 @@ void DisplayController::menuOverrideFan(OLEDDisplay* display, OLEDDisplayUiState
     display->drawXbm(x, y + 20, fan_width, fan_height, fan_bits);
 }
 
-void DisplayController::normalOverlayDisplay(OLEDDisplay* display, OLEDDisplayUiState* state) {
+void SSD1306DisplayController::normalOverlayDisplay(OLEDDisplay* display, OLEDDisplayUiState* state) {
     char buffer[16];
     // Current temperature speed
     display->setFont(ArialMT_Plain_10);

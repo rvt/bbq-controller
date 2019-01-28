@@ -114,7 +114,6 @@ bool DigitalKnob::isSingle() const {
 bool DigitalKnob::isEdgeUp() const {
     bool v = m_value[DIGITAL_KNOB_IS_EDGE_UP];
     m_value[DIGITAL_KNOB_IS_EDGE_UP] = false;
-
     return v;
 }
 bool DigitalKnob::isEdgeDown() const {
