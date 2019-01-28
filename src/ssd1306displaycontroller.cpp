@@ -1,5 +1,5 @@
 
-#include "ssd1306DisplayController.h"
+#include "ssd1306displaycontroller.h"
 #include <icons.h>
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
