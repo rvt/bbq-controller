@@ -46,15 +46,7 @@ private:
     std::array<FrameCallback, 3> menuScreens = { };
 
 
-    State* STATE_STARTSCREEN;
-    State* STATE_WAITLOGO;
-    State* STATE_CHANGETORUNSCREEN;
-    State* STATE_RUNSCREEN;
-    State* STATE_CHANGETOMENUSCREEN;
-    State* STATE_SELECTMENUITEM;
-    State* STATE_SETTEMP;
-    State* STATE_SETFAN;
-    State* STATE_CHANGETOMENUBUTTONRELEASE;
+
     std::unique_ptr<StateMachine> menuSequence;
 
     SSD1306Brzo* display;

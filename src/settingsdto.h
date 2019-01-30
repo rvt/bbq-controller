@@ -17,6 +17,22 @@ struct SettingsDTOData  {
 
     std::array<float, 4> temp_change_fast { {10, 20, 20, 30} };
 
+    bool operator==( const  SettingsDTOData& rhs) {
+        return 
+        setPoint == rhs.setPoint &&
+        temp_alpha == rhs.temp_alpha &&
+        fan_low == rhs.fan_low &&
+        fan_medium == rhs.fan_medium &&
+        fan_high == rhs.fan_high &&
+        temp_error_low == rhs.temp_error_low &&
+        temp_error_medium == rhs.temp_error_medium &&
+        temp_error_hight == rhs.temp_error_hight &&
+        temp_change_fast == rhs.temp_change_fast;
+    }
+
+    bool operator!=( const SettingsDTOData& rhs) {
+        return !(*this == rhs);
+    }
 };
 
 class SettingsDTO final {
@@ -27,8 +43,15 @@ public:
 
 
 public:
-    bool modified() const {
-        return memcmp(&m_data, &l_data, sizeof(m_data));
+    SettingsDTO(const SettingsDTOData & data) :
+        m_data(data),
+        l_data(data) {        
+    }
+    SettingsDTO() {        
+    }
+    
+    bool modified()  {
+        return m_data != l_data;
     }
 
     SettingsDTOData* data() {

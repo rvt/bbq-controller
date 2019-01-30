@@ -71,7 +71,7 @@ std::shared_ptr<AnalogIn> analogIn = std::make_shared<AnalogIn>(0.2f);
 DigitalKnob digitalKnob(BUTTON_PIN, true, 110);
 
 // Settings
-SettingsDTO settingsDTO;
+std::unique_ptr<SettingsDTO> settingsDTO(nullptr);
 
 // CRC value of last update to MQTT
 uint16_t lastUpdateCRC = 0;
@@ -82,11 +82,11 @@ Settings eepromSaveHandler(
     500,
     10000,
 []() {
-    CRCEEProm::write(0, *settingsDTO.data());
+    CRCEEProm::write(0, *settingsDTO->data());
     EEPROM.commit();
 },
 []() {
-    return settingsDTO.modified();
+    return settingsDTO->modified();
 }
 );
 
@@ -98,7 +98,7 @@ Settings mqttSaveHandler(
     MQTT_STATE_UPDATE_DELAY,
 []() {
 
-    std::string configString = settingsDTO.getConfigString();
+    std::string configString = settingsDTO->getConfigString();
 
     if (configString.size() > 0) {
         Serial.println(configString.c_str());
@@ -108,18 +108,11 @@ Settings mqttSaveHandler(
 
 },
 []() {
-    return settingsDTO.modified();
+    return settingsDTO->modified();
 }
 );
 
 // State machine states and configurations
-State* BOOTSEQUENCESTART;
-State* DELAYEDMQTTCONNECTION;
-State* TESTMQTTCONNECTION;
-State* CONNECTMQTT;
-State* PUBLISHONLINE;
-State* SUBSCRIBECOMMANDTOPIC;
-State* WAITFORCOMMANDCAPTURE;
 std::unique_ptr<StateMachine> bootSequence(nullptr);
 
 
@@ -220,24 +213,35 @@ void handleCmd(const char* topic, const char* p_payload) {
 
         if (temperature > 90.0f && temperature < 240.0f) {
             bbqController->setPoint(temperature);
-            settingsDTO.data()->setPoint = temperature;
+            settingsDTO->data()->setPoint = temperature;
         }
 
         // Copy to settings
-        settingsDTO.data()->temp_alpha = config.temp_alpha;
-        settingsDTO.data()->fan_low = config.fan_low;
-        settingsDTO.data()->fan_medium = config.fan_medium;
-        settingsDTO.data()->fan_high = config.fan_high;
-        settingsDTO.data()->temp_error_low = config.temp_error_low;
-        settingsDTO.data()->temp_error_medium = config.temp_error_medium;
-        settingsDTO.data()->temp_error_hight = config.temp_error_hight;
-        settingsDTO.data()->temp_change_fast = config.temp_change_fast;
+        settingsDTO->data()->temp_alpha = config.temp_alpha;
+        settingsDTO->data()->fan_low = config.fan_low;
+        settingsDTO->data()->fan_medium = config.fan_medium;
+        settingsDTO->data()->fan_high = config.fan_high;
+        settingsDTO->data()->temp_error_low = config.temp_error_low;
+        settingsDTO->data()->temp_error_medium = config.temp_error_medium;
+        settingsDTO->data()->temp_error_hight = config.temp_error_hight;
+        settingsDTO->data()->temp_change_fast = config.temp_change_fast;
 
         // Update the bbqController with new values
         bbqController->config(config);
         bbqController->init();
     }
 
+    if (strstr(topicPos, "reset") != nullptr) {
+        OptParser::get(p_payload, [](OptValue v) {
+            if (strcmp(v.key(), "1") == 0) {
+                Serial.println("reset SettingsDTOData");
+                SettingsDTOData d;
+                CRCEEProm::write(0, d);
+                EEPROM.commit();
+                // Restart didn´t work yet
+            }
+        });
+    }
     // Dummy data topic during testing
     // With ot we can simulate a oven temperature
     // BBQ/xxxxxx/dummy
@@ -371,7 +375,6 @@ void startOTA() {
 //  SETUP() AND LOOP()
 ///////////////////////////////////////////////////////////////////////////
 
-
 void setup() {
     // Enable serial port
     Serial.begin(115200);
@@ -380,11 +383,20 @@ void setup() {
     // setup Strings
     loadConfiguration(properties);
     Serial.println(properties.get("mqttClientID").getCharPtr());
+
+    State* BOOTSEQUENCESTART;
+    State* DELAYEDMQTTCONNECTION;
+    State* TESTMQTTCONNECTION;
+    State* CONNECTMQTT;
+    State* PUBLISHONLINE;
+    State* SUBSCRIBECOMMANDTOPIC;
+    State* WAITFORCOMMANDCAPTURE;
+
     BOOTSEQUENCESTART = new State([]() {
-        return TESTMQTTCONNECTION;
+        return 2;
     });
     DELAYEDMQTTCONNECTION = new StateTimed(1500, []() {
-        return TESTMQTTCONNECTION;
+        return 2;
     });
     TESTMQTTCONNECTION = new State([]() {
         if (mqttClient.connected())  {
@@ -392,10 +404,10 @@ void setup() {
                 mqttClient.disconnect();
             }
 
-            return DELAYEDMQTTCONNECTION;
+            return 1;
         }
 
-        return CONNECTMQTT;
+        return 3;
     });
     CONNECTMQTT = new State([]() {
         if (mqttClient.connect(
@@ -404,7 +416,7 @@ void setup() {
                 MQTT_PASS,
                 properties.get("mqttLastWillTopic").getCharPtr(),
                 0, 1, MQTT_LASTWILL_OFFLINE)) {
-            return PUBLISHONLINE;
+            return 4;
         }
 
         DEBUG_PRINTLN(F("ERROR: The connection to the MQTT broker failed"));
@@ -412,45 +424,40 @@ void setup() {
         DEBUG_PRINTLN(MQTT_USER);
         DEBUG_PRINT(F("Broker: "));
         DEBUG_PRINTLN(MQTT_SERVER);
-        return DELAYEDMQTTCONNECTION;
+        return 1;
     });
     PUBLISHONLINE = new State([]() {
         publishToMQTT(
             properties.get("mqttLastWillTopic").getCharPtr(),
             MQTT_LASTWILL_ONLINE);
-        return SUBSCRIBECOMMANDTOPIC;
+        return 5;
     });
     SUBSCRIBECOMMANDTOPIC = new State([]() {
         if (mqttClient.subscribe(properties.get("mqttSubscriberTopic").getCharPtr(), 0)) {
             Serial.println(properties.get("mqttSubscriberTopic").getCharPtr());
-            return WAITFORCOMMANDCAPTURE;
+            return 6;
         }
 
         DEBUG_PRINT(F("ERROR: Failed to connect to topic : "));
         mqttClient.disconnect();
-        return DELAYEDMQTTCONNECTION;
+        return 1;
     });
     WAITFORCOMMANDCAPTURE = new StateTimed(3000, []() {
-        return TESTMQTTCONNECTION;
+        return 2;
     });
     bootSequence.reset(new StateMachine({
-        BOOTSEQUENCESTART,
-        DELAYEDMQTTCONNECTION,
-        TESTMQTTCONNECTION,
-        CONNECTMQTT,
-        PUBLISHONLINE,
-        SUBSCRIBECOMMANDTOPIC,
-        WAITFORCOMMANDCAPTURE
+        BOOTSEQUENCESTART, // 0
+        DELAYEDMQTTCONNECTION,// 1
+        TESTMQTTCONNECTION, // 2
+        CONNECTMQTT, // 3
+        PUBLISHONLINE, // 4
+        SUBSCRIBECOMMANDTOPIC, // 5
+        WAITFORCOMMANDCAPTURE // 6
     }));
 
     startOTA();
     setupWiFi(properties);
     delay(50);
-
-    EEPROM.begin(CRCEEProm::size(*settingsDTO.data()));
-
-    SettingsDTOData data;
-    bool loadedFromEEPROM = CRCEEProm::read(0, data);
 
     // Setup mqtt
     mqttClient.setServer(properties.get("mqtt_server").getCharPtr(), properties.get("mqtt_port").getLong());
@@ -487,25 +494,29 @@ void setup() {
     ventilator1.reset(new PWMVentilator(FAN1_PIN, 10.0));
 #endif
 
-    //    analogIn.reset(new AnalogIn(BUTTON_PIN, false, 50.0f, 50.0f, 220.0f, 0.1));
-
     bbqController.reset(new BBQFanOnly(temperatureSensor1, ventilator1));
 
+    EEPROM.begin(CRCEEProm::size(*settingsDTO->data()));
+    SettingsDTOData data;
+    bool loadedFromEEPROM = CRCEEProm::read(0, data);
+
     if (loadedFromEEPROM) {
-        BBQFanOnlyConfig config = bbqController->config();
-        config.temp_alpha = data.temp_alpha;
-        config.fan_low = data.fan_low;
-        config.fan_medium = data.fan_medium;
-        config.fan_high = data.fan_high;
-        config.temp_error_low = data.temp_error_low;
-        config.temp_error_medium = data.temp_error_medium;
-        config.temp_error_hight = data.temp_error_hight;
-        config.temp_change_fast = data.temp_change_fast;
-
-        bbqController->config(config);
-        bbqController->setPoint(data.setPoint);
+        settingsDTO.reset(new SettingsDTO(data));
+    } else {
+        settingsDTO.reset(new SettingsDTO());
     }
-
+    
+    BBQFanOnlyConfig config = bbqController->config();
+    config.temp_alpha = settingsDTO->data()->temp_alpha;
+    config.fan_low = settingsDTO->data()->fan_low;
+    config.fan_medium = settingsDTO->data()->fan_medium;
+    config.fan_high = settingsDTO->data()->fan_high;
+    config.temp_error_low = settingsDTO->data()->temp_error_low;
+    config.temp_error_medium = settingsDTO->data()->temp_error_medium;
+    config.temp_error_hight = settingsDTO->data()->temp_error_hight;
+    config.temp_change_fast = settingsDTO->data()->temp_change_fast;
+    bbqController->config(config);
+    bbqController->setPoint(settingsDTO->data()->setPoint);
     bbqController->init();
 
     // Start boot sequence
@@ -557,7 +568,7 @@ void loop() {
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             mqttSaveHandler.handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
-            settingsDTO.reset();
+            settingsDTO->reset();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             temperatureSensor1->handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
