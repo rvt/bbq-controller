@@ -3,34 +3,40 @@
 #include <stdint.h>
 #include <array>
 
+#include <bbqfanonly.h>
 
 struct SettingsDTOData  {
     float setPoint = 20;
-    float temp_alpha = 0.1;
-    std::array<float, 4> fan_low  { {0, 0, 0, 50} };
-    std::array<float, 4> fan_medium  { {25, 50, 50, 75} };
-    std::array<float, 4> fan_high  { {50, 100, 100, 100} };
+    float temp_alpha = .1f;         // Lid Open Filter Alpha Fan filter
 
-    std::array<float, 2> temp_error_low  { {0, 10} };
-    std::array<float, 4> temp_error_medium  { {0, 15, 15, 30} };
-    std::array<float, 4> temp_error_hight { {15, 200, 200, 200} };
+    std::array<float, 4> fan_low  = FAN_LOW_DEFAULT;
+    std::array<float, 4> fan_medium  = FAN_MEDIUM_DEFAULT;
+    std::array<float, 4> fan_high = FAN_HIGH_DEFAULT;
 
-    std::array<float, 4> temp_change_fast { {10, 20, 20, 30} };
+    std::array<float, 2> temp_error_low = TEMP_ERROR_LOW_DEFAULT;
+    std::array<float, 4> temp_error_medium  = TEMP_ERROR_MEDIUM_DEFAULT;
+    std::array<float, 4> temp_error_hight = TEMP_ERROR_HIGH_DEFAULT;
 
-    bool operator==( const  SettingsDTOData& rhs) {
-        return 
-        setPoint == rhs.setPoint &&
-        temp_alpha == rhs.temp_alpha &&
-        fan_low == rhs.fan_low &&
-        fan_medium == rhs.fan_medium &&
-        fan_high == rhs.fan_high &&
-        temp_error_low == rhs.temp_error_low &&
-        temp_error_medium == rhs.temp_error_medium &&
-        temp_error_hight == rhs.temp_error_hight &&
-        temp_change_fast == rhs.temp_change_fast;
+    std::array<float, 2> temp_change_slow = TEMP_CHANGE_LOW_DEFAULT;
+    std::array<float, 4> temp_change_medium = TEMP_CHANGE_MEDIUM_DEFAULT;
+    std::array<float, 4> temp_change_fast = TEMP_CHANGE_FAST_DEFAULT;
+
+    bool operator==(const  SettingsDTOData& rhs) {
+        return
+            setPoint == rhs.setPoint &&
+            temp_alpha == rhs.temp_alpha &&
+            fan_low == rhs.fan_low &&
+            fan_medium == rhs.fan_medium &&
+            fan_high == rhs.fan_high &&
+            temp_error_low == rhs.temp_error_low &&
+            temp_error_medium == rhs.temp_error_medium &&
+            temp_error_hight == rhs.temp_error_hight &&
+            temp_change_slow == rhs.temp_change_slow &&
+            temp_change_medium == rhs.temp_change_medium &&
+            temp_change_fast == rhs.temp_change_fast;
     }
 
-    bool operator!=( const SettingsDTOData& rhs) {
+    bool operator!=(const SettingsDTOData& rhs) {
         return !(*this == rhs);
     }
 };
@@ -43,13 +49,13 @@ public:
 
 
 public:
-    SettingsDTO(const SettingsDTOData & data) :
+    SettingsDTO(const SettingsDTOData& data) :
         m_data(data),
-        l_data(data) {        
+        l_data(data) {
     }
-    SettingsDTO() {        
+    SettingsDTO() {
     }
-    
+
     bool modified()  {
         return m_data != l_data;
     }
@@ -75,6 +81,8 @@ public:
                           " tel=%.1f,%.1f"
                           " tem=%.1f,%.1f,%.1f,%.1f"
                           " teh=%.1f,%.1f,%.1f,%.1f"
+                          " tcs=%.1f,%.1f",
+                          " tcm=%.1f,%.1f,%.1f,%.1f",
                           " tcf=%.1f,%.1f,%.1f,%.1f",
                           m_data.setPoint,
                           m_data.temp_alpha,
@@ -84,6 +92,8 @@ public:
                           m_data.temp_error_low[0], m_data.temp_error_low[1],
                           m_data.temp_error_medium[0], m_data.temp_error_medium[1], m_data.temp_error_medium[2], m_data.temp_error_medium[3],
                           m_data.temp_error_hight[0], m_data.temp_error_hight[1], m_data.temp_error_hight[2], m_data.temp_error_hight[3],
+                          m_data.temp_change_slow[0], m_data.temp_change_slow[1],
+                          m_data.temp_change_medium[0], m_data.temp_change_medium[1], m_data.temp_change_medium[2], m_data.temp_change_medium[3],
                           m_data.temp_change_fast[0], m_data.temp_change_fast[1], m_data.temp_change_fast[2], m_data.temp_change_fast[3]
                          );
     }

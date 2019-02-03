@@ -34,9 +34,9 @@ public:
         float alpha;
 
         if (mUp) {
-            alpha = 0.02f;
+            alpha = 0.002f;
         } else {
-            alpha = 0.01f;
+            alpha = 0.001f;
         }
 
         float probe = mAirFlow;
@@ -75,5 +75,4 @@ public:
         return mTemperature;
     }
 };
-
 

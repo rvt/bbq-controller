@@ -7,7 +7,7 @@
 /**
  * non blocking version of Adafruit_MAX31865
  * The original Library used delay to wait for conversion completed
- * This version will use a small state machine to keep track of timing and 
+ * This version will use a small state machine to keep track of timing and
  * will ensure no delays when calling handle()
  */
 class MAX31865sensor : public TemperatureSensor, public Adafruit_MAX31865 {

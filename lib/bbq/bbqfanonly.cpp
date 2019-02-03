@@ -40,7 +40,6 @@ BBQFanOnly::BBQFanOnly(std::shared_ptr<TemperatureSensor> pTempSensor,
     m_tempLastError(0.0),
     m_fanCurrentSpeed(m_fan->speed()),
     m_tempFiltered(m_tempSensor->get()),
-    m_deltaError(0.0),
     m_tempDropFiltered(0.0) {
 }
 
@@ -58,6 +57,7 @@ BBQFanOnlyConfig BBQFanOnly::config() const {
 void BBQFanOnly::init() {
     delete m_fuzzy;
     m_fuzzy = new Fuzzy();
+
     // Create input for Temperature errors
     FuzzyInput* tempErrorInput = new FuzzyInput(TEMP_ERROR_INPUT);
     m_fuzzy->addFuzzyInput(tempErrorInput);
@@ -73,11 +73,26 @@ void BBQFanOnly::init() {
     FuzzySet* tempErrorPositiveHigh = fuzzyFromVector(m_config.temp_error_hight, false);
     tempErrorInput->addFuzzySet(tempErrorPositiveHigh);
 
+    // Input for temperature changes
+    FuzzyInput* tempDrop = new FuzzyInput(TEMP_FILTERED_INPUT);
+    m_fuzzy->addFuzzyInput(tempDrop);
+    FuzzySet* tdf = fuzzyFromVector(m_config.temp_change_fast, true);
+    tempDrop->addFuzzySet(tdf);
+    FuzzySet* tdm = fuzzyFromVector(m_config.temp_change_medium, true);
+    tempDrop->addFuzzySet(tdm);
+    FuzzySet* tds = fuzzyFromVector(m_config.temp_change_slow, false);
+    tempDrop->addFuzzySet(tds);
+    FuzzySet* thm = fuzzyFromVector(m_config.temp_change_medium, false);
+    tempDrop->addFuzzySet(thm);
+    FuzzySet* thf = fuzzyFromVector(m_config.temp_change_fast, false);
+    tempDrop->addFuzzySet(thf);
 
     // Create Output for Fan
     FuzzyOutput* fan = new FuzzyOutput(FAN_OUTPUT);
     m_fuzzy->addFuzzyOutput(fan);
 
+    FuzzySet* fanOff = new FuzzySet(0, 0, 0, 0);
+    fan->addFuzzySet(fanOff);
     FuzzySet* fanLow = fuzzyFromVector(m_config.fan_low, false);
     fan->addFuzzySet(fanLow);
     FuzzySet* fanMedium = fuzzyFromVector(m_config.fan_medium, false);
@@ -85,46 +100,33 @@ void BBQFanOnly::init() {
     FuzzySet* fanHigh = fuzzyFromVector(m_config.fan_high, false);
     fan->addFuzzySet(fanHigh);
 
-
-    // Fuzzy inputs for temperature drops
-    FuzzyInput* tempChance = new FuzzyInput(TEMP_DELTA_ERROR_INPUT);
-    m_fuzzy->addFuzzyInput(tempChance);
-
-    FuzzySet* tempChangeDropFast = fuzzyFromVector(m_config.temp_change_fast, true);
-    tempChance->addFuzzySet(tempChangeDropFast);
-
-    // Temperature control
     uint8_t rule = 30;
+    joinSingleAND(rule++, tempErrorNegativeHigh, tdf, fanHigh);
+    joinSingleAND(rule++, tempErrorNegativeHigh, tdm, fanHigh);
+    joinSingleAND(rule++, tempErrorNegativeHigh, tds, fanHigh);
+    joinSingleAND(rule++, tempErrorNegativeHigh, thm, fanHigh);
+    joinSingleAND(rule++, tempErrorNegativeHigh, thf, fanHigh);
 
-    joinSingle(rule++, tempErrorNegativeHigh, fanHigh);
-    joinSingle(rule++, tempErrorNegativeMedium, fanHigh);
-    joinSingle(rule++, tempErrorLow, fanMedium);
-    joinSingle(rule++, tempErrorPositiveMedium, fanLow);
-    joinSingle(rule++, tempErrorPositiveHigh, fanLow);
+    // 5
+    joinSingleAND(rule++, tempErrorNegativeMedium, tdf, fanHigh);
+    joinSingleAND(rule++, tempErrorNegativeMedium, tdm, fanHigh);
+    joinSingleAND(rule++, tempErrorNegativeMedium, tds, fanHigh);
+    joinSingleAND(rule++, tempErrorNegativeMedium, thm, fanMedium);
+    joinSingleAND(rule++, tempErrorNegativeMedium, thf, fanMedium);
 
-    // Lid alert rules
-    FuzzyInput* tmpFilteredInput = new FuzzyInput(TEMP_FILTERED_INPUT);
-    m_fuzzy->addFuzzyInput(tmpFilteredInput);
-    FuzzySet* tempLidDropFast = fuzzyFromVector(m_config.temp_change_fast, true);
-    tmpFilteredInput->addFuzzySet(tempLidDropFast);
-    FuzzyOutput* lidAlertOutput = new FuzzyOutput(LID_ALERT_OUTPUT);
-    m_fuzzy->addFuzzyOutput(lidAlertOutput);
-    FuzzySet* lidAlertSet = new FuzzySet(-100, 0, 0, 100);
-    lidAlertOutput->addFuzzySet(lidAlertSet);
-    joinSingle(LID_ALERT_RULE, tempLidDropFast, lidAlertSet);
+    // 10
+    joinSingleAND(rule++, tempErrorLow, tdf, fanMedium);
+    joinSingleAND(rule++, tempErrorLow, tdm, fanMedium);
+    joinSingleAND(rule++, tempErrorLow, tds, fanMedium);
+    joinSingleAND(rule++, tempErrorLow, thm, fanLow);
+    joinSingleAND(rule++, tempErrorLow, thf, fanLow);
 
-    // CHarcoal rules
-    // FuzzyInput* fanInput = new FuzzyInput(FAN_INPUT);
-    // m_fuzzy->addFuzzyInput(fanInput);
-    // FuzzyOutput* charcoalAlertOutput = new FuzzyOutput(CHARCOAL_ALERT_OUTPUT);
-    // m_fuzzy->addFuzzyOutput(charcoalAlertOutput);
-    // FuzzySet* lowCharcoaltempDropSlow = new FuzzySet(-2 / divider, -1 / divider, -1 / divider, 0 / divider);
-    // tempChance->addFuzzySet(lowCharcoaltempDropSlow);
-    // FuzzySet* lowCharcoalFanMedium = new FuzzySet(20, 40, 40, 60);
-    // charcoalAlertOutput->addFuzzySet(lowCharcoalFanMedium);
-    // FuzzySet* charcoalAlertSet = new FuzzySet(-100, 0, 0, 100);
-    // charcoalAlertOutput->addFuzzySet(charcoalAlertSet);
-    // joinSingleAND(10, lowCharcoalFanMedium, lowCharcoaltempDropSlow, charcoalAlertSet);
+    // 15
+    joinSingleAND(rule++, tempErrorPositiveMedium, tdf, fanMedium);
+    joinSingleAND(rule++, tempErrorPositiveMedium, tdm, fanMedium);
+    joinSingleAND(rule++, tempErrorPositiveMedium, tds, fanLow);
+    joinSingleAND(rule++, tempErrorPositiveMedium, thm, fanOff);
+    joinSingleAND(rule++, tempErrorPositiveMedium, thf, fanOff);
 }
 
 
@@ -136,7 +138,6 @@ float BBQFanOnly::setPoint() const {
 }
 
 void BBQFanOnly::handle() {
-    m_deltaError = ((m_tempSensor->get() - m_setPoint) - m_tempLastError) * 1000.0;
     m_tempLastError = m_tempSensor->get() - m_setPoint;
     m_tempDropFiltered = m_tempSensor->get() - m_tempFiltered;
 
@@ -144,10 +145,11 @@ void BBQFanOnly::handle() {
     // Usefull for LID open and low charcoal alerts
     m_tempFiltered = m_tempFiltered + (m_tempSensor->get() - m_tempFiltered) * m_config.temp_alpha;
 
-    m_fuzzy->setInput(TEMP_FILTERED_INPUT, m_tempDropFiltered);
+    // Temperature changes
+    m_fuzzy->setInput(TEMP_FILTERED_INPUT, m_fanCurrentSpeed);
 
-    // Feed delta error (t-1)
-    m_fuzzy->setInput(TEMP_DELTA_ERROR_INPUT, m_deltaError);
+    // Temperature changes
+    m_fuzzy->setInput(TEMP_FILTERED_INPUT, m_tempDropFiltered);
     // Feed temp error
     m_fuzzy->setInput(TEMP_ERROR_INPUT, m_tempLastError);
     // Fan input
@@ -160,24 +162,12 @@ void BBQFanOnly::handle() {
 
     // Finally set fan
     m_fan->speed(m_fanCurrentSpeed);
-
-#ifdef UNIT_TEST_OTHER
-    std::cout << " f3:" << m_fuzzy->defuzzify(3) << " td:" << std::setw(6) << m_lastTempError << " ch:" << std::setw(6) << tempDiff * 1000;
-
-    for (int i = 0; i < 20; i++) {
-        std::cout << std::fixed << std::setprecision(3) << m_fuzzy->isFiredRule(i + 29);
-
-        if (i % 5 == 0) {
-            std::cout << " ";
-        }
-    };
-
-#endif
 }
 
-float BBQFanOnly::deltaErrorInput() const {
-    return m_deltaError;
+bool BBQFanOnly::ruleFired(uint8_t i) {
+    return m_fuzzy->isFiredRule(i);
 }
+
 float BBQFanOnly::tempDropFilteredInput() const {
     return m_tempDropFiltered;
 }

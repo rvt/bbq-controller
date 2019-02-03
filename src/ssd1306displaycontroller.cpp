@@ -39,7 +39,7 @@ static std::unique_ptr<NumericKnob> m_menuKnob;
 #define MENU_FONT_NAME ArialMT_Plain_10
 #define MENU_FONT_SIZE 10
 
-SSD1306DisplayController::SSD1306DisplayController(uint8_t m_wireSda,  uint8_t m_wireScl) : 
+SSD1306DisplayController::SSD1306DisplayController(uint8_t m_wireSda,  uint8_t m_wireScl) :
     display(new SSD1306Brzo(0x3c, m_wireSda, m_wireScl)),
     ui(new OLEDDisplayUi(display)),
     m_lastMillis(0) {
@@ -86,7 +86,7 @@ void SSD1306DisplayController::init() {
     State* STATE_SETTEMP;
     State* STATE_SETFAN;
     State* STATE_CHANGETOMENUBUTTONRELEASE;
-    
+
     STATE_STARTSCREEN = new State([&]() {
         ui->setOverlays(displayOverlay.data(), displayOverlay.size());
         ui->setFrames(startScreens.data(), startScreens.size());
@@ -222,9 +222,10 @@ void SSD1306DisplayController::init() {
 uint32_t SSD1306DisplayController::handle() {
     uint32_t budget =  ui->update();
     uint32_t currentMillis = millis();
-    if (budget>0 && (currentMillis - m_lastMillis) >= MILLIS_PER_FRAME) {
+
+    if (budget > 0 && (currentMillis - m_lastMillis) >= MILLIS_PER_FRAME) {
         m_lastMillis = currentMillis;
-       menuSequence->handle();
+        menuSequence->handle();
     }
 
     return budget;

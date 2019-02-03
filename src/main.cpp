@@ -242,6 +242,7 @@ void handleCmd(const char* topic, const char* p_payload) {
             }
         });
     }
+
     // Dummy data topic during testing
     // With ot we can simulate a oven temperature
     // BBQ/xxxxxx/dummy
@@ -487,9 +488,9 @@ void setup() {
 
     temperatureSensor2.reset(mockedTemp2);
 
-//    Adafruit_MAX31855* max31855 = new Adafruit_MAX31855(PIN_SPI_SCK);
-//    max31855->begin();
-//    temperatureSensor2.reset(new MAX31855sensor(max31855));
+    //    Adafruit_MAX31855* max31855 = new Adafruit_MAX31855(PIN_SPI_SCK);
+    //    max31855->begin();
+    //    temperatureSensor2.reset(new MAX31855sensor(max31855));
 
     ventilator1.reset(new PWMVentilator(FAN1_PIN, 10.0));
 #endif
@@ -505,7 +506,7 @@ void setup() {
     } else {
         settingsDTO.reset(new SettingsDTO());
     }
-    
+
     BBQFanOnlyConfig config = bbqController->config();
     config.temp_alpha = settingsDTO->data()->temp_alpha;
     config.fan_low = settingsDTO->data()->fan_low;

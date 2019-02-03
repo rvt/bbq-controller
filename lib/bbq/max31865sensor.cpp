@@ -4,7 +4,7 @@ extern HardwareSerial Serial;
 
 MAX31865sensor::MAX31865sensor(int8_t spi_cs, int8_t spi_mosi, int8_t spi_miso, int8_t spi_clk, float p_RNominal, float p_Rref) :
     TemperatureSensor(),
-    Adafruit_MAX31865(spi_cs,spi_mosi,spi_miso,spi_clk),
+    Adafruit_MAX31865(spi_cs, spi_mosi, spi_miso, spi_clk),
     m_RNominal(p_RNominal),
     m_Rref(p_Rref),
     m_lastTemp(20.0),
@@ -18,15 +18,15 @@ void MAX31865sensor::handle() {
         enableBias(true);
         m_commState++;
         m_lastMillis = millis();
-    } else if (m_commState==1 && (millis() - m_lastMillis) > 10) {
+    } else if (m_commState == 1 && (millis() - m_lastMillis) > 10) {
         uint8_t t = readRegister8(MAX31856_CONFIG_REG);
-        t |= MAX31856_CONFIG_1SHOT;      
+        t |= MAX31856_CONFIG_1SHOT;
         writeRegister8(MAX31856_CONFIG_REG, t);
         m_commState++;
         m_lastMillis = millis();
-    } else if (m_commState==2 && (millis() - m_lastMillis) > 65) {
+    } else if (m_commState == 2 && (millis() - m_lastMillis) > 65) {
         uint16_t rtd = readRegister16(MAX31856_RTDMSB_REG);
-        enableBias(false);	// to lessen sensor self-heating
+        enableBias(false);  // to lessen sensor self-heating
         m_commState = 0;
 
         if (readFault() != 0) {
@@ -36,7 +36,7 @@ void MAX31865sensor::handle() {
         // Use uint16_t (ohms * 100) since it matches data type in lookup table.
         uint32_t dummy = ((uint32_t)rtd) * 100 * ((uint32_t) floor(m_Rref)) ;
         dummy >>= 16 ;
-        uint16_t ohmsx100 = (uint16_t) (dummy & 0xFFFF) ;
+        uint16_t ohmsx100 = (uint16_t)(dummy & 0xFFFF) ;
 
         // or use exact ohms floating point value.
         //float ohms = (float)(ohmsx100 / 100) + ((float)(ohmsx100 % 100) / 100.0) ;

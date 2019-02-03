@@ -12,19 +12,32 @@
 #include <cstdlib>
 #include <algorithm>
 
+#define FAN_LOW_DEFAULT std::array<float, 4> { {0, 25, 25, 50} };
+#define FAN_MEDIUM_DEFAULT std::array<float, 4> { {25, 50, 50, 75} };
+#define FAN_HIGH_DEFAULT std::array<float, 4> { {50, 200, 200, 200} }; // why 200???
+
+#define TEMP_ERROR_LOW_DEFAULT std::array<float, 2> { {0, 5} };
+#define TEMP_ERROR_MEDIUM_DEFAULT std::array<float, 4> { {0, 10, 10, 25} };
+#define TEMP_ERROR_HIGH_DEFAULT std::array<float, 4> { {10, 100, 200, 200} };
+
+#define TEMP_CHANGE_LOW_DEFAULT std::array<float, 2> { {0, .1} };
+#define TEMP_CHANGE_MEDIUM_DEFAULT std::array<float, 4> { {0, .2, .2, 0.5} };
+#define TEMP_CHANGE_FAST_DEFAULT std::array<float, 4> { {.2, .5, 2, 2} };
+
 struct BBQFanOnlyConfig {
     float temp_alpha = .1f;         // Lid Open Filter Alpha Fan filter
 
-    std::array<float, 4> fan_low  { {0, 0, 0, 50} };
-    std::array<float, 4> fan_medium  { {25, 50, 50, 75} };
-    std::array<float, 4> fan_high  { {50, 100, 100, 100} };
+    std::array<float, 4> fan_low  = FAN_LOW_DEFAULT;
+    std::array<float, 4> fan_medium  = FAN_MEDIUM_DEFAULT;
+    std::array<float, 4> fan_high = FAN_HIGH_DEFAULT;
 
-    std::array<float, 2> temp_error_low  { {0, 10} };
-    std::array<float, 4> temp_error_medium  { {0, 15, 15, 30} };
-    std::array<float, 4> temp_error_hight { {15, 200, 200, 200} };
+    std::array<float, 2> temp_error_low = TEMP_ERROR_LOW_DEFAULT;
+    std::array<float, 4> temp_error_medium  = TEMP_ERROR_MEDIUM_DEFAULT;
+    std::array<float, 4> temp_error_hight = TEMP_ERROR_HIGH_DEFAULT;
 
-    std::array<float, 4> temp_change_fast { {10, 20, 20, 30} };
-
+    std::array<float, 2> temp_change_slow = TEMP_CHANGE_LOW_DEFAULT;
+    std::array<float, 4> temp_change_medium = TEMP_CHANGE_MEDIUM_DEFAULT;
+    std::array<float, 4> temp_change_fast = TEMP_CHANGE_FAST_DEFAULT;
 };
 
 class BBQFanOnly : public BBQ {
@@ -36,7 +49,6 @@ private:
     float m_tempLastError;  // Last temperature error input
     float m_fanCurrentSpeed;            // current fan speed
     float m_tempFiltered;   // Temperature that is bassed through a filter
-    float m_deltaError;  // Delta error inout
     float m_tempDropFiltered;    // Temperature Drop Input but filtered using alpha
     BBQFanOnlyConfig m_config;
 public:
@@ -50,9 +62,9 @@ public:
     virtual bool lidOpen();
 
     // Fuzzy inputs monitoring
-    float deltaErrorInput() const;
     float tempDropFilteredInput() const;
     float lastErrorInput() const;
+    bool ruleFired(uint8_t i);
     void config(const BBQFanOnlyConfig& p_config);
     BBQFanOnlyConfig config() const;
 

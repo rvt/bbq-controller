@@ -26,7 +26,11 @@ public:
     }
 
     virtual float setVentilator() {
-        m_speed = m_speed + (m_speed - speed()) * 0.1f;
+        m_speed = m_speed + (speed() - m_speed) * 0.001f;
+        return m_speed;
+    }
+
+    float mockedSpeed() const {
         return m_speed;
     }
 };

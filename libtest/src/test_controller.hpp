@@ -7,6 +7,11 @@
 #include <bbqfanonly.h>
 #include <iomanip>
 
+TEST_CASE("Graph Controller against simulated oven FuzzySet", "[GRAPH][.]") {
+    FuzzySet* tdf = new FuzzySet(-2000, -1000, -1000, -500);
+    tdf->calculatePertinence(-10);
+}
+
 // Run with make; ./tests [GRAPH] > out.csv
 // Plot with https://plot.ly/create/#/
 TEST_CASE("Graph Controller against simulated oven", "[GRAPH][.]") {
@@ -17,28 +22,58 @@ TEST_CASE("Graph Controller against simulated oven", "[GRAPH][.]") {
     std::shared_ptr<MockedFan> uMockedFan(mockedFan);
     BBQFanOnly* bbqFanOnly = new BBQFanOnly(std::move(uMockedTemp), std::move(uMockedFan));
     bbqFanOnly->init();
-    bbqFanOnly->setPoint(25);
+    bbqFanOnly->setPoint(130);
     mockedTemp->set(oven.temperature()); // set temperature sensor to oven temperature
 
-    std::cout << "i,Temperature,setPoint,fan,deltaError,lastError,drop\n";
+    std::cout << "i,Temperature,setPoint,fan,lastError,drop\n";
 
     for (int i = 0; i < 12000000; i = i + 100) {
         millisStubbed = i;
-        oven.airFlow(mockedFan->speed()); // Set airflow of oven to fanspeed
+        oven.airFlow(mockedFan->mockedSpeed()); // Set airflow of oven to fanspeed
         mockedTemp->set(oven.temperature()); // set temperature sensor to oven temperature
         oven.handle();
-        bbqFanOnly->handle();
 
-        if (i % 5000 == 0 && i > 0) {
+        if (i % 1000 == 0 && i > 0) {
+            bbqFanOnly->handle();
             std::cout
-                    << i << ","
+                    << i / 1000 << ","
                     << oven.temperature() << ","
                     << bbqFanOnly->setPoint() << ","
-                    << mockedFan->speed() << ","
-                    << bbqFanOnly->deltaErrorInput() << ","
+                    << mockedFan->mockedSpeed() << ","
                     << bbqFanOnly->lastErrorInput() << ","
-                    << bbqFanOnly->tempDropFilteredInput() << "\n";
+                    << bbqFanOnly->tempDropFilteredInput() * 1000 << ",";
+
+            for (int i = 0; i < 20; i++) {
+                std::cout << (30 + i) << ":" << bbqFanOnly->ruleFired(30 + i) << ",";
+
+            };
+
+            std::cout << "\n";
         }
+    }
+}
+
+TEST_CASE("Single test", "[SINGLE][.]") {
+    MockedTemperature* mockedTemp = new MockedTemperature(130.0);
+    std::shared_ptr<TemperatureSensor> uMockedTemp(mockedTemp);
+    MockedFan* mockedFan = new MockedFan();
+    std::shared_ptr<MockedFan> uMockedFan(mockedFan);
+    BBQFanOnly* bbqFanOnly = new BBQFanOnly(std::move(uMockedTemp), std::move(uMockedFan));
+    bbqFanOnly->init();
+    bbqFanOnly->setPoint(130);
+    mockedTemp->set(130.0); // set temperature sensor to oven temperature
+
+    std::cout << "i,Temperature,setPoint,fan,deltaError,lastError,drop\n";
+
+
+    for (int i = 0; i < 120; i = i + 100) {
+        bbqFanOnly->handle();
+        std::cout
+                << mockedTemp->get() << ","
+                << bbqFanOnly->setPoint() << ","
+                << mockedFan->speed() << ","
+                << bbqFanOnly->lastErrorInput() << ","
+                << bbqFanOnly->tempDropFilteredInput() << "\n";
     }
 }
 
