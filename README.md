@@ -121,3 +121,13 @@ Additional documentation from the official website:
 
 [MAX31865](https://www.maximintegrated.com/en/products/sensors/MAX31865.html)
 [MAX31855](https://www.maximintegrated.com/en/products/sensors/MAX31855.html)
+
+# Credits
+
+* AJ Alves - Fuzzy Logic [eFLL (Embedded Fuzzy Logic Library)](https://github.com/zerokol/eFLL)
+* [Adafruit Libraries](https://www.adafruit.com/)
+* Knolleary PubSub Client [Pub Sub client](https://pubsubclient.knolleary.net)
+* Faster i2c [Brzo i2c](https://github.com/pasko-zh/brzo_i2c/wiki)
+* ESP8266 OLED [SSD1306](https://github.com/squix78/esp8266-oled-ssd1306)
+* ESP EEPROM helper library [ESP EEPROM](https://github.com/jwrw/ESP_EEPROM)
+* PT1000 Library [pt100 rtd](https://github.com/drhaney/pt100rtd)
