@@ -18,8 +18,9 @@
 #include <makestring.h>
 
 // #include <spi.h> // Include for harware SPI
-#include <max31865sensor.h>
+#include <MAX31855.h>
 #include <max31855sensor.h>
+#include <max31865sensor.h>
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient/releases/tag/v2.6
 
 #include "ssd1306displaycontroller.h"
@@ -481,16 +482,12 @@ void setup() {
     temperatureSensor2.reset(mockedTemp2);
     ventilator1.reset(new MockedFan());
 #else
-    auto sensor = new MAX31865sensor(SPI_MAX31865_CS_PIN, SPI_SDI_PIN, SPI_SDO_PIN, SPI_CLK_PIN, RNOMINAL_OVEN, RREF_OVEN);
-    sensor->begin(MAX31865_3WIRE);
+    auto sensor1 = new MAX31865sensor(SPI_MAX31865_CS_PIN, SPI_SDI_PIN, SPI_SDO_PIN, SPI_CLK_PIN, RNOMINAL_OVEN, RREF_OVEN);
+    sensor1->begin(MAX31865_3WIRE);
+    temperatureSensor1.reset(sensor1);
 
-    temperatureSensor1.reset(sensor);
-
-    temperatureSensor2.reset(mockedTemp2);
-
-    //    Adafruit_MAX31855* max31855 = new Adafruit_MAX31855(PIN_SPI_SCK);
-    //    max31855->begin();
-    //    temperatureSensor2.reset(new MAX31855sensor(max31855));
+    auto sensor2 = new MAX31855(SPI_SDO_PIN, SPI_MAX31855_CS_PIN, SPI_CLK_PIN);
+    temperatureSensor2.reset(new MAX31855sensor(sensor2));
 
     ventilator1.reset(new PWMVentilator(FAN1_PIN, 10.0));
 #endif
