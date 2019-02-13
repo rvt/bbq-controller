@@ -12,7 +12,7 @@ TEST_CASE("Graph Controller against simulated oven FuzzySet", "[GRAPH][.]") {
     tdf->calculatePertinence(-10);
 }
 
-// Run with make; ./tests [GRAPH] > out.csv
+// Run with :  rm tests; make; ./tests [GRAPH] > out.csv
 // Plot with https://plot.ly/create/#/
 TEST_CASE("Graph Controller against simulated oven", "[GRAPH][.]") {
     MockedOven oven;
@@ -25,15 +25,15 @@ TEST_CASE("Graph Controller against simulated oven", "[GRAPH][.]") {
     bbqFanOnly->setPoint(130);
     mockedTemp->set(oven.temperature()); // set temperature sensor to oven temperature
 
-    std::cout << "i,Temperature,setPoint,fan,lastError,drop\n";
+    std::cout << "i,Temperature,setPoint,fan,lastError,change\n";
 
     for (int i = 0; i < 12000000; i = i + 100) {
         millisStubbed = i;
-        oven.airFlow(mockedFan->mockedSpeed()); // Set airflow of oven to fanspeed
+        oven.airFlow(mockedFan->mockedSpeed()*.8); // Set airflow of oven to fanspeed
         mockedTemp->set(oven.temperature()); // set temperature sensor to oven temperature
         oven.handle();
 
-        if (i % 1000 == 0 && i > 0) {
+        if (i % 5000 == 0 && i > 0) {
             bbqFanOnly->handle();
             std::cout
                     << i / 1000 << ","
@@ -41,7 +41,7 @@ TEST_CASE("Graph Controller against simulated oven", "[GRAPH][.]") {
                     << bbqFanOnly->setPoint() << ","
                     << mockedFan->mockedSpeed() << ","
                     << bbqFanOnly->lastErrorInput() << ","
-                    << bbqFanOnly->tempDropFilteredInput() * 1000 << ",";
+                    << bbqFanOnly->tempChangeInput() << ",";
 
             for (int i = 0; i < 20; i++) {
                 std::cout << (30 + i) << ":" << bbqFanOnly->ruleFired(30 + i) << ",";
@@ -63,7 +63,7 @@ TEST_CASE("Single test", "[SINGLE][.]") {
     bbqFanOnly->setPoint(130);
     mockedTemp->set(130.0); // set temperature sensor to oven temperature
 
-    std::cout << "i,Temperature,setPoint,fan,deltaError,lastError,drop\n";
+    std::cout << "i,Temperature,setPoint,fan,deltaError,lastError,change\n";
 
 
     for (int i = 0; i < 120; i = i + 100) {
@@ -73,7 +73,7 @@ TEST_CASE("Single test", "[SINGLE][.]") {
                 << bbqFanOnly->setPoint() << ","
                 << mockedFan->speed() << ","
                 << bbqFanOnly->lastErrorInput() << ","
-                << bbqFanOnly->tempDropFilteredInput() << "\n";
+                << bbqFanOnly->tempChangeInput() << "\n";
     }
 }
 

@@ -85,7 +85,6 @@ The controller uses a single topic to configure the behavior.
 |---   |---    |---       |---     |---      |---    |---   |
 | sp   | float | Set the desired temperature | 90..240 | 30.0 | Celsius |
 | f1o  | float | Override fan 1 | -1-100 | -1 | % | -1 will set it to auto mode, eg let the controller handle the speed. Any value > -0.5 will be in override |
-| ta   | float | Alpha value to filter the temperature so we can detect rise/fall in temperature | 0.01..1.0 | 0.1 | - | |
 | fl1  | float,float,float,float | Fuzzy set for Low Fan |  0-100 | 0.0,0.0,0.0,50.0 | % | |
 | fm1  | float,float,float,float | Fuzzy set for Medium Fan |  0-100 | 25.0,50.0,50.0,75.0 | % | |
 | fh1  | float,float,float,float | Fuzzy set for Hight Fan |  0-100 | 50.0,100.0,100.0,100.0 | % | |
@@ -100,8 +99,6 @@ Example messages to ```BBQ/XXXXXXXX/config```:
 * ```f1o=55``` Override fan speed to 55%
 * ```f1o=-1 sp=180.0``` Enable auto mode and set desired temp to 180Celsius in one configuration line
 * ```fl1=0.0,0.0,0.0,50.0``` Update Fuzzy Set for fan 1, this will re-configure the BBQ controller
-
-
 
 ## Hardware needed
 

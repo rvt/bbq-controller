@@ -8,7 +8,8 @@
 /** very simple oven simulation
  * airflow == temperature
  */
-#define  NUMBERS_SIZE 9000
+
+#define  NUMBERS_SIZE 10000
 
 class MockedOven  {
 private:
@@ -34,9 +35,9 @@ public:
         float alpha;
 
         if (mUp) {
-            alpha = 0.002f;
+            alpha = 0.02f;
         } else {
-            alpha = 0.001f;
+            alpha = 0.01f;
         }
 
         float probe = mAirFlow;

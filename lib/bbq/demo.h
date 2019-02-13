@@ -26,7 +26,7 @@ public:
     }
 
     virtual float setVentilator() {
-        m_speed = m_speed + (speed() - m_speed) * 0.001f;
+        m_speed = m_speed + (speed() - m_speed) * 0.1f;
         return m_speed;
     }
 

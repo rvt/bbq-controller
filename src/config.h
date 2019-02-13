@@ -74,7 +74,7 @@
 
 
 #ifndef FAN1_PIN
-#define FAN1_PIN 2
+#define FAN1_PIN 3
 #endif
 
 
@@ -94,13 +94,13 @@
 #define SPI_CLK_PIN -1 /* Set to -1 for HW SPI, connects to pin 14 on ESP8266 */
 #endif
 
-// Pin 15 didn´t make the esp start up so we skipped it and took 3
+// Pin 15 didn´t make the esp start up so we skipped it and took 2
 #ifndef SPI_MAX31865_CS_PIN
-#define SPI_MAX31865_CS_PIN 3
+#define SPI_MAX31865_CS_PIN 2
 #endif
 
 #ifndef SPI_MAX31855_CS_PIN
-#define SPI_MAX31855_CS_PIN 1
+#define SPI_MAX31855_CS_PIN 15
 #endif
 
 #ifndef BUTTON_PIN

@@ -1,30 +1,20 @@
 #include "max31855sensor.h"
+#include <Adafruit_MAX31855.h>
 
-
-MAX31855sensor::MAX31855sensor(MAX31855* p_MAX31855) :
+MAX31855sensor::MAX31855sensor(Adafruit_MAX31855* p_MAX31855) :
     TemperatureSensor(),
     m_MAX31855(p_MAX31855),
     m_lastTemp(-1.0) {
 }
 
 void MAX31855sensor::handle() {
-    float temperature = m_MAX31855->readThermocouple(CELSIUS);
+    float temperature = m_MAX31855->readCelsius();
 
-    switch ((int) temperature) {
-        case FAULT_OPEN:
-            Serial.print("FAULT_OPEN");
-            return;
-        case FAULT_SHORT_GND:
-            Serial.print("FAULT_SHORT_GND");
-            return;
-        case FAULT_SHORT_VCC:
-            Serial.print("FAULT_SHORT_VCC");
-            return;
-        case NO_MAX31855:
-            Serial.print("NO_MAX31855");
-            return;
+    if (m_MAX31855->readError() != 0) {
+        Serial.println("MAX31855sensor: read error");
+        return;
     }
-    
+
     m_lastTemp = m_lastTemp + (temperature - m_lastTemp) * 0.1f;
 }
 

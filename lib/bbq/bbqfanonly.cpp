@@ -20,15 +20,17 @@
 #include <cmath>
 
 #define TEMP_ERROR_INPUT 1
-#define TEMP_DELTA_ERROR_INPUT 2
-#define TEMP_FILTERED_INPUT 3
-#define FAN_INPUT 4
+#define TEMP_CHANGE_INPUT 2
+#define FAN_INPUT 3
+
 #define FAN_OUTPUT 1
 #define LID_ALERT_OUTPUT 2
 #define CHARCOAL_ALERT_OUTPUT 3
+
 #define LID_ALERT_RULE 20
 #define CHARCOAL_ALERT_RULE 10
-#define TEMP_BUFFER_SIZE 100
+
+#define TEMP_CHANGE_DELAY 5000
 
 BBQFanOnly::BBQFanOnly(std::shared_ptr<TemperatureSensor> pTempSensor,
                        std::shared_ptr<Ventilator> pFan) :
@@ -39,8 +41,8 @@ BBQFanOnly::BBQFanOnly(std::shared_ptr<TemperatureSensor> pTempSensor,
     m_setPoint(m_tempSensor->get()),
     m_tempLastError(0.0),
     m_fanCurrentSpeed(m_fan->speed()),
-    m_tempFiltered(m_tempSensor->get()),
-    m_tempDropFiltered(0.0) {
+    m_tempLast(m_tempSensor->get()),
+    m_lastChange(0.0) {
 }
 
 BBQFanOnly::~BBQFanOnly() {
@@ -74,7 +76,7 @@ void BBQFanOnly::init() {
     tempErrorInput->addFuzzySet(tempErrorPositiveHigh);
 
     // Input for temperature changes
-    FuzzyInput* tempDrop = new FuzzyInput(TEMP_FILTERED_INPUT);
+    FuzzyInput* tempDrop = new FuzzyInput(TEMP_CHANGE_INPUT);
     m_fuzzy->addFuzzyInput(tempDrop);
     FuzzySet* tdf = fuzzyFromVector(m_config.temp_change_fast, true);
     tempDrop->addFuzzySet(tdf);
@@ -107,24 +109,24 @@ void BBQFanOnly::init() {
     joinSingleAND(rule++, tempErrorNegativeHigh, thm, fanHigh);
     joinSingleAND(rule++, tempErrorNegativeHigh, thf, fanHigh);
 
-    // 5
+    // 35
     joinSingleAND(rule++, tempErrorNegativeMedium, tdf, fanHigh);
     joinSingleAND(rule++, tempErrorNegativeMedium, tdm, fanHigh);
     joinSingleAND(rule++, tempErrorNegativeMedium, tds, fanHigh);
     joinSingleAND(rule++, tempErrorNegativeMedium, thm, fanMedium);
     joinSingleAND(rule++, tempErrorNegativeMedium, thf, fanMedium);
 
-    // 10
+    // 40
     joinSingleAND(rule++, tempErrorLow, tdf, fanMedium);
     joinSingleAND(rule++, tempErrorLow, tdm, fanMedium);
     joinSingleAND(rule++, tempErrorLow, tds, fanMedium);
     joinSingleAND(rule++, tempErrorLow, thm, fanLow);
     joinSingleAND(rule++, tempErrorLow, thf, fanLow);
 
-    // 15
+    // 45
     joinSingleAND(rule++, tempErrorPositiveMedium, tdf, fanMedium);
-    joinSingleAND(rule++, tempErrorPositiveMedium, tdm, fanMedium);
-    joinSingleAND(rule++, tempErrorPositiveMedium, tds, fanLow);
+    joinSingleAND(rule++, tempErrorPositiveMedium, tdm, fanLow);
+    joinSingleAND(rule++, tempErrorPositiveMedium, tds, fanOff);
     joinSingleAND(rule++, tempErrorPositiveMedium, thm, fanOff);
     joinSingleAND(rule++, tempErrorPositiveMedium, thf, fanOff);
 }
@@ -139,38 +141,36 @@ float BBQFanOnly::setPoint() const {
 
 void BBQFanOnly::handle() {
     m_tempLastError = m_tempSensor->get() - m_setPoint;
-    m_tempDropFiltered = m_tempSensor->get() - m_tempFiltered;
+    m_lastChange = m_tempSensor->get() - m_tempLast;
 
-    // Filtered temperature is to understand if the temperature suddenly drops over a larger time T
-    // Usefull for LID open and low charcoal alerts
-    m_tempFiltered = m_tempFiltered + (m_tempSensor->get() - m_tempFiltered) * m_config.temp_alpha;
-
-    // Temperature changes
-    m_fuzzy->setInput(TEMP_FILTERED_INPUT, m_fanCurrentSpeed);
-
-    // Temperature changes
-    m_fuzzy->setInput(TEMP_FILTERED_INPUT, m_tempDropFiltered);
     // Feed temp error
     m_fuzzy->setInput(TEMP_ERROR_INPUT, m_tempLastError);
-    // Fan input
+
+    // FAN Input
     m_fuzzy->setInput(FAN_INPUT, m_fanCurrentSpeed);
+
+    // Temperature change input
+    m_fuzzy->setInput(TEMP_CHANGE_INPUT, m_lastChange);
+
     // Run fuzzy rules
     m_fuzzy->fuzzify();
 
-    // This provides a small filter to ensure that our fan doesnt jump to much
+    // Set and remember fan
     m_fanCurrentSpeed = m_fuzzy->defuzzify(FAN_OUTPUT);
-
-    // Finally set fan
     m_fan->speed(m_fanCurrentSpeed);
+
+    // Remember temperature change
+    m_tempLast = m_tempSensor->get();
 }
 
 bool BBQFanOnly::ruleFired(uint8_t i) {
     return m_fuzzy->isFiredRule(i);
 }
 
-float BBQFanOnly::tempDropFilteredInput() const {
-    return m_tempDropFiltered;
+float BBQFanOnly::tempChangeInput() const {
+    return m_lastChange;
 }
+
 float BBQFanOnly::lastErrorInput() const {
     return m_tempLastError;
 }

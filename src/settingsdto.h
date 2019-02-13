@@ -7,7 +7,6 @@
 
 struct SettingsDTOData  {
     float setPoint = 20;
-    float temp_alpha = .1f;         // Lid Open Filter Alpha Fan filter
 
     std::array<float, 4> fan_low  = FAN_LOW_DEFAULT;
     std::array<float, 4> fan_medium  = FAN_MEDIUM_DEFAULT;
@@ -24,7 +23,6 @@ struct SettingsDTOData  {
     bool operator==(const  SettingsDTOData& rhs) {
         return
             setPoint == rhs.setPoint &&
-            temp_alpha == rhs.temp_alpha &&
             fan_low == rhs.fan_low &&
             fan_medium == rhs.fan_medium &&
             fan_high == rhs.fan_high &&
@@ -74,7 +72,6 @@ public:
 
     std::string getConfigString() {
         return makeString("sp=%.1f"
-                          " ta=%.1f"
                           " fl1=%.1f,%.1f,%.1f,%.1f"
                           " fm1=%.1f,%.1f,%.1f,%.1f"
                           " fh1=%.1f,%.1f,%.1f,%.1f"
@@ -85,7 +82,6 @@ public:
                           " tcm=%.1f,%.1f,%.1f,%.1f",
                           " tcf=%.1f,%.1f,%.1f,%.1f",
                           m_data.setPoint,
-                          m_data.temp_alpha,
                           m_data.fan_low[0], m_data.fan_low[1], m_data.fan_low[2], m_data.fan_low[3],
                           m_data.fan_medium[0], m_data.fan_medium[1], m_data.fan_medium[2], m_data.fan_medium[3],
                           m_data.fan_high[0], m_data.fan_high[1], m_data.fan_high[2], m_data.fan_high[3],

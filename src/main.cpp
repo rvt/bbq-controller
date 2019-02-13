@@ -18,7 +18,7 @@
 #include <makestring.h>
 
 // #include <spi.h> // Include for harware SPI
-#include <MAX31855.h>
+#include <Adafruit_MAX31855.h>
 #include <max31855sensor.h>
 #include <max31865sensor.h>
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient/releases/tag/v2.6
@@ -197,10 +197,6 @@ void handleCmd(const char* topic, const char* p_payload) {
                 ventilator1->speedOverride(values.asFloat());
             }
 
-            if (strcmp(values.key(), "ta") == 0) {
-                config.temp_alpha = values.asFloat();
-            }
-
             config.fan_low = getConfigArray("fl1", values.key(), values.asChar(), config.fan_low);
             config.fan_medium = getConfigArray("fm1", values.key(), values.asChar(), config.fan_medium);
             config.fan_high = getConfigArray("fh1", values.key(), values.asChar(), config.fan_high);
@@ -218,7 +214,6 @@ void handleCmd(const char* topic, const char* p_payload) {
         }
 
         // Copy to settings
-        settingsDTO->data()->temp_alpha = config.temp_alpha;
         settingsDTO->data()->fan_low = config.fan_low;
         settingsDTO->data()->fan_medium = config.fan_medium;
         settingsDTO->data()->fan_high = config.fan_high;
@@ -378,6 +373,14 @@ void startOTA() {
 ///////////////////////////////////////////////////////////////////////////
 
 void setup() {
+    //********** CHANGE PIN FUNCTION  TO GPIO **********
+    //https://www.esp8266.com/wiki/doku.php?id=esp8266_gpio_pin_allocations
+    //GPIO 1 (TX) swap the pin to a GPIO.
+    pinMode(1, FUNCTION_3);
+    //GPIO 3 (RX) swap the pin to a GPIO.
+    pinMode(3, FUNCTION_3);
+    //**************************************************
+
     // Enable serial port
     Serial.begin(115200);
     delay(50);
@@ -482,11 +485,14 @@ void setup() {
     temperatureSensor2.reset(mockedTemp2);
     ventilator1.reset(new MockedFan());
 #else
+    // Sensor 1 is generally used for the temperature of the bit
     auto sensor1 = new MAX31865sensor(SPI_MAX31865_CS_PIN, SPI_SDI_PIN, SPI_SDO_PIN, SPI_CLK_PIN, RNOMINAL_OVEN, RREF_OVEN);
     sensor1->begin(MAX31865_3WIRE);
     temperatureSensor1.reset(sensor1);
 
-    auto sensor2 = new MAX31855(SPI_SDO_PIN, SPI_MAX31855_CS_PIN, SPI_CLK_PIN);
+    // Sensor 2 is generally used to measure the temperature of the pit itself
+    auto sensor2 = new Adafruit_MAX31855(SPI_CLK_PIN, SPI_MAX31855_CS_PIN, SPI_SDI_PIN);
+    sensor2->begin();
     temperatureSensor2.reset(new MAX31855sensor(sensor2));
 
     ventilator1.reset(new PWMVentilator(FAN1_PIN, 10.0));
@@ -505,7 +511,6 @@ void setup() {
     }
 
     BBQFanOnlyConfig config = bbqController->config();
-    config.temp_alpha = settingsDTO->data()->temp_alpha;
     config.fan_low = settingsDTO->data()->fan_low;
     config.fan_medium = settingsDTO->data()->fan_medium;
     config.fan_high = settingsDTO->data()->fan_high;
@@ -542,8 +547,8 @@ void loop() {
         // Handle analog input
         analogIn -> handle();
 
-        // Handle BBQ inputs 10 times a sec
-        if (counter50TimesSec % 5 == 0) {
+        // Handle BBQ inputs once every 5 seconds
+        if (counter50TimesSec % 250 == 0) {
             bbqController -> handle();
         }
 
@@ -572,8 +577,6 @@ void loop() {
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             temperatureSensor2->handle();
         }
-
-
 
 
     }
