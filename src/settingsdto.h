@@ -8,6 +8,8 @@
 struct SettingsDTOData  {
     float setPoint = 20;
 
+    float fan_startPwm1 = 20;
+
     std::array<float, 4> fan_low  = FAN_LOW_DEFAULT;
     std::array<float, 4> fan_medium  = FAN_MEDIUM_DEFAULT;
     std::array<float, 4> fan_high = FAN_HIGH_DEFAULT;
@@ -23,6 +25,7 @@ struct SettingsDTOData  {
     bool operator==(const  SettingsDTOData& rhs) {
         return
             setPoint == rhs.setPoint &&
+            fan_startPwm1 == rhs.fan_startPwm1 &&
             fan_low == rhs.fan_low &&
             fan_medium == rhs.fan_medium &&
             fan_high == rhs.fan_high &&
@@ -72,16 +75,18 @@ public:
 
     std::string getConfigString() {
         return makeString("sp=%.1f"
+                          " fs1=%.0f"
                           " fl1=%.1f,%.1f,%.1f,%.1f"
                           " fm1=%.1f,%.1f,%.1f,%.1f"
                           " fh1=%.1f,%.1f,%.1f,%.1f"
                           " tel=%.1f,%.1f"
                           " tem=%.1f,%.1f,%.1f,%.1f"
                           " teh=%.1f,%.1f,%.1f,%.1f"
-                          " tcs=%.1f,%.1f",
-                          " tcm=%.1f,%.1f,%.1f,%.1f",
+                          " tcs=%.1f,%.1f"
+                          " tcm=%.1f,%.1f,%.1f,%.1f"
                           " tcf=%.1f,%.1f,%.1f,%.1f",
                           m_data.setPoint,
+                          m_data.fan_startPwm1,
                           m_data.fan_low[0], m_data.fan_low[1], m_data.fan_low[2], m_data.fan_low[3],
                           m_data.fan_medium[0], m_data.fan_medium[1], m_data.fan_medium[2], m_data.fan_medium[3],
                           m_data.fan_high[0], m_data.fan_high[1], m_data.fan_high[2], m_data.fan_high[3],

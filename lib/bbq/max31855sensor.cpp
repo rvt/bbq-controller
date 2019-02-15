@@ -11,7 +11,7 @@ void MAX31855sensor::handle() {
     float temperature = m_MAX31855->readCelsius();
 
     if (m_MAX31855->readError() != 0) {
-        Serial.println("MAX31855sensor: read error");
+        // Serial.println("MAX31855sensor: read error");
         return;
     }
 

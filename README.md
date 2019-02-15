@@ -63,8 +63,8 @@ Status messages are send to an MQTT broker each time any of the following variab
 
 | name | type  |  Meaning | value  | Unit  | Note |
 |---   |---    |---       |---     |---    |---   |
-| to   | float | Temperature sensor 1, usually pit temp  | 0..250 |  celsius ||
-| t2   | float | Temperature sensor 2, usually pit temp  | 0..250 | celsius  | |
+| to   | float | Temperature sensor 1, usually pit temp  | 0..250 | celsius | |
+| t2   | float | Temperature sensor 2, usually pit temp  | 0..250 | celsius | |
 | sp   | float | Setpoint temperature  | 90..240  | celsius  | |
 | f1   | float | Ventilator 1 speed  | 0..100  | % | |
 | f1o  | float | Ventilator 1 speed override  | -1..100  | %  | When set > -1 it´s in override mode |
@@ -84,6 +84,7 @@ The controller uses a single topic to configure the behavior.
 | name | type  |  Meaning | value  | Default | Unit  | Note |
 |---   |---    |---       |---     |---      |---    |---   |
 | sp   | float | Set the desired temperature | 90..240 | 30.0 | Celsius |
+| fs1   | int | set Minimum fan speed in % | 0..100 | 20 | % | Some fan's don't start with low PWM values, here set the minimum % of value where the fan wil start|
 | f1o  | float | Override fan 1 | -1-100 | -1 | % | -1 will set it to auto mode, eg let the controller handle the speed. Any value > -0.5 will be in override |
 | fl1  | float,float,float,float | Fuzzy set for Low Fan |  0-100 | 0.0,0.0,0.0,50.0 | % | |
 | fm1  | float,float,float,float | Fuzzy set for Medium Fan |  0-100 | 25.0,50.0,50.0,75.0 | % | |
@@ -100,7 +101,17 @@ Example messages to ```BBQ/XXXXXXXX/config```:
 * ```f1o=-1 sp=180.0``` Enable auto mode and set desired temp to 180Celsius in one configuration line
 * ```fl1=0.0,0.0,0.0,50.0``` Update Fuzzy Set for fan 1, this will re-configure the BBQ controller
 
-## Hardware needed
+### fs1 with PWM
+Ventilators controlled by PWM do have an issue that they don´t run very well on lower ranges, or they won´t start up well.
+The PWMVentilator class will alow a minimal usable value where the ventilator is usable.
+Issuing fs1=30 will allow to run to a minimum of 30% PWM range.
+
+That means that when when the controller issues 1% fan speed, it get´ translated to 30% PWM value,
+so the actual range will be translated from 0%..100% (what you see on display) to 30%..100% PWM range.
+In addition when you start from 0% to it will issue a 100ms delay at 100% to allow the fan to start up.
+note: The 100ms delay is temporary hack
+
+## Hardware needed (under construction)
 
 * Wemos® Nodemcu Wifi And ESP8266 NodeMCU + 1.3 Inch OLED
 * Linear 10K Potentiometer

@@ -26,6 +26,7 @@ set(LIB_SOURCES
     ../.piolibdeps/eFLL/FuzzySet.cpp
     ../.piolibdeps/opt-parser/src/optparser.cpp
     ../lib/bbq/bbqfanonly.cpp
+    ../lib/bbq/pwmventilator.cpp
     ../lib/bbq/analogin.cpp
     ../lib/bbq/numericknob.cpp
     ../lib/bbq/digitalknob.cpp

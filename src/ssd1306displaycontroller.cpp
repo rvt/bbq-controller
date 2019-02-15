@@ -9,6 +9,7 @@
 #include <math.h>
 #include "settingsdto.h"
 #include <ventilator.h>
+#include <pwmventilator.h>
 
 #include <brzo_i2c.h>
 #include "SSD1306Brzo.h"
@@ -108,6 +109,7 @@ void SSD1306DisplayController::init() {
 
     STATE_RUNSCREEN = new State([&]() {
         if (digitalKnob.isEdgeUp()) {
+            std::static_pointer_cast<PWMVentilator>(ventilator1)->setOn(false);            
             return 5;
         }
 
@@ -140,6 +142,7 @@ void SSD1306DisplayController::init() {
 
             switch (menu) {
                 case 0 :
+                    std::static_pointer_cast<PWMVentilator>(ventilator1)->setOn(true);
                     return 2;
 
                 case 1 :

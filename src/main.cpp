@@ -188,8 +188,16 @@ void handleCmd(const char* topic, const char* p_payload) {
         float temperature = 0;
         OptParser::get(p_payload, [&config, &temperature](OptValue values) {
 
+            // Copy setpoint value
             if (strcmp(values.key(), "sp") == 0) {
                 temperature = values.asFloat();
+            }
+
+            // Copy minimum fan1 PWM speed in %
+            if (strcmp(values.key(), "fs1") == 0) {
+                settingsDTO->data()->fan_startPwm1 = values.asInt();
+                // Tech Debth? Can we get away with static_pointer_cast without Ventilator knowing about any setPwmStart?
+                std::static_pointer_cast<PWMVentilator>(ventilator1)->setPwmStart(values.asInt());
             }
 
             // Fan 1 override ( we don´t want this as an settings so if we loose MQTT connection we can always unplug)
@@ -480,6 +488,16 @@ void setup() {
         handleCmd(p_topic, mqttReceiveBuffer);
     });
 
+    EEPROM.begin(CRCEEProm::size(*settingsDTO->data()));
+    SettingsDTOData data;
+    bool loadedFromEEPROM = CRCEEProm::read(0, data);
+
+    if (loadedFromEEPROM) {
+        settingsDTO.reset(new SettingsDTO(data));
+    } else {
+        settingsDTO.reset(new SettingsDTO());
+    }
+
 #ifdef DEMO_MODE
     temperatureSensor1.reset(mockedTemp1);
     temperatureSensor2.reset(mockedTemp2);
@@ -495,21 +513,10 @@ void setup() {
     sensor2->begin();
     temperatureSensor2.reset(new MAX31855sensor(sensor2));
 
-    ventilator1.reset(new PWMVentilator(FAN1_PIN, 10.0));
+    ventilator1.reset(new PWMVentilator(FAN1_PIN, settingsDTO->data()->fan_startPwm1));
 #endif
 
     bbqController.reset(new BBQFanOnly(temperatureSensor1, ventilator1));
-
-    EEPROM.begin(CRCEEProm::size(*settingsDTO->data()));
-    SettingsDTOData data;
-    bool loadedFromEEPROM = CRCEEProm::read(0, data);
-
-    if (loadedFromEEPROM) {
-        settingsDTO.reset(new SettingsDTO(data));
-    } else {
-        settingsDTO.reset(new SettingsDTO());
-    }
-
     BBQFanOnlyConfig config = bbqController->config();
     config.fan_low = settingsDTO->data()->fan_low;
     config.fan_medium = settingsDTO->data()->fan_medium;
@@ -520,6 +527,7 @@ void setup() {
     config.temp_change_fast = settingsDTO->data()->temp_change_fast;
     bbqController->config(config);
     bbqController->setPoint(settingsDTO->data()->setPoint);
+
     bbqController->init();
 
     // Start boot sequence
@@ -548,7 +556,7 @@ void loop() {
         analogIn -> handle();
 
         // Handle BBQ inputs once every 5 seconds
-        if (counter50TimesSec % 250 == 0) {
+        if (counter50TimesSec % 50 == 0) {
             bbqController -> handle();
         }
 

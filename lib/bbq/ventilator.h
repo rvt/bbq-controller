@@ -18,6 +18,10 @@ public:
         setVentilator();
     }
 
+    /**
+     * Returns current required speed
+     * Value is guaranteed to be 0..100
+     */
     float speed() const {
         return isOverride() ? m_overrideSetting : m_speed;
     }

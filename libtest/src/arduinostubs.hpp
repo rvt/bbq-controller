@@ -9,12 +9,29 @@ extern "C" uint32_t millis() {
     return millisStubbed;
 };
 
+extern "C" void delay(uint16_t) {
+};
+
 
 int16_t analogReadStubbed = 0;
 uint8_t analogReadPinStubbed = 0;
 extern "C" int16_t analogRead(uint8_t pin) {
     analogReadPinStubbed = pin;
     return analogReadStubbed;
+};
+
+extern "C" void analogWriteRange(int16_t value) {
+
+}
+extern "C" void analogWriteFreq(int16_t freq) {
+
+}
+
+uint8_t analogWritePinStubbed = 0;
+int16_t analogWriteStubbed = 0;
+extern "C" void analogWrite(uint8_t pin, int16_t value) {
+    analogWritePinStubbed = pin;
+    analogWriteStubbed = value;
 };
 
 int pinModeStubbed = 0;

@@ -10,3 +10,4 @@
 #include "src/test_utils.hpp"
 #include "src/test_numericknob.hpp"
 #include "src/test_digitalknob.hpp"
+#include "src/test_pwmventilator.hpp"

@@ -41,11 +41,11 @@ std::array<float, SIZE> getConfigArray(
     return inValues;
 }
 
-static float fmap(float x, float in_min, float in_max, float out_min, float out_max) {
+static inline float fmap(float x, float in_min, float in_max, float out_min, float out_max) {
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 };
 
 template <typename T>
-static T between(const T& n, const T& lower, const T& upper) {
+static inline T between(const T& n, const T& lower, const T& upper) {
     return std::max(lower, std::min(n, upper));
 }

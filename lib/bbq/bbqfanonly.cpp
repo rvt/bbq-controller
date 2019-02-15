@@ -126,7 +126,7 @@ void BBQFanOnly::init() {
     // 45
     joinSingleAND(rule++, tempErrorPositiveMedium, tdf, fanMedium);
     joinSingleAND(rule++, tempErrorPositiveMedium, tdm, fanLow);
-    joinSingleAND(rule++, tempErrorPositiveMedium, tds, fanOff);
+    joinSingleAND(rule++, tempErrorPositiveMedium, tds, fanLow);
     joinSingleAND(rule++, tempErrorPositiveMedium, thm, fanOff);
     joinSingleAND(rule++, tempErrorPositiveMedium, thf, fanOff);
 }
