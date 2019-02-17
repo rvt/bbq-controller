@@ -1,14 +1,14 @@
 [![Build Status](https://api.travis-ci.org/rvt/bbq-controller.svg?branch=master)](https://www.travis-ci.org/rvt/bbq-controller)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-# bbq-controller
-Fuzzy logic based BBQ controller
+# Design Goal
+A small hand-held battery operated smoker temperature controller that can run stand alone with minimal needed configuration needed to allow for oscillation free temperature control. OO... and it should also be possible to control and monitor over wifi, but that is optional.
 
-### Currently under heavy development 
+# Currently under heavy development 
 * Test digital thermometer max31855
-* Test PWM fan control
 * Implement Farenheit display
 
+# Featues
 A Fuzzy logic based BBQ controller based on Fuzzy Logic with the following features:
 
 * Oled display of temperature readout, setting and fan speed
@@ -23,25 +23,18 @@ A Fuzzy logic based BBQ controller based on Fuzzy Logic with the following featu
 # Note
 
 This is still work in progress and has not yet been field tested and development has been done using a simulator during unit tests so here is my TODO:
+
 * Connect and test MAX31855 temperature sensor for meat monitor
-* Connect and test fan controller
 * Test Lid open detection
 * Test and implement low choarcoal detection
 * Implement 'stall' delection and alerting [More about stall](https://amazingribs.com/more-technique-and-science/more-cooking-science/understanding-and-beating-barbecue-stall-bane-all)
 
 # Tests
+
 - Tested on wemos ESP8266 [Wemos® Nodemcu Wifi And ESP8266 NodeMCU + 1.3 Inch OLED](https://www.banggood.com/Wemos-Nodemcu-Wifi-And-ESP8266-NodeMCU-1_3-Inch-OLED-Board-White-p-1160048.html)
 
-# Run unit tests (requires cmake to be installed)
-- ```cd libtest```
-- ```mkdir build```
-- ```cmake ../```
-- ```make```
-- ```./tests```
-
-See also [https://travis-ci.org/rvt/bbq-controller](https://travis-ci.org/rvt/bbq-controller)
-
 # Compilation
+
 To build your version use platform io for compilation: Copy
 ```setup_example.h``` to ```setup.h``` and modify the contents to your needs so it can connect to your wifi and potentioally your MQTT broker.
 Then run ```pio run``` to compile the binary. This will download the needed dependencies.
@@ -49,13 +42,25 @@ Then run ```pio run``` to compile the binary. This will download the needed depe
 To upload to your wemos device run the following command (OSX):
 ```platformio run --target upload -e wemos --upload-port /dev/cu.SLAB_USBtoUART```
 
+# Run unit tests 
+
+* requires cmake to be installed, also assumes you ran pio ran before
+
+* ```cd libtest```
+* ```mkdir build```
+* ```cmake ../```
+* ```make```
+* ```./tests```
+
+See also [https://travis-ci.org/rvt/bbq-controller](https://travis-ci.org/rvt/bbq-controller)
+
 # MQTT Messages
 
 MQTT is used to change it´s configuration and monitor your BBQ (along side the OLED display if used).
 
 I use [MQTT Spy](https://github.com/eclipse/paho.mqtt-spy/releases)  to spy for messages and use OpenHAB to push the status messages into influxdb. Since the controller only talks to a MQTT message broker, you are free to use any other tools for that, I hear that [Node-RED](https://nodered.org) is pretty cool.
 
-### Status messages
+## Status messages
 
 Topic: ```BBQ/XXXXXXXX/config/state```
 
@@ -102,6 +107,7 @@ Example messages to ```BBQ/XXXXXXXX/config```:
 * ```fl1=0.0,0.0,0.0,50.0``` Update Fuzzy Set for fan 1, this will re-configure the BBQ controller
 
 ### fs1 with PWM
+
 Ventilators controlled by PWM do have an issue that they don´t run very well on lower ranges, or they won´t start up well.
 The PWMVentilator class will alow a minimal usable value where the ventilator is usable.
 Issuing fs1=30 will allow to run to a minimum of 30% PWM range.
@@ -118,9 +124,9 @@ note: The 100ms delay is temporary hack
 * Push Button
 * Theromcouple for meet temperature measurement
 * Thermocouple for Pit temperature measurement [RTD Pt100](https://www.banggood.com/RTD-Pt100-Temperature-Sensor-2m-Cable-Probe-98mm-3-Wires-50400Degree-p-923736.html?rmmds=search)
-* Sensor module for meat Probe [MAX31855](https://www.banggood.com/MAX31855-MAX6675-SPI-K-Thermocouple-Temperature-Sensor-Module-Board-For-Arduino-p-1193988.html?rmmds=search&cur_warehouse=CN)
-* Sensor module for pit (PT100) probe [MAX31865](https://www.banggood.com/GY-31865-MAX31865-Temperature-Sensor-Module-RTD-Digital-Conversion-Module-p-1416434.html?rmmds=search&cur_warehouse=CN)
-* 5V Ventilator 
+* Sensor module for meat Probe [MAX31855](https://www.adafruit.com/product/269) *There are some fake max31855 modules around without voltage regulator and they have ground issues, be carefull if you go the cheap route.*
+* Sensor module for pit (PT100) probe [MAX31865](https://www.adafruit.com/product/3328)
+* 5V Ventilator. Around 20..30CFM should be enough for a small to medium drum smoker.
 * Some box to put it all in
 
 If you use the above hardware you have to re-configure the MAX31865 sensor module for 3-Wrire configuration. This is described on this page : [Adafruit 4-Wire RTDs](https://learn.adafruit.com/adafruit-max31865-rtd-pt100-amplifier/rtd-wiring-config)
