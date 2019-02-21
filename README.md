@@ -25,7 +25,6 @@ A Fuzzy logic based BBQ controller based on Fuzzy Logic with the following featu
 This is still work in progress and has not yet been field tested and development has been done using a simulator during unit tests so here is my TODO:
 
 * Connect and test MAX31855 temperature sensor for meat monitor
-* Test Lid open detection
 * Test and implement low choarcoal detection
 * Implement 'stall' delection and alerting [More about stall](https://amazingribs.com/more-technique-and-science/more-cooking-science/understanding-and-beating-barbecue-stall-bane-all)
 

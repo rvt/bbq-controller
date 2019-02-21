@@ -43,16 +43,20 @@ private:
     std::shared_ptr<TemperatureSensor> m_tempSensor;
     std::shared_ptr<Ventilator> m_fan;
     Fuzzy* m_fuzzy;
-    float m_setPoint;       // Setpoint
-    float m_tempLastError;  // Last temperature error input
-    float m_fanCurrentSpeed;            // current fan speed
-    float m_tempLast;   // Temperature that is bassed through a filter
-    float m_lastChange;
+    float m_setPoint;        // Setpoint
+    float m_tempLastError;   // Last temperature error input
+    float m_fanCurrentSpeed; // current fan speed
+    float m_tempLast;        // Temperature that is bassed through a filter
+    float m_lastTempChange;      // Keep 
+    bool m_lidOpenTriggered;
     BBQFanOnlyConfig m_config;
 public:
     BBQFanOnly(std::shared_ptr<TemperatureSensor> pTempSensor,
                std::shared_ptr<Ventilator> pFan);
     virtual ~BBQFanOnly();
+    /**
+     * Very important, call this once in 5 seconds
+     */
     virtual void handle();
     virtual void setPoint(float temperature);
     virtual float setPoint() const;

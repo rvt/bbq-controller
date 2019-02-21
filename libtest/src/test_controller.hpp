@@ -53,6 +53,8 @@ TEST_CASE("Graph Controller against simulated oven", "[GRAPH][.]") {
     }
 }
 
+
+
 TEST_CASE("Single test", "[SINGLE][.]") {
     MockedTemperature* mockedTemp = new MockedTemperature(130.0);
     std::shared_ptr<TemperatureSensor> uMockedTemp(mockedTemp);
@@ -118,6 +120,61 @@ TEST_CASE("Test Oven", "[oven][.]") {
 
         oven.handle();
         // std::cout << ((float)i/1000) << " temp:" << oven.temperature() << " fan speed:" << fanSpeed << "\n";
+    }
+}
+
+SCENARIO("shouldDetectLidOpen", "[controller]") {
+    GIVEN("a BBQ at 130 degrees") {
+        MockedTemperature* mockedTemp = new MockedTemperature(130);
+        std::shared_ptr<TemperatureSensor> uMockedTemp(mockedTemp);
+        MockedFan* mockedFan = new MockedFan();
+        std::shared_ptr<MockedFan> uMockedFan(mockedFan);
+        BBQFanOnly* bbqFanOnly = new BBQFanOnly(std::move(uMockedTemp), std::move(uMockedFan));
+        bbqFanOnly->init();
+        bbqFanOnly->setPoint(130.0f);
+
+        bbqFanOnly->handle();
+        bbqFanOnly->handle();
+        REQUIRE(mockedTemp->get() == Approx(130.0));
+        REQUIRE(bbqFanOnly->lidOpen() == false);
+
+        WHEN("When temp lowers 1 degree") {
+            mockedTemp->set(mockedTemp->get() - 1);
+            bbqFanOnly->handle();
+            THEN("lid should not have been detected as open") {
+                REQUIRE(bbqFanOnly->lidOpen() == false);
+            }
+        }
+        
+        WHEN("When temp lowers 3 degree") {
+            mockedTemp->set(mockedTemp->get() - 3);
+            bbqFanOnly->handle();
+            THEN("lid should have been detected as open") {
+                REQUIRE(bbqFanOnly->lidOpen() == true);
+            }
+            WHEN("When temp stays the same") {
+                bbqFanOnly->handle();
+                THEN("lid should still have the detected as open") {
+                    REQUIRE(bbqFanOnly->lidOpen() == true);
+                }
+            }
+            WHEN("When temp rises 0.5 degrees") {
+                mockedTemp->set(mockedTemp->get() + 0.5);
+                bbqFanOnly->handle();
+                THEN("lid should still have the detected as open") {
+                    REQUIRE(bbqFanOnly->lidOpen() == true);
+                }
+            }
+            WHEN("When temp rises 3 degrees in one handle call") {
+                mockedTemp->set(mockedTemp->get() + 3);
+                bbqFanOnly->handle();
+                THEN("lid should have reset to closed") {
+                    REQUIRE(bbqFanOnly->lidOpen() == false);
+                }
+            }
+            
+        }
+
     }
 }
 
