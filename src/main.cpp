@@ -195,7 +195,7 @@ void handleCmd(const char* topic, const char* p_payload) {
 
             // Lid open fan speed
             if (strcmp(values.key(), "lof") == 0) {
-                config.fan_speed_lid_open = values.asInt();
+                config.fan_speed_lid_open = between((int8_t)values.asInt(), (int8_t) -1, (int8_t)100);
             }
 
             // Copy minimum fan1 PWM speed in %
@@ -207,7 +207,7 @@ void handleCmd(const char* topic, const char* p_payload) {
 
             // Fan 1 override ( we don´t want this as an settings so if we loose MQTT connection we can always unplug)
             if (strcmp(values.key(), "f1o") == 0) {
-                ventilator1->speedOverride(values.asFloat());
+                ventilator1->speedOverride(between(values.asFloat(), -1.0f, 100.0f));
             }
 
             config.fan_low = getConfigArray("fl1", values.key(), values.asChar(), config.fan_low);
@@ -221,9 +221,9 @@ void handleCmd(const char* topic, const char* p_payload) {
             config.temp_change_fast = getConfigArray("tcf", values.key(), values.asChar(), config.temp_change_fast);
         });
 
-        if (temperature > 90.0f && temperature < 240.0f) {
-            bbqController->setPoint(temperature);
-            settingsDTO->data()->setPoint = temperature;
+        if (temperature > 1.0f) {
+            settingsDTO->data()->setPoint = between(temperature, 90.0f, 240.0f);
+            bbqController->setPoint(settingsDTO->data()->setPoint);
         }
 
         // Copy to settings

@@ -182,6 +182,7 @@ SCENARIO("shouldDetectLidOpen", "[controller]") {
                     BBQFanOnlyConfig c;
                     c.fan_speed_lid_open = -1;
                     bbqFanOnly->config(c);
+                    bbqFanOnly->init();
                     THEN("lid should still have been detected as open while keeping current fan speed") {
                         bbqFanOnly->handle();
                         bbqFanOnly->handle();
