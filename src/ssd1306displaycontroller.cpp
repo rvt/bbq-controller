@@ -109,7 +109,7 @@ void SSD1306DisplayController::init() {
 
     STATE_RUNSCREEN = new State([&]() {
         if (digitalKnob.isEdgeUp()) {
-            std::static_pointer_cast<PWMVentilator>(ventilator1)->setOn(false);            
+            std::static_pointer_cast<PWMVentilator>(ventilator1)->setOn(false);
             return 5;
         }
 
@@ -356,21 +356,22 @@ void SSD1306DisplayController::normalOverlayDisplay(OLEDDisplay* display, OLEDDi
     display->drawString(128, 0, buffer);
 
     uint8_t xPos = 0;
+
     if (WiFi.status() == WL_CONNECTED) {
         display->drawXbm(xPos, 0, wifiicon10x10_width, wifiicon10x10_height, wifi10x10_png_bits);
-        xPos+=(wifiicon10x10_width+4);
+        xPos += (wifiicon10x10_width + 4);
     }
 
     if (mqttClient.connected())  {
         display->drawXbm(xPos, 0, mqttcloud_width, mqttcloud_height, mqttcloud_bits);
-        xPos+=(mqttcloud_width + 4);
+        xPos += (mqttcloud_width + 4);
     }
 
     if (bbqController->lidOpen()) {
         display->drawXbm(xPos, 0, bbqlidopen_width, bbqlidopen_height, bbqlidopen_bits);
-        xPos+=(bbqlidopen_width + 4);
+        xPos += (bbqlidopen_width + 4);
     } else {
         display->drawXbm(xPos, 0, bbqlidclosed_width, bbqlidclosed_height, bbqlidclosed_bits);
-        xPos+=(bbqlidclosed_width + 4);
+        xPos += (bbqlidclosed_width + 4);
     }
 }

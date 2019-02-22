@@ -31,7 +31,7 @@ PWMVentilator::PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart) :
 }
 
 void PWMVentilator::setPwmStart(uint8_t p_pwmStart) {
-    m_pwmStart=between(p_pwmStart, (uint8_t)0, (uint8_t)100);
+    m_pwmStart = between(p_pwmStart, (uint8_t)0, (uint8_t)100);
 }
 
 void PWMVentilator::setOn(bool on) {
@@ -49,8 +49,9 @@ float PWMVentilator::setVentilator() {
 
 
     int16_t pwmValue;
+
     // any speed below 1 is considered off
-    if (p_speed<1) {
+    if (p_speed < 1) {
         pwmValue = 0;
         p_speed = 0.0f;
     } else {
@@ -58,10 +59,10 @@ float PWMVentilator::setVentilator() {
         int16_t startPwm = ((int32_t)PWM_RANGE * (int32_t)m_pwmStart) / 100;
         pwmValue = fmap(p_speed, 0.f, 100.f, startPwm, PWM_RANGE);
 
-        // When the fan was off and turns on give it a little 'kick' 
+        // When the fan was off and turns on give it a little 'kick'
         // Currently a hack, need to find a better way!
         // The delay should only happen when turning on
-        if (m_prevPwmValue==0.0f && p_speed>0) {
+        if (m_prevPwmValue == 0.0f && p_speed > 0) {
             analogWrite(m_pin, PWM_RANGE);
             delay(100);
         }

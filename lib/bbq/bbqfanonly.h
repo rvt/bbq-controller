@@ -12,9 +12,10 @@
 #include <cstdlib>
 #include <algorithm>
 
+#define FAN_SPEED_LID_OPEN 0
 #define FAN_LOW_DEFAULT std::array<float, 4> { {0, 25, 25, 50} };
 #define FAN_MEDIUM_DEFAULT std::array<float, 4> { {25, 50, 50, 75} };
-#define FAN_HIGH_DEFAULT std::array<float, 4> { {50, 75, 100, 100} }; 
+#define FAN_HIGH_DEFAULT std::array<float, 4> { {50, 75, 100, 100} };
 
 #define TEMP_ERROR_LOW_DEFAULT std::array<float, 2> { {0, 5} };
 #define TEMP_ERROR_MEDIUM_DEFAULT std::array<float, 4> { {0, 10, 10, 25} };
@@ -25,6 +26,7 @@
 #define TEMP_CHANGE_FAST_DEFAULT std::array<float, 4> { {2, 5, 20, 20} };
 
 struct BBQFanOnlyConfig {
+    int8_t fan_speed_lid_open = FAN_SPEED_LID_OPEN;
     std::array<float, 4> fan_low  = FAN_LOW_DEFAULT;
     std::array<float, 4> fan_medium  = FAN_MEDIUM_DEFAULT;
     std::array<float, 4> fan_high = FAN_HIGH_DEFAULT;
@@ -47,7 +49,7 @@ private:
     float m_tempLastError;   // Last temperature error input
     float m_fanCurrentSpeed; // current fan speed
     float m_tempLast;        // Temperature that is bassed through a filter
-    float m_lastTempChange;      // Keep 
+    float m_lastTempChange;      // Keep
     bool m_lidOpenTriggered;
     BBQFanOnlyConfig m_config;
 public:

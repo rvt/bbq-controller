@@ -176,16 +176,26 @@ void BBQFanOnly::handle() {
     // Temperature change input
     m_fuzzy->setInput(TEMP_CHANGE_INPUT, m_lastTempChange);
 
+    /////////////////////////////////////////////
+
     // Run fuzzy rules
     m_fuzzy->fuzzify();
 
-    // Set and remember fan
-    m_fanCurrentSpeed = m_fuzzy->defuzzify(FAN_OUTPUT);
-    m_fan->speed(m_fanCurrentSpeed);
+    // Get fan
 
     // If the temperature drops more than TEMP_DROP_LID_OPEN_FIVE_SEC
     // We just do it by detecting if the rule is fired
     m_lidOpenTriggered = (m_lidOpenTriggered || m_fuzzy->isFiredRule(LID_OPEN_ALERT_RULE)) && !m_fuzzy->isFiredRule(LID_CLOSE_ALERT_RULE);
+
+    // We choice to control speed instead speed override because we always want a user to override
+    // the speed of the fan themselve
+    // When lid is detected as open we keep current fan speed
+    if (m_lidOpenTriggered) {
+        m_fan->speed(m_config.fan_speed_lid_open > -1 ? m_config.fan_speed_lid_open : m_fanCurrentSpeed);
+    } else {
+        m_fanCurrentSpeed = m_fuzzy->defuzzify(FAN_OUTPUT);
+        m_fan->speed(m_fanCurrentSpeed);
+    }
 
     // Remember temperature change
     m_tempLast = m_tempSensor->get();

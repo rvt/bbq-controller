@@ -88,6 +88,7 @@ The controller uses a single topic to configure the behavior.
 | name | type  |  Meaning | value  | Default | Unit  | Note |
 |---   |---    |---       |---     |---      |---    |---   |
 | sp   | float | Set the desired temperature | 90..240 | 30.0 | Celsius |
+| lof  | int   | Set a fanspeed when the lid is detected as open | -1..100 | 0 | - | -1 keeps the fan running by control of the controller using it´s current speed |
 | fs1   | int | set Minimum fan speed in % | 0..100 | 20 | % | Some fan's don't start with low PWM values, here set the minimum % of value where the fan wil start|
 | f1o  | float | Override fan 1 | -1-100 | -1 | % | -1 will set it to auto mode, eg let the controller handle the speed. Any value > -0.5 will be in override |
 | fl1  | float,float,float,float | Fuzzy set for Low Fan |  0-100 | 0.0,0.0,0.0,50.0 | % | |

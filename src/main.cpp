@@ -193,6 +193,11 @@ void handleCmd(const char* topic, const char* p_payload) {
                 temperature = values.asFloat();
             }
 
+            // Lid open fan speed
+            if (strcmp(values.key(), "lof") == 0) {
+                config.fan_speed_lid_open = values.asInt();
+            }
+
             // Copy minimum fan1 PWM speed in %
             if (strcmp(values.key(), "fs1") == 0) {
                 settingsDTO->data()->fan_startPwm1 = values.asInt();
@@ -222,6 +227,7 @@ void handleCmd(const char* topic, const char* p_payload) {
         }
 
         // Copy to settings
+        settingsDTO->data()->lid_open_fan_speed = config.fan_speed_lid_open;
         settingsDTO->data()->fan_low = config.fan_low;
         settingsDTO->data()->fan_medium = config.fan_medium;
         settingsDTO->data()->fan_high = config.fan_high;
