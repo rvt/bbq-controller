@@ -104,12 +104,12 @@ The controller uses a single topic to configure the behavior.
 | fs1  | int | set Minimum fan speed in % | 0..100 | 20 | % | Some fan's don't start with low PWM values, set the minimum % of value where the fan wil start |
 | f1o  | float | Override fan 1 | -1..100 | -1 | % | -1 will set it to auto mode, eg let the controller handle the speed. Any value > -0.5 will be in override |
 | fl1  | float,float, float,float | Fuzzy set for Low Fan |  0..100 | 0.0,0.0,0.0,50.0 | % | |
-| fm1  | float,float, float,float | Fuzzy set for Medium Fan |  0..100 | 25.0,50.0,50.0,75.0 | % | |
-| fh1  | float,float, float,float | Fuzzy set for Hight Fan |  0..100 | 50.0,100.0,100.0,100.0 | % | |
+| fm1  | float,float, float,float | Fuzzy set for Medium Fan |  0..100 | 25.0,50.0, 50.0,75.0 | % | |
+| fh1  | float,float, float,float | Fuzzy set for High Fan |  0..100 | 50.0,100.0, 100.0,100.0 | % | |
 | tel  | float,float, float,float | Fuzzy set for low temperature error |  0-XX | 0.0,10.0 | Celsius | |
-| tem  | float,float, float,float | Fuzzy set for medium temperature error |  0-XX | 0.0,15.0,15.0,30.0 | Celsius | |
-| teh  | float,float, float,float | Fuzzy set for high temperature error |  0-XX | 15.0,200.0,200.0,200.0 | Celsius | |
-| tcf  | float,float, float,float | Fuzzy set for temperature drop detection |  0-XX | 10.0,20.0,20.0,30.0 | Celsius | |
+| tem  | float,float, float,float | Fuzzy set for medium temperature error |  0-XX | 0.0,15.0, 15.0,30.0 | Celsius | |
+| teh  | float,float, float,float | Fuzzy set for high temperature error |  0-XX | 15.0,200.0, 200.0,200.0 | Celsius | |
+| tcf  | float,float, float,float | Fuzzy set for temperature drop detection |  0-XX | 10.0,20.0, 20.0,30.0 | Celsius | |
 
 Example messages to ```BBQ/XXXXXXXX/config```:
 
