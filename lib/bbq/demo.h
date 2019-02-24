@@ -32,4 +32,8 @@ public:
     float mockedSpeed() const {
         return m_speed;
     }
+
+    void handle() {
+        
+    }
 };

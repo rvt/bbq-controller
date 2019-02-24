@@ -12,8 +12,7 @@ public:
      * p_minThreshold : Minimum value where we turn on the fan, below that we set the pwm to 0
      */
     OnOffVentilator(uint8_t p_pin, uint32_t p_period);
+    virtual void handle();
 private:
     virtual void setVentilator(const float dutyCycle);
-    virtual void handle();
-
 };

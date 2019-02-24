@@ -147,7 +147,7 @@ note: The 100ms delay is temporary hack
 * Thermocouple for Pit temperature measurement [RTD Pt100](https://www.banggood.com/RTD-Pt100-Temperature-Sensor-2m-Cable-Probe-98mm-3-Wires-50400Degree-p-923736.html?rmmds=search)
 * Sensor module for meat Probe [MAX31855](https://www.adafruit.com/product/269) *There are some fake max31855 modules around without voltage regulator and they have ground issues, be carefull if you go the cheap route.*
 * Sensor module for pit (PT100) probe [MAX31865](https://www.adafruit.com/product/3328)
-* 5V Ventilator. Around 20..30CFM should be enough for a small to medium drum smoker.
+* 5V Ventilator. Around 10..20CFM should be enough for a small to medium drum smoker. 
 * Some box to put it all in
 
 If you use the above hardware you have to re-configure the MAX31865 sensor module for 3-Wrire configuration. This is described on this page : [Adafruit 4-Wire RTDs](https://learn.adafruit.com/adafruit-max31865-rtd-pt100-amplifier/rtd-wiring-config)
