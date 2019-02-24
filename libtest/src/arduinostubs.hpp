@@ -50,5 +50,11 @@ extern "C" int digitalRead(uint8_t pin) {
     return digitalReadStubbed;
 }
 
+int digitalWriteStubbed = 0;
+int digitalWritePinStubbed = 0;
+extern "C" void digitalWrite(uint8_t pin, uint8_t v) {
+    digitalWritePinStubbed = pin;
+    digitalWriteStubbed  = v;
+}
 
 #endif

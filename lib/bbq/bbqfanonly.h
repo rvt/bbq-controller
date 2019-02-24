@@ -21,9 +21,9 @@
 #define TEMP_ERROR_MEDIUM_DEFAULT std::array<float, 4> { {0, 10, 10, 25} };
 #define TEMP_ERROR_HIGH_DEFAULT std::array<float, 4> { {10, 100, 200, 200} };
 
-#define TEMP_CHANGE_LOW_DEFAULT std::array<float, 2> { {0, 1} };
-#define TEMP_CHANGE_MEDIUM_DEFAULT std::array<float, 4> { {0, 2, 2, 5} };
-#define TEMP_CHANGE_FAST_DEFAULT std::array<float, 4> { {2, 5, 20, 20} };
+#define TEMP_CHANGE_LOW_DEFAULT std::array<float, 2> { {0, 0.5} };
+#define TEMP_CHANGE_MEDIUM_DEFAULT std::array<float, 4> { {0, 1, 1, 2.5} };
+#define TEMP_CHANGE_FAST_DEFAULT std::array<float, 4> { {1, 2.5, 20, 20} };
 
 struct BBQFanOnlyConfig {
     int8_t fan_speed_lid_open = FAN_SPEED_LID_OPEN;

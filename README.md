@@ -26,6 +26,7 @@ A Fuzzy logic based BBQ controller based on Fuzzy Logic with the following featu
 * Lid open detection can set a predefined fan speed, or keeps current fan speed
 * Tested with OpenHAB + InfluxDB + Grafana
 * Parts of code tested with catch2
+* PWM or ON/OFF ventilator control (with compiler option)
 
 
 # Note
@@ -48,6 +49,9 @@ Then run ```pio run``` to compile the binary. This will download the needed depe
 
 To upload to your wemos device run the following command (OSX):
 ```platformio run --target upload -e wemos --upload-port /dev/cu.SLAB_USBtoUART```
+
+Currently the system is set for *ON OFF* ventilator control. If you need PWM ventilator control you can edit platformio.ini and set -DPWM_FAN=1.
+The default duty cycle for *ON OFF* van control is 30 seconds.
 
 # Run unit tests 
 
@@ -102,6 +106,7 @@ The controller uses a single topic to configure the behavior.
 | sp   | float | Set the desired temperature | 90..240 | 30.0 | Celsius |
 | lof  | int   | Set a fanspeed when the lid is detected as open | -1..100 | 0 | - | -1 keeps the fan running by control of the controller using it´s current speed |
 | fs1  | int | set Minimum fan speed in % | 0..100 | 20 | % | Some fan's don't start with low PWM values, set the minimum % of value where the fan wil start |
+| ood  | long | On Off fan control duty cycle | 2000..120000 | 30000 | ms | If PWM fan control does not work you can try ON/OFF fan control. See compiler option |
 | f1o  | float | Override fan 1 | -1..100 | -1 | % | -1 will set it to auto mode, eg let the controller handle the speed. Any value > -0.5 will be in override |
 | fl1  | float,float, float,float | Fuzzy set for Low Fan |  0..100 | 0.0,0.0,0.0,50.0 | % | |
 | fm1  | float,float, float,float | Fuzzy set for Medium Fan |  0..100 | 25.0,50.0, 50.0,75.0 | % | |

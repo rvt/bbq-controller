@@ -21,8 +21,7 @@ PWMVentilator::PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart) :
     Ventilator(),
     m_pin(p_pin),
     m_pwmStart(p_pwmStart),
-    m_prevPwmValue(0),
-    m_on(true) {
+    m_prevPwmValue(0)  {
     analogWriteRange(PWM_RANGE);
     analogWriteFreq(PWM_FREQUENCY);
     pinMode(p_pin, OUTPUT);
@@ -34,19 +33,9 @@ void PWMVentilator::setPwmStart(uint8_t p_pwmStart) {
     m_pwmStart = between(p_pwmStart, (uint8_t)0, (uint8_t)100);
 }
 
-void PWMVentilator::setOn(bool on) {
-    m_on = on;
-}
 
-
-
-float PWMVentilator::setVentilator() {
-    auto  p_speed = speed();
-
-    if (!m_on) {
-        p_speed = 0;
-    }
-
+void PWMVentilator::setVentilator(const float dutyCycle) {
+    auto  p_speed = dutyCycle;
 
     int16_t pwmValue;
 
@@ -70,5 +59,4 @@ float PWMVentilator::setVentilator() {
 
     analogWrite(m_pin, pwmValue);
     m_prevPwmValue = p_speed;
-    return p_speed;
 }

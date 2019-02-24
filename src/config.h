@@ -118,3 +118,13 @@
 #define RNOMINAL_OVEN  100.0
 #endif
 
+#ifndef PWM_FAN
+#define PWM_FAN 1
+#endif
+
+#ifndef ON_OFF_FAN
+#define ON_OFF_FAN 1
+// Period of ON/OF fan in milliseconds
+#define ON_OFF_FAN_PERIOD (30 * 1000)
+#endif
+

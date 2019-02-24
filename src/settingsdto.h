@@ -8,8 +8,10 @@
 struct SettingsDTOData  {
     float setPoint = 20;
 
-    float  fan_startPwm1 = 20;   // PWM value (0..100%) where the fan actually starts rotating
+    float  fan_startPwm1 = 20;   // PWM FAN value (0..100%) where the fan actually starts rotating
     int8_t lid_open_fan_speed = FAN_SPEED_LID_OPEN; // fan speed when lif is open. -1:keep as what is given: 0..100% force a speed
+
+    uint32_t on_off_fan_duty_cycle = 30000; // ON/OFF FAN Duty cycle in ms
 
     std::array<float, 4> fan_low  = FAN_LOW_DEFAULT;
     std::array<float, 4> fan_medium  = FAN_MEDIUM_DEFAULT;
@@ -28,6 +30,7 @@ struct SettingsDTOData  {
             setPoint == rhs.setPoint &&
             fan_startPwm1 == rhs.fan_startPwm1 &&
             lid_open_fan_speed == rhs.lid_open_fan_speed &&
+            on_off_fan_duty_cycle == rhs.on_off_fan_duty_cycle &&
             fan_low == rhs.fan_low &&
             fan_medium == rhs.fan_medium &&
             fan_high == rhs.fan_high &&
@@ -79,6 +82,7 @@ public:
         return makeString("sp=%.1f"
                           " fs1=%.0f"
                           " lof=%i"
+                          " ood=%i"
                           " fl1=%.1f,%.1f,%.1f,%.1f"
                           " fm1=%.1f,%.1f,%.1f,%.1f"
                           " fh1=%.1f,%.1f,%.1f,%.1f"
@@ -91,6 +95,7 @@ public:
                           m_data.setPoint,
                           m_data.fan_startPwm1,
                           m_data.lid_open_fan_speed,
+                          m_data.on_off_fan_duty_cycle,
                           m_data.fan_low[0], m_data.fan_low[1], m_data.fan_low[2], m_data.fan_low[3],
                           m_data.fan_medium[0], m_data.fan_medium[1], m_data.fan_medium[2], m_data.fan_medium[3],
                           m_data.fan_high[0], m_data.fan_high[1], m_data.fan_high[2], m_data.fan_high[3],

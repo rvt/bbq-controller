@@ -15,6 +15,7 @@
 #include <icons.h>
 #include <crceeprom.h>
 #include <pwmventilator.h>
+#include <onoffventilator.h>
 #include <makestring.h>
 
 // #include <spi.h> // Include for harware SPI
@@ -191,6 +192,12 @@ void handleCmd(const char* topic, const char* p_payload) {
             // Copy setpoint value
             if (strcmp(values.key(), "sp") == 0) {
                 temperature = values.asFloat();
+            }
+
+            // Fan On/Off controller duty cycle
+            if (strcmp(values.key(), "ood") == 0) {
+                settingsDTO->data()->on_off_fan_duty_cycle = between(values.asLong(), (int32_t)5000, (int32_t)120000);
+                ventilator1.reset(new OnOffVentilator(FAN1_PIN, settingsDTO->data()->on_off_fan_duty_cycle));
             }
 
             // Lid open fan speed
@@ -519,7 +526,13 @@ void setup() {
     sensor2->begin();
     temperatureSensor2.reset(new MAX31855sensor(sensor2));
 
+    #if PWM_FAN == 1
     ventilator1.reset(new PWMVentilator(FAN1_PIN, settingsDTO->data()->fan_startPwm1));
+    #elif ON_OFF_FAN == 1
+    ventilator1.reset(new OnOffVentilator(FAN1_PIN, settingsDTO->data()->on_off_fan_duty_cycle));
+    #else
+    #error Should pick PWM_FAN or ON_OFF_FAN
+    #endif
 #endif
 
     bbqController.reset(new BBQFanOnly(temperatureSensor1, ventilator1));
@@ -570,6 +583,8 @@ void loop() {
         if (counter50TimesSec % 50 == 0) {
             publishStatus();
         }
+
+        ventilator1->handle();
 
         // Maintenance stuff
         uint8_t slot50 = 0;

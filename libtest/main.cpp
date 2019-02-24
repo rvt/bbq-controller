@@ -11,3 +11,4 @@
 #include "src/test_numericknob.hpp"
 #include "src/test_digitalknob.hpp"
 #include "src/test_pwmventilator.hpp"
+#include "src/test_onoffventilator.hpp"

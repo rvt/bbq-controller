@@ -25,9 +25,8 @@ public:
     MockedFan() : Ventilator(), m_speed(0.0) {
     }
 
-    virtual float setVentilator() {
-        m_speed = m_speed + (speed() - m_speed) * 0.1f;
-        return m_speed;
+    virtual void setVentilator(const float dutyCycle) {
+        m_speed = m_speed + (dutyCycle - m_speed) * 0.1f;
     }
 
     float mockedSpeed() const {
