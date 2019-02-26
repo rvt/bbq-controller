@@ -53,6 +53,8 @@ To upload to your wemos device run the following command (OSX):
 Currently the system is set for *ON OFF* ventilator control. If you need PWM ventilator control you can edit platformio.ini and set -DPWM_FAN=1.
 The default duty cycle for *ON OFF* van control is 30 seconds.
 
+For other compiler options check config.h for other options. When time permits I can make them into more options that can be set of MQTT.
+
 # Run unit tests 
 
 * requires cmake to be installed, also assumes you ran ```pio run``` before
@@ -150,12 +152,45 @@ note: The 100ms delay is temporary hack
 * 5V Ventilator. Around 10..20CFM should be enough for a small to medium drum smoker. 
 * Some box to put it all in
 
-If you use the above hardware you have to re-configure the MAX31865 sensor module for 3-Wrire configuration. This is described on this page : [Adafruit 4-Wire RTDs](https://learn.adafruit.com/adafruit-max31865-rtd-pt100-amplifier/rtd-wiring-config)
+THis software is currently configure for using MAX31855 and MAX31865 but it is easy to change that. 
+If you need support for that let me know and I will add a configuration or build options for that.
 
 Additional documentation from the official website:
 
 [MAX31865](https://www.maximintegrated.com/en/products/sensors/MAX31865.html)
 [MAX31855](https://www.maximintegrated.com/en/products/sensors/MAX31855.html)
+
+## Pin Connection
+
+| ESP Pin | Device pin | Device | Note |
+| ---  | ---  | ---    | ---    |
+|  0   | -    | Button | Connect the button via pull-up to V3.3 |
+|  1   | -    | -      | Unused |
+|  2   | CS   | MAX31865 | Chip Select |
+|  3   | -    | Mosfet / Transisitor | fan control |
+|  4   | SCL  | Wemos connected to the OLED display |
+|  5   | SDA  | Wemos connected to the OLED display |
+| 12   | SDO  | MAX31865 / MAX31855 | Hardware SPI |
+| 13   | SDI  | MAX31865 / MAX31855 | Hardware SPI |
+| 14   | CLK  | MAX31865 / MAX31855 | Hardware SPI |
+| 15   | CS   | MAX31855 | Chip Select |
+| A0   | pot  | Lin 10K Potentiometer middle pin | - |
+| 5V   | VCC  | - | Connect to 5V Power supply |
+| GND  | DGND | - | Connect to GND of power supply |
+| 3.3V | V3.3 | - | Use this to feed the MAX31865, MAX31855 button and potentiometer |
+
+* Connect MAX31865 and MAX31855 to V3.3 Some MAX31855 shields only have 3.3V  and *WILL* break when connected to 5V
+* Connect the Lin potentiometer between V3.3 and DGND. Middle pint should go to analog in. The wemos device pin A0 has a build in step-down from 3.3V to 1V
+* Connect the button with a 10K pul-up to V3.3 
+* To use Fan control use a mos-fet or transistor for PWM fan control. Alternative you can use ON/OF fan control of PWM is not working out (see also compile options to select between the methods). 
+* If you notice some noise through the Lin-Potentiometer: add a 0.1uF radiaal Elco between the middle pin and DGND.
+
+MAX31855 is a two wire connection to a thermocouple and has a positive and negative side. Make sure you connect them correctly. I don´ think the device will break if incorrectly connected.
+MAX31865 is a 3 or 4 wire connection to a thermocouple. Read this carefully : [Adafruit 4-Wire RTDs](https://learn.adafruit.com/adafruit-max31865-rtd-pt100-amplifier/rtd-wiring-config) The general idea is that if you have a 3 or 4 wire thermocouple you need
+to reconfigure the shield accordingly. When incorrectly connected you won´ break the device but you will get incorrect readings.
+
+
+*Schematic I can make when somebody asks for it :)*
 
 # Credits
 
