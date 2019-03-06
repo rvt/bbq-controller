@@ -192,6 +192,50 @@ to reconfigure the shield accordingly. When incorrectly connected you won´ brea
 
 *Schematic I can make when somebody asks for it :)*
 
+## Node-Red Blynk Flow
+
+MVP version will use a node-red flow to communicate with a Blynk application to monitor and control 
+basic functionality of your smoker/BBQ and to provide notifications on your cellphone when a important
+event happened. The Blynk application has been designed such that you can use the free version so the fact
+that it doesn´t ook fancy is just the limitation of the free version. Feel free to expand. The node-red
+flow does put out the values to the virtual points
+To use Blynk you need to get a free account and get a auth-token you need to fill in to your node-red flow.
+
+### What you ned
+
+* Free blynk account [Blynk](https://blynk.io)
+* Access to Mosquitto MQTT broker, you could use an free online version MQTT broker or a local version on your rpi 
+* Access to nodered. I think there are some onlineversions but you need a few moduless installed, not sure if that is possible. I have tested this on my local rpi
+* node-red-contrib-string
+* node-red-contrib-blynk-ws 
+* node-red-dashboard
+
+### Blynk Application you can import
+![Blynk Share](images/blynk.png "Blynk Application you can import")
+![Blynk Application](images/blynkapp.png "BBQ Blynk Application")
+
+### Node Red Flow
+Import the file ```support/nodered-blynk.json``` into a seperate tab thenn configure your mosquitto node and
+your blynk node
+
+### Virtual pins usage
+
+| V pin | Direction | Range   | Unit | Param | Usage  |
+| ---   | ---       | ---     | ---  | ---   | ---    |
+| V0    | In        | 90..240 | C    | -     | Alarm temperature for t1 (pit) |
+| V1    | In        | 50..120 | C    | -     | Alarm temperature for t2 (Meat) |
+| V2    | In/Out    | 0..100  | %    | f1o   | Fan speed override |
+| V3    | In        | 0..1    | bool | -     | When true enable auto fan contol, otherwhise set with V2 value |
+| V4    | In        | 0..1    | bool | -     | When true notifications are enabled |
+| V5    | Out       | -       | Char | -     | Value to send to LCD display |
+| V6    | Out       | 90..240 | C    | sp    | Setpoint |
+| V7    | Out       | 90..240 | C    | to    | Pit Temperature    |
+| V8    | Out       | 90..240 | C    | t2    | Meat Temperature   |
+| V9    | Out       | 0..1    | C    | lo    | Lid Open Detection |
+
+
+
+
 # Credits
 
 * AJ Alves - Fuzzy Logic [eFLL (Embedded Fuzzy Logic Library)](https://github.com/zerokol/eFLL)
@@ -201,3 +245,4 @@ to reconfigure the shield accordingly. When incorrectly connected you won´ brea
 * ESP8266 OLED [SSD1306](https://github.com/squix78/esp8266-oled-ssd1306)
 * ESP EEPROM helper library [ESP EEPROM](https://github.com/jwrw/ESP_EEPROM)
 * PT1000 Library [pt100 rtd](https://github.com/drhaney/pt100rtd)
+* Blynk.IO [Blynk](https://blynk.io)

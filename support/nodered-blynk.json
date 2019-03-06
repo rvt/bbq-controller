@@ -1,0 +1,798 @@
+[
+  {
+    "id": "d9dfbfbe.3f7678",
+    "type": "tab",
+    "label": "Flow 1",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "c9841f40.09ca28",
+    "type": "blynk-ws-out-notify",
+    "z": "d9dfbfbe.3f7678",
+    "name": "Notification",
+    "client": "85fc9015.e1cc28",
+    "queue": false,
+    "rate": 5,
+    "x": 1110,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "ecc2df0d.aafd7",
+    "type": "mqtt in",
+    "z": "d9dfbfbe.3f7678",
+    "name": "",
+    "topic": "BBQ/004BED28/status",
+    "qos": "1",
+    "broker": "92cea8b4.bd95f8",
+    "x": 120,
+    "y": 20,
+    "wires": [
+      [
+        "6312f6c2.9ef68"
+      ]
+    ]
+  },
+  {
+    "id": "847056dc.b42d7",
+    "type": "function",
+    "z": "d9dfbfbe.3f7678",
+    "name": "t2 temperature",
+    "func": "var getParam = global.get('getParam');\nreturn [\n    {payload:getParam(msg.payload,'to')}, \n    {payload:getParam(msg.payload,'t2')}, \n    {payload:getParam(msg.payload,'f1')}, \n    {payload:getParam(msg.payload,'f1o')}, \n    {payload:getParam(msg.payload,'sp')}\n];",
+    "outputs": 6,
+    "noerr": 0,
+    "x": 540,
+    "y": 100,
+    "wires": [
+      [
+        "21c3d360.0b7c0c",
+        "753b24a4.8c01f4"
+      ],
+      [
+        "10de2932.6c40e7",
+        "fb0343e4.cda188"
+      ],
+      [],
+      [
+        "5a476585.529194"
+      ],
+      [
+        "5a5a5fd7.baed48"
+      ],
+      [
+        "ff19640b.08941"
+      ]
+    ],
+    "outputLabels": [
+      "to",
+      "t2",
+      "f1",
+      "f1o",
+      "sp",
+      "lo"
+    ]
+  },
+  {
+    "id": "1daadacd.55e935",
+    "type": "blynk-ws-in-write",
+    "z": "d9dfbfbe.3f7678",
+    "name": "V0",
+    "pin": 0,
+    "pin_all": false,
+    "client": "85fc9015.e1cc28",
+    "x": 90,
+    "y": 420,
+    "wires": [
+      [
+        "49eb655a.13ddc4"
+      ]
+    ]
+  },
+  {
+    "id": "ab93f82.b705b08",
+    "type": "ui_text",
+    "z": "d9dfbfbe.3f7678",
+    "group": "eca3206e.eb52e8",
+    "order": 0,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Alarm T1 (Pit)",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "x": 500,
+    "y": 460,
+    "wires": []
+  },
+  {
+    "id": "10de2932.6c40e7",
+    "type": "function",
+    "z": "d9dfbfbe.3f7678",
+    "name": "Trigger t2 / V1",
+    "func": "var alarmSp='v1';\nvar message='Meat Temperature alarm : ';\n\nif (msg.payload === 'reset') {\n    context.lastValue = 0;\n} else {\n    var lastValue=context.lastValue||0;\n    var payload=parseFloat(msg.payload||0);\n    var v0 = global.get(alarmSp)||1000;\n    var v4 = global.get('v4')||false;\n    if (lastValue < v0 && \n        payload>30 && \n        v4 &&\n        payload >= v0) {\n        msg.payload = message + msg.payload;\n        context.lastValue = payload;\n        return msg;    \n    } else {\n        return null;\n    }\n}\n\n",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 880,
+    "y": 80,
+    "wires": [
+      [
+        "c9841f40.09ca28"
+      ]
+    ],
+    "inputLabels": [
+      "[a,b]"
+    ]
+  },
+  {
+    "id": "c4fed5be.69f288",
+    "type": "change",
+    "z": "d9dfbfbe.3f7678",
+    "name": "Alarm t1",
+    "rules": [
+      {
+        "t": "set",
+        "p": "v0",
+        "pt": "global",
+        "to": "payload",
+        "tot": "msg"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 480,
+    "y": 420,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "bfc78419.625718",
+    "type": "blynk-ws-out-lcd",
+    "z": "d9dfbfbe.3f7678",
+    "name": "LCD",
+    "pin": "5",
+    "client": "85fc9015.e1cc28",
+    "x": 910,
+    "y": 320,
+    "wires": []
+  },
+  {
+    "id": "ab1c80f.0c296",
+    "type": "function",
+    "z": "d9dfbfbe.3f7678",
+    "name": "t2 temperature",
+    "func": "var getParam = global.get('getParam');\n\nvar padRight = function (s1, s2, l) {\n  var el = l - (s1.length + s2.length);  \n  return (s1 + ''.padEnd(el,' ') + s2);\n}\n\nmsg.text = padRight('Pit:' + Math.round(getParam(msg.payload,'to')), \n                    'Fan:' + Math.round(getParam(msg.payload,'f1')), 15);\nmsg.text1 = padRight('Meat:' + Math.round(getParam(msg.payload,'t2')),'', 15);\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 540,
+    "y": 320,
+    "wires": [
+      [
+        "bfc78419.625718"
+      ]
+    ]
+  },
+  {
+    "id": "dc376728.8ecb4",
+    "type": "blynk-ws-in-write",
+    "z": "d9dfbfbe.3f7678",
+    "name": "V1",
+    "pin": "1",
+    "pin_all": false,
+    "client": "85fc9015.e1cc28",
+    "x": 90,
+    "y": 520,
+    "wires": [
+      [
+        "e92bf946.eff76"
+      ]
+    ]
+  },
+  {
+    "id": "f7ac54b4.9db878",
+    "type": "ui_text",
+    "z": "d9dfbfbe.3f7678",
+    "group": "eca3206e.eb52e8",
+    "order": 0,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Alarm T2 (Meat)",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "x": 500,
+    "y": 560,
+    "wires": []
+  },
+  {
+    "id": "7f98b499.b342f4",
+    "type": "change",
+    "z": "d9dfbfbe.3f7678",
+    "name": "Alarm t2",
+    "rules": [
+      {
+        "t": "set",
+        "p": "v1",
+        "pt": "global",
+        "to": "payload",
+        "tot": "msg"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 480,
+    "y": 520,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "7417b1b9.a0c828",
+    "type": "blynk-ws-in-write",
+    "z": "d9dfbfbe.3f7678",
+    "name": "V2",
+    "pin": "2",
+    "pin_all": false,
+    "client": "85fc9015.e1cc28",
+    "x": 90,
+    "y": 620,
+    "wires": [
+      [
+        "3ff6b788.0de558"
+      ]
+    ]
+  },
+  {
+    "id": "61809625.e058b",
+    "type": "ui_text",
+    "z": "d9dfbfbe.3f7678",
+    "group": "eca3206e.eb52e8",
+    "order": 0,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Fan Speed %",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "x": 500,
+    "y": 660,
+    "wires": []
+  },
+  {
+    "id": "cb456e8d.60d6d",
+    "type": "change",
+    "z": "d9dfbfbe.3f7678",
+    "name": "Fan Speed",
+    "rules": [
+      {
+        "t": "set",
+        "p": "v2",
+        "pt": "global",
+        "to": "payload",
+        "tot": "msg"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 490,
+    "y": 620,
+    "wires": [
+      [
+        "6370673a.5df72"
+      ]
+    ]
+  },
+  {
+    "id": "8b93d87c.26592",
+    "type": "blynk-ws-in-write",
+    "z": "d9dfbfbe.3f7678",
+    "name": "V3",
+    "pin": "3",
+    "pin_all": false,
+    "client": "85fc9015.e1cc28",
+    "x": 90,
+    "y": 720,
+    "wires": [
+      [
+        "65733d22.e667d4"
+      ]
+    ]
+  },
+  {
+    "id": "9d20fee9.c09a98",
+    "type": "ui_text",
+    "z": "d9dfbfbe.3f7678",
+    "group": "eca3206e.eb52e8",
+    "order": 0,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Fan Override",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "x": 490,
+    "y": 760,
+    "wires": []
+  },
+  {
+    "id": "50be449f.c25364",
+    "type": "change",
+    "z": "d9dfbfbe.3f7678",
+    "name": "Fan Override Enabled",
+    "rules": [
+      {
+        "t": "set",
+        "p": "v3",
+        "pt": "global",
+        "to": "payload",
+        "tot": "msg"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 520,
+    "y": 720,
+    "wires": [
+      [
+        "9c808505.126178"
+      ]
+    ]
+  },
+  {
+    "id": "24200252.44379e",
+    "type": "blynk-ws-in-write",
+    "z": "d9dfbfbe.3f7678",
+    "name": "V4",
+    "pin": "4",
+    "pin_all": false,
+    "client": "85fc9015.e1cc28",
+    "x": 90,
+    "y": 820,
+    "wires": [
+      [
+        "371be57.273901a"
+      ]
+    ]
+  },
+  {
+    "id": "e0542658.9850e8",
+    "type": "ui_text",
+    "z": "d9dfbfbe.3f7678",
+    "group": "eca3206e.eb52e8",
+    "order": 0,
+    "width": 0,
+    "height": 0,
+    "name": "",
+    "label": "Notifications Enabled",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "x": 520,
+    "y": 880,
+    "wires": []
+  },
+  {
+    "id": "16618a74.7ba0c6",
+    "type": "change",
+    "z": "d9dfbfbe.3f7678",
+    "name": "Notifications Enabled",
+    "rules": [
+      {
+        "t": "set",
+        "p": "v4",
+        "pt": "global",
+        "to": "payload",
+        "tot": "msg"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 520,
+    "y": 840,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "6312f6c2.9ef68",
+    "type": "function",
+    "z": "d9dfbfbe.3f7678",
+    "name": "global.getParam",
+    "func": "global.set('getParam', function (payload, param) {\n    var sPayload = payload.toLowerCase().split(' ');\n    var data;\n    sPayload.forEach(function(value) {\n        var kv = value.split('=');\n        if (kv.length === 2 && kv[0] === param) {\n            data = parseFloat(kv[1]);\n        }\n    });\n    return data;    \n});\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 340,
+    "y": 220,
+    "wires": [
+      [
+        "847056dc.b42d7",
+        "ab1c80f.0c296"
+      ]
+    ]
+  },
+  {
+    "id": "21c3d360.0b7c0c",
+    "type": "function",
+    "z": "d9dfbfbe.3f7678",
+    "name": "Trigger t0 / v0",
+    "func": "var alarmSp='v0';\nvar message='Pit Temperature alarm : ';\n\nif (msg.payload === 'reset') {\n    context.lastValue = 0;\n} else {\n    var lastValue=context.lastValue||0;\n    var payload=parseFloat(msg.payload||0);\n    var v0 = global.get(alarmSp)||1000;\n    var v4 = global.get('v4')||false;\n    if (lastValue < v0 && \n        payload>30 && \n        v4 &&\n        payload >= v0) {\n        msg.payload = message + msg.payload;\n        context.lastValue = payload;\n        return msg;    \n    } else {\n        return null;\n    }\n}\n\n",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 880,
+    "y": 40,
+    "wires": [
+      [
+        "c9841f40.09ca28"
+      ]
+    ]
+  },
+  {
+    "id": "371be57.273901a",
+    "type": "string",
+    "z": "d9dfbfbe.3f7678",
+    "name": "toBoolean",
+    "methods": [
+      {
+        "name": "toBoolean",
+        "params": []
+      }
+    ],
+    "prop": "payload",
+    "propout": "payload",
+    "object": "msg",
+    "objectout": "msg",
+    "x": 290,
+    "y": 820,
+    "wires": [
+      [
+        "16618a74.7ba0c6",
+        "e0542658.9850e8",
+        "675c6950.5828a8"
+      ]
+    ]
+  },
+  {
+    "id": "65733d22.e667d4",
+    "type": "string",
+    "z": "d9dfbfbe.3f7678",
+    "name": "toBoolean",
+    "methods": [
+      {
+        "name": "toBoolean",
+        "params": []
+      }
+    ],
+    "prop": "payload",
+    "propout": "payload",
+    "object": "msg",
+    "objectout": "msg",
+    "x": 290,
+    "y": 720,
+    "wires": [
+      [
+        "50be449f.c25364",
+        "9d20fee9.c09a98"
+      ]
+    ]
+  },
+  {
+    "id": "3ff6b788.0de558",
+    "type": "string",
+    "z": "d9dfbfbe.3f7678",
+    "name": "toFloat",
+    "methods": [
+      {
+        "name": "toFloat",
+        "params": [
+          {
+            "type": "num",
+            "value": ""
+          }
+        ]
+      }
+    ],
+    "prop": "payload",
+    "propout": "payload",
+    "object": "msg",
+    "objectout": "msg",
+    "x": 280,
+    "y": 620,
+    "wires": [
+      [
+        "cb456e8d.60d6d",
+        "61809625.e058b"
+      ]
+    ]
+  },
+  {
+    "id": "e92bf946.eff76",
+    "type": "string",
+    "z": "d9dfbfbe.3f7678",
+    "name": "toFloat",
+    "methods": [
+      {
+        "name": "toFloat",
+        "params": [
+          {
+            "type": "num",
+            "value": ""
+          }
+        ]
+      }
+    ],
+    "prop": "payload",
+    "propout": "payload",
+    "object": "msg",
+    "objectout": "msg",
+    "x": 280,
+    "y": 520,
+    "wires": [
+      [
+        "7f98b499.b342f4",
+        "f7ac54b4.9db878"
+      ]
+    ]
+  },
+  {
+    "id": "49eb655a.13ddc4",
+    "type": "string",
+    "z": "d9dfbfbe.3f7678",
+    "name": "toFloat",
+    "methods": [
+      {
+        "name": "toFloat",
+        "params": [
+          {
+            "type": "num",
+            "value": ""
+          }
+        ]
+      }
+    ],
+    "prop": "payload",
+    "propout": "payload",
+    "object": "msg",
+    "objectout": "msg",
+    "x": 280,
+    "y": 420,
+    "wires": [
+      [
+        "c4fed5be.69f288",
+        "ab93f82.b705b08"
+      ]
+    ]
+  },
+  {
+    "id": "83d187e5.7abd3",
+    "type": "mqtt out",
+    "z": "d9dfbfbe.3f7678",
+    "name": "",
+    "topic": "BBQ/004BED28/config",
+    "qos": "1",
+    "retain": "",
+    "broker": "92cea8b4.bd95f8",
+    "x": 910,
+    "y": 620,
+    "wires": []
+  },
+  {
+    "id": "6370673a.5df72",
+    "type": "function",
+    "z": "d9dfbfbe.3f7678",
+    "name": "f10",
+    "func": "if ((global.get('v3')||false)) {\n    msg.payload = 'f1o=-1';\n} else {\n    msg.payload = 'f1o=' + msg.payload;\n}\nreturn msg;    \n",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 710,
+    "y": 620,
+    "wires": [
+      [
+        "83d187e5.7abd3"
+      ]
+    ],
+    "inputLabels": [
+      "[a,b]"
+    ]
+  },
+  {
+    "id": "ee9defd1.bb9238",
+    "type": "mqtt out",
+    "z": "d9dfbfbe.3f7678",
+    "name": "",
+    "topic": "BBQ/004BED28/config",
+    "qos": "1",
+    "retain": "",
+    "broker": "92cea8b4.bd95f8",
+    "x": 910,
+    "y": 720,
+    "wires": []
+  },
+  {
+    "id": "9c808505.126178",
+    "type": "function",
+    "z": "d9dfbfbe.3f7678",
+    "name": "f10",
+    "func": "if (msg.payload === false) {\n    msg.payload = 'f1o='+global.get('v2')||0;\n} else {\n    msg.payload = 'f1o=-1';\n}\nreturn msg;    \n",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 710,
+    "y": 720,
+    "wires": [
+      [
+        "ee9defd1.bb9238"
+      ]
+    ],
+    "inputLabels": [
+      "[a,b]"
+    ]
+  },
+  {
+    "id": "5a476585.529194",
+    "type": "blynk-ws-out-write",
+    "z": "d9dfbfbe.3f7678",
+    "name": "V2",
+    "pin": "2",
+    "pinmode": 0,
+    "client": "85fc9015.e1cc28",
+    "x": 910,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "5a5a5fd7.baed48",
+    "type": "blynk-ws-out-write",
+    "z": "d9dfbfbe.3f7678",
+    "name": "V6",
+    "pin": "6",
+    "pinmode": 0,
+    "client": "85fc9015.e1cc28",
+    "x": 910,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "753b24a4.8c01f4",
+    "type": "blynk-ws-out-write",
+    "z": "d9dfbfbe.3f7678",
+    "name": "V7",
+    "pin": "7",
+    "pinmode": 0,
+    "client": "85fc9015.e1cc28",
+    "x": 910,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "fb0343e4.cda188",
+    "type": "blynk-ws-out-write",
+    "z": "d9dfbfbe.3f7678",
+    "name": "V8",
+    "pin": "8",
+    "pinmode": 0,
+    "client": "85fc9015.e1cc28",
+    "x": 910,
+    "y": 240,
+    "wires": []
+  },
+  {
+    "id": "ff19640b.08941",
+    "type": "blynk-ws-out-write",
+    "z": "d9dfbfbe.3f7678",
+    "name": "V9",
+    "pin": "9",
+    "pinmode": 0,
+    "client": "85fc9015.e1cc28",
+    "x": 910,
+    "y": 280,
+    "wires": []
+  },
+  {
+    "id": "675c6950.5828a8",
+    "type": "change",
+    "z": "d9dfbfbe.3f7678",
+    "name": "",
+    "rules": [
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "reset",
+        "tot": "str"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 500,
+    "y": 800,
+    "wires": [
+      [
+        "21c3d360.0b7c0c",
+        "10de2932.6c40e7"
+      ]
+    ]
+  },
+  {
+    "id": "85fc9015.e1cc28",
+    "type": "blynk-ws-client",
+    "z": "",
+    "name": "bbq",
+    "path": "wss://blynk-cloud.com/websockets",
+    "key": "3975340ea8fb408191df0ea28cee900b",
+    "dbg_all": false,
+    "dbg_read": false,
+    "dbg_write": false,
+    "dbg_notify": false,
+    "dbg_mail": false,
+    "dbg_prop": false,
+    "dbg_sync": false,
+    "dbg_bridge": false,
+    "dbg_low": false,
+    "dbg_pins": "",
+    "multi_cmd": false,
+    "proxy_type": "no",
+    "proxy_url": "",
+    "enabled": true
+  },
+  {
+    "id": "92cea8b4.bd95f8",
+    "type": "mqtt-broker",
+    "z": "",
+    "name": "Mosquitto",
+    "broker": "localhost",
+    "port": "1883",
+    "clientid": "",
+    "usetls": false,
+    "compatmode": true,
+    "keepalive": "60",
+    "cleansession": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthRetain": "false",
+    "birthPayload": "",
+    "closeTopic": "",
+    "closeQos": "0",
+    "closeRetain": "false",
+    "closePayload": "",
+    "willTopic": "",
+    "willQos": "0",
+    "willRetain": "false",
+    "willPayload": ""
+  },
+  {
+    "id": "eca3206e.eb52e8",
+    "type": "ui_group",
+    "z": "",
+    "name": "Default",
+    "tab": "48c57e89.960be",
+    "disp": true,
+    "width": "6",
+    "collapse": false
+  },
+  {
+    "id": "48c57e89.960be",
+    "type": "ui_tab",
+    "z": "",
+    "name": "Home",
+    "icon": "dashboard",
+    "disabled": false,
+    "hidden": false
+  }
+]
