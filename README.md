@@ -201,11 +201,11 @@ that it doesn´t ook fancy is just the limitation of the free version. Feel free
 flow does put out the values to the virtual points
 To use Blynk you need to get a free account and get a auth-token you need to fill in to your node-red flow.
 
-### What you ned
+### What you need
 
 * Free blynk account [Blynk](https://blynk.io)
 * Access to Mosquitto MQTT broker, you could use an free online version MQTT broker or a local version on your rpi 
-* Access to nodered. I think there are some onlineversions but you need a few moduless installed, not sure if that is possible. I have tested this on my local rpi
+* Access to nodered. I think there are some onlineversions but you need a few modules installed, not sure if that is possible. I have tested this on my local rpi
 * node-red-contrib-string
 * node-red-contrib-blynk-ws 
 * node-red-dashboard
@@ -215,8 +215,11 @@ To use Blynk you need to get a free account and get a auth-token you need to fil
 ![Blynk Application](images/blynkapp.png "BBQ Blynk Application")
 
 ### Node Red Flow
-Import the file ```support/nodered-blynk.json``` into a seperate tab thenn configure your mosquitto node and
-your blynk node
+Import the file ```support/nodered-blynk.json``` into a seperate tab then configure your mosquitto node and
+your blynk node. It includes a very small dashboard toview values to verify connectiviy. Feel free to make
+this a fully working dashboard!
+The dashboard can be accesses at : (http://<your IP of node red>:1880/ui/)[http://localhost:1880/ui/]
+
 
 ### Virtual pins usage
 
