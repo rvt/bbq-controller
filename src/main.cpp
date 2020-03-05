@@ -4,10 +4,13 @@
 #include <cstring>
 #include <vector>
 
-#include "debug.h"
+#include "makestring.h"
 
 #include <ESP8266WiFi.h>  // https://github.com/esp8266/Arduino
 #include <ESP8266mDNS.h>
+#include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
+#include <FS.h>   // Include the SPIFFS library
+#include <StreamUtils.h>
 
 #include <propertyutils.h>
 #include <optparser.h>
@@ -16,7 +19,6 @@
 #include <crceeprom.h>
 #include <pwmventilator.h>
 #include <onoffventilator.h>
-#include <makestring.h>
 
 // #include <spi.h> // Include for harware SPI
 #include <Adafruit_MAX31855.h>
@@ -25,20 +27,18 @@
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient/releases/tag/v2.6
 
 #include "ssd1306displaycontroller.h"
-#include <ArduinoOTA.h>
 #include <ESP_EEPROM.h>
-#include <settings.h>
+#include <config.h>
 #include <analogin.h>
 #include <digitalknob.h>
 #include <Fuzzy.h>
-
-#include "settingsdto.h"
 
 #include <bbqfanonly.h>
 #include <bbq.h>
 #include <demo.h>
 #include <statemachine.h>
 
+typedef PropertyValue PV ;
 
 // of transitions
 volatile uint32_t counter50TimesSec = 1;
@@ -48,11 +48,7 @@ volatile uint32_t counter50TimesSec = 1;
 #define EFFECT_PERIOD_CALLBACK   (1000 / FRAMES_PER_SECOND)
 
 // Keep track when the last time we ran the effect state changes
-volatile uint32_t effectPeriodStartMillis = 0;
-
-
-typedef PropertyValue PV ;
-Properties properties;
+uint32_t effectPeriodStartMillis = 0;
 
 // Display System
 SSD1306DisplayController ssd1306displayController(WIRE_SDA, WIRE_SCL);
@@ -68,117 +64,174 @@ MockedTemperature* mockedTemp1 = new MockedTemperature(20.0);
 MockedTemperature* mockedTemp2 = new MockedTemperature(30.0);
 // END: For demo/test mode
 
+// WiFI Manager
+WiFiManager wm;
 
+// Analog and digital inputs
 std::shared_ptr<AnalogIn> analogIn = std::make_shared<AnalogIn>(0.2f);
 DigitalKnob digitalKnob(BUTTON_PIN, true, 110);
 
-// Settings
-std::unique_ptr<SettingsDTO> settingsDTO(nullptr);
+// Stores information about the BBQ controller (PID values, fuzzy loggic values etc, mqtt)
+Properties controllerConfig;
+bool controllerConfigModified = false;
+// Stores information about the current temperature settings
+Properties bbqConfig;
+bool bbqConfigModified = false;
 
 // CRC value of last update to MQTT
-uint16_t lastUpdateCRC = 0;
+uint16_t lastMeasurementCRC = 0;
+uint32_t shouldRestart = 0;        // Indicate that a service requested an restart. Set to millies() of current time and it will restart 5000ms later
 
-// Eeprom storage
-// wait 500ms after last commit, then commit no more often than every 30s
-Settings eepromSaveHandler(
-    500,
-    10000,
-[]() {
-    CRCEEProm::write(0, *settingsDTO->data());
-    EEPROM.commit();
-},
-[]() {
-    return settingsDTO->modified();
-}
-);
-
-// MQTT Storage
-// mqtt updates as quickly as possible with a maximum frequence of MQTT_STATE_UPDATE_DELAY
-void publishToMQTT(const char* topic, const char* payload);
-Settings mqttSaveHandler(
-    1,
-    MQTT_STATE_UPDATE_DELAY,
-[]() {
-
-    std::string configString = settingsDTO->getConfigString();
-
-    if (configString.size() > 0) {
-        Serial.println(configString.c_str());
-        Serial.println(properties.get("mqttConfigStateTopic").getCharPtr());
-        publishToMQTT(properties.get("mqttConfigStateTopic").getCharPtr(), configString.c_str());
-    }
-
-},
-[]() {
-    return settingsDTO->modified();
-}
-);
+bool hasMqttConfigured = false;
+char* mqttLastWillTopic;
+char* mqttClientID;
+char* mqttSubscriberTopic;
+uint8_t mqttSubscriberTopicStrLength;
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
 
 // State machine states and configurations
 std::unique_ptr<StateMachine> bootSequence(nullptr);
 
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
 
-#if defined(TLS)
-WiFiClientSecure wifiClient;
-#else
-WiFiClient wifiClient;
-#endif
-PubSubClient mqttClient(wifiClient);
+void publishToMQTT(const char* topic, const char* payload);
+
+#define MQTT_SERVER_LENGTH 40
+#define MQTT_PORT_LENGTH 5
+#define MQTT_USERNAME_LENGTH 18
+#define MQTT_PASSWORD_LENGTH 18
+WiFiManagerParameter wm_mqtt_server("server", "mqtt server", "", MQTT_SERVER_LENGTH);
+WiFiManagerParameter wm_mqtt_port("port", "mqtt port", "", MQTT_PORT_LENGTH);
+WiFiManagerParameter wm_mqtt_user("user", "mqtt username", "", MQTT_USERNAME_LENGTH);
+
+const char _customHtml_hidden[] = "type=\"password\"";
+WiFiManagerParameter wm_mqtt_password("input", "mqtt password", "", MQTT_PASSWORD_LENGTH, _customHtml_hidden, WFM_LABEL_AFTER);
+
 
 ///////////////////////////////////////////////////////////////////////////
-//  SSL/TLS
+//  Spiffs
+///////////////////////////////////////////////////////////////////////////
+
+
+bool loadConfigSpiffs(const char* filename, Properties& properties) {
+    bool ret = false;
+
+    if (SPIFFS.begin()) {
+        Serial.println("mounted file system");
+
+        if (SPIFFS.exists(filename)) {
+            //file exists, reading and loading
+            File configFile = SPIFFS.open(filename, "r");
+
+            if (configFile) {
+                deserializeProperties<32>(configFile, properties);
+            }
+
+            configFile.close();
+        } else {
+            Serial.print(F("File not found: "));
+            Serial.println(filename);
+        }
+
+        // SPIFFS.end();
+    } else {
+        Serial.print(F("Failed to begin SPIFFS"));
+    }
+
+    return ret;
+}
+
+
+/**
+ * Store custom oarameter configuration in SPIFFS
+ */
+bool saveConfigSPIFFS(const char* filename, Properties& properties) {
+    bool ret = false;
+
+    if (SPIFFS.begin()) {
+        SPIFFS.remove(filename);
+        File configFile = SPIFFS.open(filename, "w");
+
+        if (configFile) {
+            serializeProperties<32>(configFile, properties);
+            Serial.print(F("Saving config : "));
+            Serial.println(filename);
+            ret = true;
+        } else {
+            Serial.print(F("Failed to write file"));
+            Serial.println(filename);
+        }
+
+        configFile.close();
+        //    SPIFFS.end();
+    }
+
+    return ret;
+}
+
+///////////////////////////////////////////////////////////////////////////
+//  MQTT
 ///////////////////////////////////////////////////////////////////////////
 /*
-  Function called to verify the fingerprint of the MQTT server certificate
+* Publish current status
+* to = temperature oven
+* sp = set Point
+* f1 = Speed of fan 1
+* lo = Lid open alert
+* lc = Low charcoal alert
 */
-#if defined(TLS)
-void verifyFingerprint() {
-    DEBUG_PRINT(F("INFO: Connecting to "));
-    DEBUG_PRINTLN(MQTT_SERVER);
+void publishStatusToMqtt() {
 
-    if (!wifiClient.connect(MQTT_SERVER, MQTT_PORT)) {
-        DEBUG_PRINTLN(F("ERROR: Connection failed. Halting execution"));
-        delay(1000);
-        ESP.reset();
+    const char* format = "to=%.2f t2=%.2f sp=%.2f f1=%.2f lo=%i lc=%i f1o=%.1f";
+    char buffer[(4 + 6) * 6 + 16]; // 10 characters per item times extra items to be sure
+    sprintf(buffer, format,
+            temperatureSensor1->get(),
+            temperatureSensor2->get(),
+            bbqController->setPoint(),
+            ventilator1->speed(),
+            bbqController->lidOpen(),
+            bbqController->lowCharcoal(),
+            ventilator1->speedOverride()
+           );
+
+    // Quick hack to only update when data actually changed
+    uint16_t thisCrc = CRCEEProm::crc16((uint8_t*)buffer, std::strlen(buffer));
+
+    if (thisCrc != lastMeasurementCRC) {
+        publishToMQTT("status", buffer);
     }
 
-    if (wifiClient.verify(TLS_FINGERPRINT, MQTT_SERVER)) {
-        DEBUG_PRINTLN(F("INFO: Connection secure"));
-    } else {
-        DEBUG_PRINTLN(F("ERROR: Connection insecure! Halting execution"));
-        delay(1000);
-        ESP.reset();
-    }
+    lastMeasurementCRC = thisCrc;
 }
-#endif
-
-///////////////////////////////////////////////////////////////////////////
-//  Utilities
-///////////////////////////////////////////////////////////////////////////
-
 
 /**
  * Publish a message to mqtt
  */
 void publishToMQTT(const char* topic, const char* payload) {
-    if (mqttClient.publish(topic, payload, true)) {
-        DEBUG_PRINT(F("INFO: MQTT message publish succeeded. Topic: "));
-        DEBUG_PRINT(topic);
-        DEBUG_PRINT(F(". Payload: "));
-        DEBUG_PRINTLN(payload);
+    if (!hasMqttConfigured) {
+        return;
+    }
+
+    char buffer[65];
+    const char* mqttBaseTopic = controllerConfig.get("mqttBaseTopic");
+    snprintf(buffer, 64, "%s/%s", topic, mqttBaseTopic);
+
+    if (mqttClient.publish(buffer, payload, true)) {
     } else {
         Serial.println("Failed to publish");
-        DEBUG_PRINTLN(F("ERROR: MQTT message publish failed, either connection lost, or message too large"));
     }
 }
 
+/////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Send a command to the cmdHandler
  */
 void handleCmd(const char* topic, const char* p_payload) {
-    long m_mqttSubscriberTopicStrLength = properties.get("mqttSubscriberTopicStrLength").getLong();
-    auto topicPos = topic + m_mqttSubscriberTopicStrLength;
+    auto topicPos = topic + mqttSubscriberTopicStrLength;
     Serial.println(topic);
     Serial.println(p_payload);
 
@@ -251,11 +304,7 @@ void handleCmd(const char* topic, const char* p_payload) {
     if (strstr(topicPos, "reset") != nullptr) {
         OptParser::get(p_payload, [](OptValue v) {
             if (strcmp(v.key(), "1") == 0) {
-                Serial.println("reset SettingsDTOData");
-                SettingsDTOData d;
-                CRCEEProm::write(0, d);
-                EEPROM.commit();
-                // Restart didn´t work yet
+                // TODO
             }
         });
     }
@@ -280,219 +329,13 @@ void handleCmd(const char* topic, const char* p_payload) {
 #endif
 }
 
-/*
-* Publish current status
-* to = temperature oven
-* sp = set Point
-* f1 = Speed of fan 1
-* lo = Lid open alert
-* lc = Low charcoal alert
-*/
-void publishStatus() {
-    const char* format = "to=%.2f t2=%.2f sp=%.2f f1=%.2f lo=%i lc=%i f1o=%.1f";
-    char buffer[(4 + 6) * 6 + 16]; // 10 characters per item times extra items to be sure
-    sprintf(buffer, format,
-            temperatureSensor1->get(),
-            temperatureSensor2->get(),
-            bbqController->setPoint(),
-            ventilator1->speed(),
-            bbqController->lidOpen(),
-            bbqController->lowCharcoal(),
-            ventilator1->speedOverride()
-           );
+void setupMQTT() {
 
-    // Quick hack to only update when data actually changed
-    uint16_t thisCrc = CRCEEProm::crc16((uint8_t*)buffer, strlen(buffer));
-
-    if (thisCrc != lastUpdateCRC) {
-        publishToMQTT(properties.get("mqttStatusTopic").getCharPtr(), buffer);
-    }
-
-    lastUpdateCRC = thisCrc;
-}
-
-///////////////////////////////////////////////////////////////////////////
-//  WiFi
-///////////////////////////////////////////////////////////////////////////
-
-void setupWiFi(const Properties& props) {
-    auto mqttClientID = props.get("mqttClientID").getCharPtr();
-    auto wifi_ssid = props.get("wifi_ssid").getCharPtr();
-    auto wifi_password = props.get("wifi_password").getCharPtr();
-    WiFi.hostname(mqttClientID);
-    delay(10);
-    Serial.print(F("INFO: Connecting to: "));
-    Serial.println(wifi_ssid);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(wifi_ssid, wifi_password);
-    randomSeed(micros());
-    MDNS.begin(mqttClientID);
-}
-
-void loadConfiguration(Properties& props) {
-    // 00FF1234
-    const char* chipId = makeCString("%08X", ESP.getChipId());
-    // BBQ00FF1234
-    props.put("mqttClientID", PV(makeCString(HOSTNAME_TEMPLATE, chipId)));
-    // BBQ/00FF1234
-    const char* mqttTopicPrefix = makeCString(MQTT_TOPIC_PREFIX_TEMPLATE, MQTT_PREFIX, chipId);
-    props.put("mqttTopicPrefix", PV(mqttTopicPrefix));
-    // BBQ/00FF1234/lastwill
-    props.put("mqttLastWillTopic", PV(makeCString(MQTT_LASTWILL_TOPIC_TEMPLATE, mqttTopicPrefix)));
-    // BBQ/00FF1234/config/state
-    props.put("mqttConfigStateTopic", PV(makeCString(MQTT_CONFIG_TOPIC_STATE_TEMPLATE, mqttTopicPrefix)));
-    // BBQ/00FF1234/status
-    props.put("mqttStatusTopic", PV(makeCString(MQTT_STATUS_TOPIC_TEMPLATE, mqttTopicPrefix)));
-    //  BBQ/00FF1234/+
-    const char* mqttSubscriberTopic = makeCString(MQTT_SUBSCRIBER_TOPIC_TEMPLATE, mqttTopicPrefix);
-    props.put("mqttSubscriberTopic", PV(mqttSubscriberTopic));
-    // Calculate length of the subcriber topic
-    props.put("mqttSubscriberTopicStrLength", PV((int32_t)std::strlen(mqttSubscriberTopic) - 2));
-    // friendlyName : BBQ Controller 00FF1234
-    props.put("friendlyName", PV(makeCString("BBQ Controller %s", chipId)));
-    // Wigi username and password
-    props.put("wifi_ssid", PV(WIFI_SSID));
-    props.put("wifi_password", PV(WIFI_PASSWORD));
-    // mqtt server and port
-    props.put("mqtt_server", PV(MQTT_SERVER));
-    props.put("mqtt_port", PV(MQTT_PORT));
-    delete chipId;
-}
-
-/**
- * Start OTA
- */
-void startOTA() {
-    // Start OTA
-    ArduinoOTA.setHostname(properties.get("mqttClientID").getCharPtr());
-    ArduinoOTA.onStart([]() {
-        DEBUG_PRINTLN(F("OTA Beginning"));
-        // turn PWM off
-    });
-    ArduinoOTA.onError([](ota_error_t error) {
-        DEBUG_PRINT("ArduinoOTA Error[");
-        DEBUG_PRINT(error);
-        DEBUG_PRINT("]: ");
-
-        if (error == OTA_AUTH_ERROR) {
-            DEBUG_PRINTLN(F("Auth Failed"));
-        } else if (error == OTA_BEGIN_ERROR) {
-            DEBUG_PRINTLN(F("Begin Failed"));
-        } else if (error == OTA_CONNECT_ERROR) {
-            DEBUG_PRINTLN(F("Connect Failed"));
-        } else if (error == OTA_RECEIVE_ERROR) {
-            DEBUG_PRINTLN(F("Receive Failed"));
-        } else if (error == OTA_END_ERROR) {
-            DEBUG_PRINTLN(F("End Failed"));
-        }
-    });
-    ArduinoOTA.begin();
-}
-
-///////////////////////////////////////////////////////////////////////////
-//  SETUP() AND LOOP()
-///////////////////////////////////////////////////////////////////////////
-
-void setup() {
-    //********** CHANGE PIN FUNCTION  TO GPIO **********
-    //https://www.esp8266.com/wiki/doku.php?id=esp8266_gpio_pin_allocations
-    //GPIO 1 (TX) swap the pin to a GPIO.
-    pinMode(1, FUNCTION_3);
-    //GPIO 3 (RX) swap the pin to a GPIO.
-    pinMode(3, FUNCTION_3);
-    //**************************************************
-
-    // Enable serial port
-    Serial.begin(115200);
-    delay(50);
-    Serial.print(F("Hostname: "));
-    // setup Strings
-    loadConfiguration(properties);
-    Serial.println(properties.get("mqttClientID").getCharPtr());
-
-    State* BOOTSEQUENCESTART;
-    State* DELAYEDMQTTCONNECTION;
-    State* TESTMQTTCONNECTION;
-    State* CONNECTMQTT;
-    State* PUBLISHONLINE;
-    State* SUBSCRIBECOMMANDTOPIC;
-    State* WAITFORCOMMANDCAPTURE;
-
-    BOOTSEQUENCESTART = new State([]() {
-        return 2;
-    });
-    DELAYEDMQTTCONNECTION = new StateTimed(1500, []() {
-        return 2;
-    });
-    TESTMQTTCONNECTION = new State([]() {
-        if (mqttClient.connected())  {
-            if (WiFi.status() != WL_CONNECTED) {
-                mqttClient.disconnect();
-            }
-
-            return 1;
-        }
-
-        return 3;
-    });
-    CONNECTMQTT = new State([]() {
-        if (mqttClient.connect(
-                properties.get("mqttClientID").getCharPtr(),
-                MQTT_USER,
-                MQTT_PASS,
-                properties.get("mqttLastWillTopic").getCharPtr(),
-                0, 1, MQTT_LASTWILL_OFFLINE)) {
-            return 4;
-        }
-
-        DEBUG_PRINTLN(F("ERROR: The connection to the MQTT broker failed"));
-        DEBUG_PRINT(F("Username: "));
-        DEBUG_PRINTLN(MQTT_USER);
-        DEBUG_PRINT(F("Broker: "));
-        DEBUG_PRINTLN(MQTT_SERVER);
-        return 1;
-    });
-    PUBLISHONLINE = new State([]() {
-        publishToMQTT(
-            properties.get("mqttLastWillTopic").getCharPtr(),
-            MQTT_LASTWILL_ONLINE);
-        return 5;
-    });
-    SUBSCRIBECOMMANDTOPIC = new State([]() {
-        if (mqttClient.subscribe(properties.get("mqttSubscriberTopic").getCharPtr(), 0)) {
-            Serial.println(properties.get("mqttSubscriberTopic").getCharPtr());
-            return 6;
-        }
-
-        DEBUG_PRINT(F("ERROR: Failed to connect to topic : "));
-        mqttClient.disconnect();
-        return 1;
-    });
-    WAITFORCOMMANDCAPTURE = new StateTimed(3000, []() {
-        return 2;
-    });
-    bootSequence.reset(new StateMachine({
-        BOOTSEQUENCESTART, // 0
-        DELAYEDMQTTCONNECTION,// 1
-        TESTMQTTCONNECTION, // 2
-        CONNECTMQTT, // 3
-        PUBLISHONLINE, // 4
-        SUBSCRIBECOMMANDTOPIC, // 5
-        WAITFORCOMMANDCAPTURE // 6
-    }));
-
-    startOTA();
-    setupWiFi(properties);
-    delay(50);
-
-    // Setup mqtt
-    mqttClient.setServer(properties.get("mqtt_server").getCharPtr(), properties.get("mqtt_port").getLong());
     mqttClient.setCallback([](char* p_topic, byte * p_payload, uint16_t p_length) {
         char mqttReceiveBuffer[64];
         Serial.println("p_topic");
 
         if (p_length >= sizeof(mqttReceiveBuffer)) {
-            DEBUG_PRINT(F("MQTT Message to long."));
             return;
         }
 
@@ -501,16 +344,48 @@ void setup() {
         handleCmd(p_topic, mqttReceiveBuffer);
     });
 
-    EEPROM.begin(CRCEEProm::size(*settingsDTO->data()));
-    SettingsDTOData data;
-    bool loadedFromEEPROM = CRCEEProm::read(0, data);
-
-    if (loadedFromEEPROM) {
-        settingsDTO.reset(new SettingsDTO(data));
-    } else {
-        settingsDTO.reset(new SettingsDTO());
+    if (!controllerConfig.contains("mqttBaseTopic")) {
+        controllerConfig.put("mqttBaseTopic", PV("BBQ"));
+        controllerConfigModified = true;
     }
 
+    if (!controllerConfig.contains("mqttServer")) {
+        controllerConfig.put("mqttServer", PV(""));
+        controllerConfigModified = true;
+    }
+
+    if (!controllerConfig.contains("mqttServer")) {
+        controllerConfig.put("mqttServer", PV(""));
+        controllerConfigModified = true;
+    }
+
+    if (!controllerConfig.contains("mqttUsername")) {
+        controllerConfig.put("mqttUsername", PV(""));
+        controllerConfigModified = true;
+    }
+
+    if (!controllerConfig.contains("mqttPort")) {
+        controllerConfig.put("mqttPort", PV(1883));
+        controllerConfigModified = true;
+    }
+
+    if (!controllerConfig.contains("mqttPassword")) {
+        controllerConfig.put("mqttPassword", PV(""));
+        controllerConfigModified = true;
+    }
+
+    const char* mqttBaseTopic = controllerConfig.get("mqttBaseTopic");
+    mqttClientID = makeCString("%08X", ESP.getChipId());
+    mqttLastWillTopic = makeCString("%s/%s", mqttBaseTopic, MQTT_LASTWILL_TOPIC);
+    mqttSubscriberTopic = makeCString("%s/+", mqttBaseTopic);
+    mqttSubscriberTopicStrLength = std::strlen(mqttSubscriberTopic) - 2;
+}
+
+///////////////////////////////////////////////////////////////////////////
+//  Sensors
+///////////////////////////////////////////////////////////////////////////
+
+void setupSensors() {
 #ifdef DEMO_MODE
     temperatureSensor1.reset(mockedTemp1);
     temperatureSensor2.reset(mockedTemp2);
@@ -526,37 +401,257 @@ void setup() {
     sensor2->begin();
     temperatureSensor2.reset(new MAX31855sensor(sensor2));
 
-    #if PWM_FAN == 1
-    ventilator1.reset(new PWMVentilator(FAN1_PIN, settingsDTO->data()->fan_startPwm1));
-    #elif ON_OFF_FAN == 1
-    ventilator1.reset(new OnOffVentilator(FAN1_PIN, settingsDTO->data()->on_off_fan_duty_cycle));
-    #else
-    #error Should pick PWM_FAN or ON_OFF_FAN
-    #endif
+    if (!controllerConfig.contains("fStartPWM")) {
+        controllerConfig.put("fStartPWM", PV(50));
+    }
+
+    if (!controllerConfig.contains("fOnOffDuty")) {
+        controllerConfig.put("fOnOffDuty", PV(30 * 1000));
+    }
+
+#if PWM_FAN == 1
+    ventilator1.reset(new PWMVentilator(FAN1_PIN, controllerConfig.get("fStartPWM"]));
+#elif ON_OFF_FAN == 1
+    ventilator1.reset(new OnOffVentilator(FAN1_PIN, controllerConfig.get("fOnOffDuty")));
+#else
+#error Should pick PWM_FAN or ON_OFF_FAN
 #endif
+#endif
+}
 
+///////////////////////////////////////////////////////////////////////////
+//  BBQT Controller
+///////////////////////////////////////////////////////////////////////////
+
+void setupBBQController() {
     bbqController.reset(new BBQFanOnly(temperatureSensor1, ventilator1));
-    BBQFanOnlyConfig config = bbqController->config();
-    config.fan_low = settingsDTO->data()->fan_low;
-    config.fan_medium = settingsDTO->data()->fan_medium;
-    config.fan_high = settingsDTO->data()->fan_high;
-    config.temp_error_low = settingsDTO->data()->temp_error_low;
-    config.temp_error_medium = settingsDTO->data()->temp_error_medium;
-    config.temp_error_hight = settingsDTO->data()->temp_error_hight;
-    config.temp_change_fast = settingsDTO->data()->temp_change_fast;
-    bbqController->config(config);
-    bbqController->setPoint(settingsDTO->data()->setPoint);
 
-    bbqController->init();
+    // Setup setpoint
+    if (!bbqConfig.contains("setPoint")) {
+        bbqConfig.put("setPoint", PV(20.f));
+        bbqConfigModified = true;
+    }
 
-    // Start boot sequence
+    bbqController->setPoint(bbqConfig.get("setPoint"));
+}
+
+///////////////////////////////////////////////////////////////////////////
+//  WiFi
+///////////////////////////////////////////////////////////////////////////
+
+
+void serverOnlineCallback() {
+    /*     wm.server->on(JBONE_URI, []() {
+            wm.server->sendHeader("Content-Encoding", "gzip");
+            wm.server->setContentLength(jscript_js_gz_len);
+            wm.server->send(200, "application/javascript", "");
+            wm.server->sendContent_P((char*)jscript_js_gz, jscript_js_gz_len);
+        });
+
+        wm.server->on(TRACK_PEEK_URI, []() {
+            char payloadBuffer[128];
+            sprintf(payloadBuffer, "{\"yaw\":%.2f,\"pitch\":%.2f,\"roll\":%.2f,\"x\":%.2f,\"y\":%.2f,\"z\":%.2f}",
+                    last_measurement.yaw * 180 / M_PI,
+                    last_measurement.pitch * 180 / M_PI,
+                    last_measurement.roll * 180 / M_PI,
+                    last_measurement.x,
+                    last_measurement.y,
+                    last_measurement.z
+                   );
+
+            wm.server->setContentLength(std::strlen(payloadBuffer));
+            wm.server->send(200, F("application/javascript"), payloadBuffer);
+        });
+
+        wm.server->on(STORE_CALIBRATION_URI, []() {
+            if (hwTrack->isReady()) {
+
+                if (!json.containsKey(hwTrack->name())) {
+                    json.createNestedObject(hwTrack->name());
+                }
+                JsonObject config = json[hwTrack->name()].as<JsonObject>();
+                hwTrack->calibrate(config);
+                serializeJsonPretty(config, Serial);
+
+                shouldSaveConfig = true;
+
+                // Send result back
+                wm.server->setContentLength(measureJson(config));
+                wm.server->send(200, F("application/javascript"), "");
+                WiFiClient client = wm.server->client();
+                serializeJson(config, client);
+
+                // Request restart
+                shouldRestart = millis();
+            } else {
+                // We would like to send a 503 but tje JS framework doesn´t give us the body
+                wm.server->send(200, F("application/json"), F("{\"status\":\"error\", \"message\":\"MPU is not ready, please check hardware.\"}"));
+            }
+        }); */
+}
+
+void setupWIFIReconnectManager() {
+    // Statemachine to handle (re)connection to MQTT
+    State* BOOTSEQUENCESTART;
+    State* DELAYEDMQTTCONNECTION;
+    State* TESTMQTTCONNECTION;
+    State* CONNECTMQTT;
+    State* PUBLISHONLINE;
+    State* SUBSCRIBECOMMANDTOPIC;
+    State* WAITFORCOMMANDCAPTURE;
+
+    BOOTSEQUENCESTART = new State([]() {
+        return 2;
+    });
+    DELAYEDMQTTCONNECTION = new StateTimed(1500, []() {
+        hasMqttConfigured =
+            controllerConfig.contains("mqttServer") &&
+            std::strlen((const char*)controllerConfig.get("mqttServer")) > 0;
+
+        if (!hasMqttConfigured) {
+            return 1;
+        }
+
+        return 2;
+    });
+    TESTMQTTCONNECTION = new State([]() {
+        if (mqttClient.connected())  {
+            if (WiFi.status() != WL_CONNECTED) {
+                mqttClient.disconnect();
+            }
+
+            return 1;
+        }
+
+        return 3;
+    });
+    CONNECTMQTT = new State([]() {
+        mqttClient.setServer(
+            controllerConfig.get("mqttServer"),
+            controllerConfig.get("mqttPort")
+        );
+
+        if (mqttClient.connect(
+                mqttClientID,
+                controllerConfig.get("mqttUsername"),
+                controllerConfig.get("mqttPassword"),
+                mqttLastWillTopic,
+                0,
+                1,
+                MQTT_LASTWILL_OFFLINE)
+           ) {
+            return 4;
+        }
+
+        return 1;
+    });
+    PUBLISHONLINE = new State([]() {
+        publishToMQTT(
+            MQTT_LASTWILL_TOPIC,
+            MQTT_LASTWILL_ONLINE);
+        return 5;
+    });
+    SUBSCRIBECOMMANDTOPIC = new State([]() {
+        if (mqttClient.subscribe(mqttSubscriberTopic, 0)) {
+            return 6;
+        }
+
+        mqttClient.disconnect();
+        return 1;
+    });
+    WAITFORCOMMANDCAPTURE = new StateTimed(3000, []() {
+        return 2;
+    });
+    bootSequence.reset(new StateMachine({
+        BOOTSEQUENCESTART, // 0
+        DELAYEDMQTTCONNECTION,// 1
+        TESTMQTTCONNECTION, // 2
+        CONNECTMQTT, // 3
+        PUBLISHONLINE, // 4
+        SUBSCRIBECOMMANDTOPIC, // 5
+        WAITFORCOMMANDCAPTURE // 6
+    }));
     bootSequence->start();
+}
 
-    // Init display controller
+///////////////////////////////////////////////////////////////////////////
+//  Webserver/WIFIManager
+///////////////////////////////////////////////////////////////////////////
+
+
+void saveParamCallback() {
+    Serial.println("[CALLBACK] saveParamCallback fired");
+
+    if (std::strlen(wm_mqtt_server.getValue()) > 0) {
+        controllerConfig.put("mqttServer", PV(wm_mqtt_server.getValue()));
+        controllerConfig.put("mqttPort", PV(std::atoi(wm_mqtt_port.getValue())));
+        controllerConfig.put("mqttUsername", PV(wm_mqtt_user.getValue()));
+        controllerConfig.put("mqttPassword", PV(wm_mqtt_password.getValue()));
+        controllerConfigModified = true;
+        mqttClient.disconnect();
+    }
+}
+
+
+void setupWifiManager() {
+    wm_mqtt_server.setValue("foo", MQTT_SERVER_LENGTH);
+    wm_mqtt_port.setValue("foo", MQTT_PORT_LENGTH);
+    wm_mqtt_password.setValue("foo", MQTT_USERNAME_LENGTH);
+    wm_mqtt_user.setValue("foo", MQTT_PASSWORD_LENGTH);
+
+    // set country
+    wm.setClass("invert");
+    wm.setCountry("US"); // setting wifi country seems to improve OSX soft ap connectivity, may help others as well
+    wm.setWebServerCallback(serverOnlineCallback);
+    wm.setConfigPortalTimeout(120);
+    wm.addParameter(&wm_mqtt_server);
+    wm.addParameter(&wm_mqtt_port);
+    wm.addParameter(&wm_mqtt_user);
+    wm.addParameter(&wm_mqtt_password);
+
+    wm.setSaveParamsCallback(saveParamCallback);
+    std::vector<const char*> menu = {"wifi", "wifinoscan", "info", "param", "sep", "erase", "restart"};
+    wm.setMenu(menu);
+
+
+    if (!wm.autoConnect("WM_AutoConnectAP")) {
+        Serial.println("failed to connect and hit timeout");
+        wm.startConfigPortal();
+    }
+
+    //if you get here you have connected to the WiFi
+    wm.startWebPortal();
+}
+
+///////////////////////////////////////////////////////////////////////////
+//  SETUP and LOOP
+///////////////////////////////////////////////////////////////////////////
+void setup() {
+    //********** CHANGE PIN FUNCTION  TO GPIO **********
+    //https://www.esp8266.com/wiki/doku.php?id=esp8266_gpio_pin_allocations
+    //GPIO 1 (TX) swap the pin to a GPIO.
+    pinMode(1, FUNCTION_3);
+    //GPIO 3 (RX) swap the pin to a GPIO.
+    pinMode(3, FUNCTION_3);
+    //**************************************************
+
+    // Enable serial port
+    Serial.begin(115200);
+    delay(250);
+    // load configurations
+    loadConfigSpiffs(CONTROLLER_CONFIG_FILENAME, controllerConfig);
+    loadConfigSpiffs(BBQ_CONFIG_FILENAME, bbqConfig);
+    Serial.println(".");
+
+    setupSensors();
+    setupBBQController();
+    setupMQTT();
+
+    setupWifiManager();
+    setupWIFIReconnectManager();
     ssd1306displayController.init();
 
     Serial.println(F("End Setup"));
-    // Avoid running towards millis() when loop starts since we do effectPeriodStartMillis += EFFECT_PERIOD_CALLBACK;
     effectPeriodStartMillis = millis();
 }
 
@@ -581,7 +676,7 @@ void loop() {
 
         // once a second publish status to mqtt (if there are changes)
         if (counter50TimesSec % 50 == 0) {
-            publishStatus();
+            publishStatusToMqtt();
         }
 
         ventilator1->handle();
@@ -590,23 +685,34 @@ void loop() {
         uint8_t slot50 = 0;
 
         if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
-            ArduinoOTA.handle();
-        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             bootSequence->handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             mqttClient.loop();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
-            eepromSaveHandler.handle();
+            if (controllerConfigModified) {
+                controllerConfigModified = false;
+                saveConfigSPIFFS(CONTROLLER_CONFIG_FILENAME, controllerConfig);
+            }
+
+            //   eepromSaveHandler.handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
-            mqttSaveHandler.handle();
+            if (bbqConfigModified) {
+                bbqConfigModified = false;
+                saveConfigSPIFFS(BBQ_CONFIG_FILENAME, bbqConfig);
+            }
+
+            //   eepromSaveHandler.handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
-            settingsDTO->reset();
+            //   mqttSaveHandler.handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             temperatureSensor1->handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             temperatureSensor2->handle();
+        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
+            wm.process();
+        } else if (shouldRestart != 0 && (currentMillis - shouldRestart >= 5000)) {
+            shouldRestart = 0;
+            ESP.restart();
         }
-
-
     }
 }

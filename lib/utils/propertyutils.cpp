@@ -5,17 +5,19 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <string>
 #include <cstdlib>
 
+static PropertyValue emptyProperty("0");
 
-PropertyValue::PropertyValue(int32_t p_long) : m_long(p_long), m_type(Type::LONG) {
+PropertyValue::PropertyValue(int32_t p_long) : m_long{p_long}, m_type{Type::LONG} {
 }
-PropertyValue::PropertyValue(const char* p_char) : m_char(strdup(p_char)), m_type(Type::CHARPTR) {
+PropertyValue::PropertyValue(const char* p_char) : m_string{p_char}, m_type{Type::STRING} {
 }
-PropertyValue::PropertyValue(float p_float) : m_float(p_float), m_type(Type::FLOAT) {
+PropertyValue::PropertyValue(const std::string& p_string) : m_string{p_string}, m_type{Type::STRING} {
 }
-PropertyValue::PropertyValue(bool p_bool) : m_bool(p_bool), m_type(Type::BOOL) {
+PropertyValue::PropertyValue(float p_float) : m_float{p_float}, m_type{Type::FLOAT} {
+}
+PropertyValue::PropertyValue(bool p_bool) : m_bool{p_bool}, m_type{Type::BOOL} {
 }
 
 PropertyValue::~PropertyValue() {
@@ -37,8 +39,8 @@ PropertyValue& PropertyValue::operator=(const PropertyValue& val) {
 }
 
 void PropertyValue::destroy() {
-    if (m_type == Type::CHARPTR) {
-        delete m_char;
+    if (m_type == Type::STRING) {
+        m_string.~basic_string();
     }
 }
 
@@ -56,14 +58,16 @@ void PropertyValue::copy(const PropertyValue& value) {
             m_bool = value.m_bool;
             break;
 
-        case Type::CHARPTR:
-            m_char = strdup(value.m_char);
+        case Type::STRING:
+            new (&m_string) auto(value.m_string);
             break;
     }
 
     m_type = value.m_type;
 }
 
+//////////////////////////////////////////////////////////////////
+// Builders
 PropertyValue PropertyValue::longProperty(const char* p_char) {
     return PropertyValue((int32_t)atol(p_char));
 }
@@ -74,24 +78,27 @@ PropertyValue PropertyValue::boolProperty(const char* p_char) {
     return PropertyValue(strcmp(p_char, "true") == 0 || strcmp(p_char, "yes") == 0 || strcmp(p_char, "1") == 0);
 }
 
-int32_t PropertyValue::getLong() const {
+//////////////////////////////////////////////////////////////////
+PropertyValue::operator long() const {
     assert(m_type == Type::LONG);
     return m_long;
 }
-float PropertyValue::getFloat() const {
+PropertyValue::operator float() const {
     assert(m_type == Type::FLOAT);
     return m_float;
 }
-bool PropertyValue::getBool() const {
+PropertyValue::operator bool() const {
     assert(m_type == Type::BOOL);
     return m_bool;
 }
-const char* PropertyValue::getCharPtr() const {
-    assert(m_type == Type::CHARPTR);
-    return m_char;
+PropertyValue::operator const char* () const {
+    assert(m_type == Type::STRING);
+    return reinterpret_cast<const char*>(m_string.c_str());
 }
 
-int32_t PropertyValue::asLong() const {
+//////////////////////////////////////////////////////////////////
+
+long PropertyValue::asLong() const {
     switch (m_type) {
         case Type::LONG:
             return m_long;
@@ -102,8 +109,12 @@ int32_t PropertyValue::asLong() const {
         case Type::BOOL:
             return m_bool ? 1 : 0;
 
-        case Type::CHARPTR:
-            return round(std::atof(m_char));
+        case Type::STRING:
+            if (m_string.length() == 0) {
+                return 0L;
+            }
+
+            return round(std::atof(m_string.c_str()));
             break;
 
         default:
@@ -122,8 +133,12 @@ float PropertyValue::asFloat() const {
         case Type::BOOL:
             return m_bool ? 1.0f : 0.0f;
 
-        case Type::CHARPTR:
-            return std::atof(m_char);
+        case Type::STRING:
+            if (m_string.length() == 0) {
+                return 0.f;
+            }
+
+            return std::atof(m_string.c_str());
             break;
 
         default:
@@ -142,8 +157,12 @@ bool PropertyValue::asBool() const {
         case Type::BOOL:
             return m_bool;
 
-        case Type::CHARPTR:
-            return PropertyValue::boolProperty(m_char).getBool();
+        case Type::STRING:
+            if (m_string.length() == 0) {
+                return false;
+            }
+
+            return (bool)PropertyValue::boolProperty(m_string.c_str());
             break;
 
         default:
@@ -151,10 +170,136 @@ bool PropertyValue::asBool() const {
     }
 }
 
+//////////////////////////////////////////////////////////////////
+
+
 void Properties::put(const char* p_entry, const PropertyValue& value) {
     m_type.emplace(p_entry, value);
 }
+void Properties::put(const std::string& p_entry, const PropertyValue& value) {
+    m_type.emplace(p_entry, value);
+}
 
-const PropertyValue& Properties::get(const char* p_entry) const {
-    return m_type.at(p_entry);
+void Properties::erase(const std::string& p_entry) {
+    m_type.erase(p_entry);
+}
+
+bool Properties::contains(const std::string& p_entry) const {
+    return m_type.find(p_entry) != m_type.end();
+}
+
+const PropertyValue& Properties::get(const std::string& p_entry) const {
+    if (m_type.find(p_entry) != m_type.end()) {
+        return m_type.at(p_entry);
+    } else {
+        return emptyProperty;
+    }
+}
+
+// https://stackoverflow.com/questions/122616/how-do-i-trim-leading-trailing-whitespace-in-a-standard-way
+char* Properties::stripWS_LT(char* str) {
+    char* end;
+
+    // Trim leading space
+    while (isspace((unsigned char)*str)) {
+        str++;
+    }
+
+    if (*str == 0) { // All spaces?
+        return str;
+    }
+
+    // Trim trailing space
+    end = str + strlen(str) - 1;
+
+    while (end > str && isspace((unsigned char)*end)) {
+        end--;
+    }
+
+    // Write new null terminator character
+    end[1] = '\0';
+
+    return str;
+}
+
+char* Properties::getNextNonSpaceChar(char* buffer) {
+    while (*buffer != 0 && isspace(*buffer)) {
+        buffer++;
+    }
+
+    return buffer;
+}
+
+void Properties::serializeProperties(char* v, size_t desiredCapacity, Stream& device) {
+    for (auto it = m_type.begin(); it != m_type.end(); ++it) {
+
+        switch (it->second.m_type) {
+            case PropertyValue::Type::LONG:
+                snprintf(v, desiredCapacity, "%s=%c%ld", it->first.c_str(), 'L', (long)it->second);
+                break;
+
+            case PropertyValue::Type::FLOAT:
+                snprintf(v, desiredCapacity, "%s=%c%g", it->first.c_str(), 'F', (float)it->second);
+                break;
+
+            case PropertyValue::Type::BOOL:
+                snprintf(v, desiredCapacity, "%s=%c%i", it->first.c_str(), 'B', (bool)it->second ? 1 : 0);
+                break;
+
+            case PropertyValue::Type::STRING:
+                snprintf(v, desiredCapacity, "%s=%c%s", it->first.c_str(), 'S', (const char*)it->second);
+                break;
+        }
+
+        device.print(v);
+        device.print("\n");
+    }
+}
+
+void Properties::deserializeProperties(char* buffer, size_t desiredCapacity, Stream& device) {
+    while (device.available()) {
+        uint16_t readBytes = device.readBytesUntil('\n', buffer, desiredCapacity);
+        buffer[readBytes] = 0;
+
+        if (readBytes > 0) {
+            char* buffPtr = strchr(buffer, '=');
+
+            if (buffPtr != nullptr) {
+                *buffPtr = 0; // null terminate after variable name
+                buffPtr = getNextNonSpaceChar(++buffPtr);
+                // Data type of this variable
+                char dataType = *buffPtr;
+                // trim variable name and variable
+                char* variableName = stripWS_LT(buffer);
+                char* variableValue = stripWS_LT(++buffPtr);
+
+                switch (dataType) {
+                    case 'B':
+                        put(variableName, PropertyValue::boolProperty(variableValue));
+                        break;
+
+                    case 'L':
+                        put(variableName, PropertyValue::longProperty(variableValue));
+                        break;
+
+                    case 'S':
+                        put(variableName, PropertyValue(variableValue));
+                        break;
+
+                    case 'F':
+                        put(variableName, PropertyValue::floatProperty(variableValue));
+                        break;
+
+                    default:
+                        break;
+                        // std::cout << ":" << variableName << ":" << dataType << ":" << variableValue << "\n";
+                }
+            }
+        }
+
+        // Read untill we find the next non-space character
+        while (isspace(device.peek()) != 0) {
+            device.read();
+        }
+    }
 }

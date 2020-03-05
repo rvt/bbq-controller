@@ -28,7 +28,7 @@ public:
      * Value is guaranteed to be 0..100
      */
     float speed() const {
-        return m_on?(isOverride() ? m_overrideSetting : m_speed) : 0.0f;
+        return m_on ? (isOverride() ? m_overrideSetting : m_speed) : 0.0f;
     }
 
     void setOn(bool on) {

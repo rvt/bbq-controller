@@ -12,32 +12,19 @@
 #include <cstdlib>
 #include <algorithm>
 
-#define FAN_SPEED_LID_OPEN 0
-#define FAN_LOW_DEFAULT std::array<float, 4> { {0, 25, 25, 50} };
-#define FAN_MEDIUM_DEFAULT std::array<float, 4> { {25, 50, 50, 75} };
-#define FAN_HIGH_DEFAULT std::array<float, 4> { {50, 75, 100, 100} };
-
-#define TEMP_ERROR_LOW_DEFAULT std::array<float, 2> { {0, 5} };
-#define TEMP_ERROR_MEDIUM_DEFAULT std::array<float, 4> { {0, 10, 10, 25} };
-#define TEMP_ERROR_HIGH_DEFAULT std::array<float, 4> { {10, 100, 200, 200} };
-
-#define TEMP_CHANGE_LOW_DEFAULT std::array<float, 2> { {0, 0.5} };
-#define TEMP_CHANGE_MEDIUM_DEFAULT std::array<float, 4> { {0, 1, 1, 2.5} };
-#define TEMP_CHANGE_FAST_DEFAULT std::array<float, 4> { {1, 2.5, 20, 20} };
-
 struct BBQFanOnlyConfig {
-    int8_t fan_speed_lid_open = FAN_SPEED_LID_OPEN;
-    std::array<float, 4> fan_low  = FAN_LOW_DEFAULT;
-    std::array<float, 4> fan_medium  = FAN_MEDIUM_DEFAULT;
-    std::array<float, 4> fan_high = FAN_HIGH_DEFAULT;
+    int8_t fan_speed_lid_open = 0;
+    std::array<float, 4> fan_low  = std::array<float, 4> { {0, 25, 25, 50} };
+    std::array<float, 4> fan_medium  = std::array<float, 4> { {25, 50, 50, 75} };
+    std::array<float, 4> fan_high = std::array<float, 4> { {50, 75, 100, 100} };
 
-    std::array<float, 2> temp_error_low = TEMP_ERROR_LOW_DEFAULT;
-    std::array<float, 4> temp_error_medium  = TEMP_ERROR_MEDIUM_DEFAULT;
-    std::array<float, 4> temp_error_hight = TEMP_ERROR_HIGH_DEFAULT;
+    std::array<float, 2> temp_error_low = std::array<float, 2> { {0, 5} };
+    std::array<float, 4> temp_error_medium  = std::array<float, 4> { {0, 10, 10, 25} };
+    std::array<float, 4> temp_error_hight = std::array<float, 4> { {10, 100, 200, 200} };
 
-    std::array<float, 2> temp_change_slow = TEMP_CHANGE_LOW_DEFAULT;
-    std::array<float, 4> temp_change_medium = TEMP_CHANGE_MEDIUM_DEFAULT;
-    std::array<float, 4> temp_change_fast = TEMP_CHANGE_FAST_DEFAULT;
+    std::array<float, 2> temp_change_slow = std::array<float, 2> { {0, 0.5} };
+    std::array<float, 4> temp_change_medium = std::array<float, 4> { {0, 1, 1, 2.5} };
+    std::array<float, 4> temp_change_fast = std::array<float, 4> { {1, 2.5, 20, 20} };
 };
 
 class BBQFanOnly : public BBQ {
@@ -102,6 +89,9 @@ public:
     }
 
     void init();
+    virtual const char* name() const {
+        return "fuzzy";
+    }
 
 private:
     FuzzyRule* joinSingle(int rule, FuzzySet* fi, FuzzySet* fo);

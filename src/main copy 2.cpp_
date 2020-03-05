@@ -1,0 +1,232 @@
+
+// Eeprom storage
+// wait 500ms after last commit, then commit no more often than every 30s
+Settings eepromSaveHandler(
+    500,
+    10000,
+[]() {
+    saveConfigSPIFFS();
+},
+[]() {
+    return bbqConfigModified || controllerConfigModified;
+}
+);
+
+// MQTT Storage
+// mqtt updates as quickly as possible with a maximum frequence of MQTT_STATE_UPDATE_DELAY
+void publishToMQTT(const char* topic, const char* payload);
+Settings mqttSaveHandler(
+    1,
+    MQTT_STATE_UPDATE_DELAY,
+[]() {
+
+},
+[]() {
+    return configurationModified;
+}
+);
+
+// State machine states and configurations
+std::unique_ptr<StateMachine> bootSequence(nullptr);
+
+
+
+PubSubClient mqttClient(wm.server->client());
+
+
+
+
+///////////////////////////////////////////////////////////////////////////
+//  Utilities
+///////////////////////////////////////////////////////////////////////////
+
+
+
+/**
+ * Send a command to the cmdHandler
+ */
+void handleCmd(const char* topic, const char* p_payload) {
+    long m_mqttSubscriberTopicStrLength = properties.get("mqttSubscriberTopicStrLength").getLong();
+    auto topicPos = topic + m_mqttSubscriberTopicStrLength;
+    Serial.println(topic);
+    Serial.println(p_payload);
+
+
+    // Look for a temperature setPoint topic
+    if (strstr(topicPos, MQTT_CONFIG_TOPIC) != nullptr) {
+        BBQFanOnlyConfig config = bbqController->config();
+        float temperature = 0;
+        OptParser::get(p_payload, [&config, &temperature](OptValue values) {
+
+            // Copy setpoint value
+            if (strcmp(values.key(), "sp") == 0) {
+                temperature = values.asFloat();
+            }
+
+            // Fan On/Off controller duty cycle
+            if (strcmp(values.key(), "ood") == 0) {
+                settingsDTO->data()->on_off_fan_duty_cycle = between(values.asLong(), (int32_t)5000, (int32_t)120000);
+                ventilator1.reset(new OnOffVentilator(FAN1_PIN, settingsDTO->data()->on_off_fan_duty_cycle));
+            }
+
+            // Lid open fan speed
+            if (strcmp(values.key(), "lof") == 0) {
+                config.fan_speed_lid_open = between((int8_t)values.asInt(), (int8_t) -1, (int8_t)100);
+            }
+
+            // Copy minimum fan1 PWM speed in %
+            if (strcmp(values.key(), "fs1") == 0) {
+                settingsDTO->data()->fan_startPwm1 = values.asInt();
+                // Tech Debth? Can we get away with static_pointer_cast without Ventilator knowing about any setPwmStart?
+                std::static_pointer_cast<PWMVentilator>(ventilator1)->setPwmStart(values.asInt());
+            }
+
+            // Fan 1 override ( we don´t want this as an settings so if we loose MQTT connection we can always unplug)
+            if (strcmp(values.key(), "f1o") == 0) {
+                ventilator1->speedOverride(between(values.asFloat(), -1.0f, 100.0f));
+            }
+
+            config.fan_low = getConfigArray("fl1", values.key(), values.asChar(), config.fan_low);
+            config.fan_medium = getConfigArray("fm1", values.key(), values.asChar(), config.fan_medium);
+            config.fan_high = getConfigArray("fh1", values.key(), values.asChar(), config.fan_high);
+
+            config.temp_error_low = getConfigArray("tel", values.key(), values.asChar(), config.temp_error_low);
+            config.temp_error_medium = getConfigArray("tem", values.key(), values.asChar(), config.temp_error_medium);
+            config.temp_error_hight = getConfigArray("teh", values.key(), values.asChar(), config.temp_error_hight);
+
+            config.temp_change_fast = getConfigArray("tcf", values.key(), values.asChar(), config.temp_change_fast);
+        });
+
+        if (temperature > 1.0f) {
+            settingsDTO->data()->setPoint = between(temperature, 90.0f, 240.0f);
+            bbqController->setPoint(settingsDTO->data()->setPoint);
+        }
+
+        // Copy to settings
+        settingsDTO->data()->lid_open_fan_speed = config.fan_speed_lid_open;
+        settingsDTO->data()->fan_low = config.fan_low;
+        settingsDTO->data()->fan_medium = config.fan_medium;
+        settingsDTO->data()->fan_high = config.fan_high;
+        settingsDTO->data()->temp_error_low = config.temp_error_low;
+        settingsDTO->data()->temp_error_medium = config.temp_error_medium;
+        settingsDTO->data()->temp_error_hight = config.temp_error_hight;
+        settingsDTO->data()->temp_change_fast = config.temp_change_fast;
+
+        // Update the bbqController with new values
+        bbqController->config(config);
+        bbqController->init();
+    }
+
+    if (strstr(topicPos, "reset") != nullptr) {
+        OptParser::get(p_payload, [](OptValue v) {
+            if (strcmp(v.key(), "1") == 0) {
+                // TODO
+            }
+        });
+    }
+
+    // Dummy data topic during testing
+    // With ot we can simulate a oven temperature
+    // BBQ/xxxxxx/dummy
+#ifdef DEMO_MODE
+
+    if (strstr(topicPos, TEMPERATURE_DUMMY_TOPIC) != nullptr) {
+        OptParser::get(p_payload, [](OptValue v) {
+            if (strcmp(v.key(), "t1") == 0) {
+                mockedTemp1->set(v.asFloat());
+            }
+
+            if (strcmp(v.key(), "t2") == 0) {
+                mockedTemp2->set(v.asFloat());
+            }
+        });
+    }
+
+#endif
+}
+
+
+///////////////////////////////////////////////////////////////////////////
+//  SETUP() AND LOOP()
+///////////////////////////////////////////////////////////////////////////
+
+void setup() {
+    //********** CHANGE PIN FUNCTION  TO GPIO **********
+    //https://www.esp8266.com/wiki/doku.php?id=esp8266_gpio_pin_allocations
+    //GPIO 1 (TX) swap the pin to a GPIO.
+    pinMode(1, FUNCTION_3);
+    //GPIO 3 (RX) swap the pin to a GPIO.
+    pinMode(3, FUNCTION_3);
+    //**************************************************
+
+    // Enable serial port
+    Serial.begin(115200);
+    delay(50);
+
+    setupWifiReconnectManager();
+    setupWifiManager();
+
+    // load configurations
+    loadConfigSpiffs(CONTROLLER_CONFIG_FILENAME, controllerConfig);
+    loadConfigSpiffs(BBQ_CONFIG_FILENAME, bbqConfig);
+
+    setupSensors();
+   
+    setupBBQController();
+    setupMQTT();
+
+    /////////////////////////////////////////////////////////////////
+    ssd1306displayController.init();
+    bbqController->init();
+    bootSequence->start();
+
+    Serial.println(F("End Setup"));
+    effectPeriodStartMillis = millis();
+}
+
+#define NUMBER_OF_SLOTS 10
+void loop() {
+    const uint32_t currentMillis = millis();
+    int remainingTimeBudget = ssd1306displayController.handle();
+
+    if (remainingTimeBudget > 0 && currentMillis - effectPeriodStartMillis >= EFFECT_PERIOD_CALLBACK) {
+        effectPeriodStartMillis += EFFECT_PERIOD_CALLBACK;
+        counter50TimesSec++;
+
+        // DigitalKnob (the button) must be handled at 50 times/sec to correct handle presses and double presses
+        digitalKnob.handle();
+        // Handle analog input
+        analogIn -> handle();
+
+        // Handle BBQ inputs once every 5 seconds
+        if (counter50TimesSec % 50 == 0) {
+            bbqController -> handle();
+        }
+
+        // once a second publish status to mqtt (if there are changes)
+        if (counter50TimesSec % 50 == 0) {
+            publishStatus();
+        }
+
+        ventilator1->handle();
+
+        // Maintenance stuff
+        uint8_t slot50 = 0;
+
+        if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
+            bootSequence->handle();
+        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
+            mqttClient.loop();
+        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
+           // eepromSaveHandler.handle();
+        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
+           // mqttSaveHandler.handle();
+        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
+            temperatureSensor1->handle();
+        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
+            temperatureSensor2->handle();
+        }
+
+
+    }
+}

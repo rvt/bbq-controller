@@ -7,7 +7,6 @@
 #include <digitalknob.h>
 #include <memory>
 #include <math.h>
-#include "settingsdto.h"
 #include <ventilator.h>
 #include <pwmventilator.h>
 
@@ -27,14 +26,13 @@ extern std::shared_ptr<Ventilator> ventilator1;
 extern PubSubClient mqttClient;
 extern DigitalKnob digitalKnob;
 extern std::shared_ptr<AnalogIn> analogIn;
-extern std::unique_ptr<SettingsDTO> settingsDTO;
 extern std::shared_ptr<Ventilator> ventilator1;
-
 
 // Temporary untill we can have the display functions handle object variables
 static std::unique_ptr<NumericKnob> m_temperatureSetPointKnob;
 static std::unique_ptr<NumericKnob> m_fanOverrideKnob;
 static std::unique_ptr<NumericKnob> m_menuKnob;
+static bool bbqConfigModified;
 
 #define MENU_BLOCK_SIZE 6
 #define MENU_FONT_NAME ArialMT_Plain_10
@@ -162,8 +160,9 @@ void SSD1306DisplayController::init() {
     STATE_SETTEMP = new State([&]() {
         if (digitalKnob.isSingle()) {
             float value = round(m_temperatureSetPointKnob->value() * 2.0f) / 2.0f;
-            settingsDTO->data()->setPoint = value;
+            //controllerConfig["setPoint"] = value;
             bbqController->setPoint(value);
+            bbqConfigModified = true;
             return 4;
         }
 

@@ -1,56 +1,13 @@
-#include "setup.h"
-
-#ifndef RED_PIN
-#define RED_PIN 0
-#endif
-
-#ifndef MQTT_PREFIX
-#define MQTT_PREFIX                    "UNDEFINED"
-#endif
-
-// Wi-Fi
-#ifndef WIFI_SSID
-#define WIFI_SSID                              ""
-#endif
-
-#ifndef WIFI_PASSWORD
-#define WIFI_PASSWORD                          ""
-#endif
-
-// MQTT server settings
-#ifndef MQTT_SERVER
-#define MQTT_SERVER                            "127.0.0.1"
-#endif
-
-#ifndef MQTT_PORT
-#define MQTT_PORT                              1883
-#endif
-
-#ifndef MQTT_USER
-#define MQTT_USER                              ""
-#endif
-
-#ifndef MQTT_PASS
-#define MQTT_PASS                              ""
-#endif
-
 // How often we are updating the mqtt state in ms
 #ifndef MQTT_STATE_UPDATE_DELAY
 #define MQTT_STATE_UPDATE_DELAY                       5000
 #endif
 
-// MQTT topics : RGBW/00FF1234
-#define MQTT_TOPIC_PREFIX_TEMPLATE             "%s/%s"
-
-// Last Will and Testament topic : RGBW/00FF1234/lastwill
-#define MQTT_LASTWILL_TOPIC_TEMPLATE           "%s/lastwill"
-#define MQTT_STATUS_TOPIC_TEMPLATE             "%s/status"
-#define MQTT_SUBSCRIBER_TOPIC_TEMPLATE         "%s/+"
-#define TEMPERATURE_DUMMY_TOPIC                "dummy"
-#define MQTT_CONFIG_TOPIC_STATE_TEMPLATE       "%s/config/state"
-#define MQTT_CONFIG_TOPIC                      "config"
-#define MQTT_LASTWILL_ONLINE       "online"
-#define MQTT_LASTWILL_OFFLINE      "offline"
+#define MQTT_LASTWILL                           "lastwill"
+#define MQTT_STATUS                           "status"
+#define MQTT_LASTWILL_TOPIC                    "lastwill"
+#define MQTT_LASTWILL_ONLINE                   "online"
+#define MQTT_LASTWILL_OFFLINE                  "offline"
 
 // Base hostname, used for the MQTT Client ID and OTA hostname
 #ifndef HOSTNAME_TEMPLATE
@@ -128,3 +85,5 @@
 #define ON_OFF_FAN_PERIOD (30 * 1000)
 #endif
 
+#define CONTROLLER_CONFIG_FILENAME "controllerCfg.json"
+#define BBQ_CONFIG_FILENAME "bbqCfg.json"

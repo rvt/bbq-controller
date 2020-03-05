@@ -45,8 +45,6 @@ private:
     std::array<OverlayCallback, 1> displayOverlay = { };
     std::array<FrameCallback, 3> menuScreens = { };
 
-
-
     std::unique_ptr<StateMachine> menuSequence;
 
     SSD1306Brzo* display;

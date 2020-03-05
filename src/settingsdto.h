@@ -3,6 +3,10 @@
 #include <stdint.h>
 #include <array>
 
+extern "C" {
+#include "makestring.h"
+}
+
 #include <bbqfanonly.h>
 
 struct SettingsDTOData  {
@@ -45,38 +49,6 @@ struct SettingsDTOData  {
     bool operator!=(const SettingsDTOData& rhs) {
         return !(*this == rhs);
     }
-};
-
-class SettingsDTO final {
-private:
-    SettingsDTOData m_data;
-    SettingsDTOData l_data;
-public:
-
-
-public:
-    SettingsDTO(const SettingsDTOData& data) :
-        m_data(data),
-        l_data(data) {
-    }
-    SettingsDTO() {
-    }
-
-    bool modified()  {
-        return m_data != l_data;
-    }
-
-    SettingsDTOData* data() {
-        return &m_data;
-    }
-
-    void data(const SettingsDTOData& data) {
-        memcpy(&m_data, &data, sizeof(data));
-    }
-
-    void reset() {
-        memcpy(&l_data, &m_data, sizeof(m_data));
-    }
 
     std::string getConfigString() {
         return makeString("sp=%.1f"
@@ -92,19 +64,19 @@ public:
                           " tcs=%.1f,%.1f"
                           " tcm=%.1f,%.1f,%.1f,%.1f"
                           " tcf=%.1f,%.1f,%.1f,%.1f",
-                          m_data.setPoint,
-                          m_data.fan_startPwm1,
-                          m_data.lid_open_fan_speed,
-                          m_data.on_off_fan_duty_cycle,
-                          m_data.fan_low[0], m_data.fan_low[1], m_data.fan_low[2], m_data.fan_low[3],
-                          m_data.fan_medium[0], m_data.fan_medium[1], m_data.fan_medium[2], m_data.fan_medium[3],
-                          m_data.fan_high[0], m_data.fan_high[1], m_data.fan_high[2], m_data.fan_high[3],
-                          m_data.temp_error_low[0], m_data.temp_error_low[1],
-                          m_data.temp_error_medium[0], m_data.temp_error_medium[1], m_data.temp_error_medium[2], m_data.temp_error_medium[3],
-                          m_data.temp_error_hight[0], m_data.temp_error_hight[1], m_data.temp_error_hight[2], m_data.temp_error_hight[3],
-                          m_data.temp_change_slow[0], m_data.temp_change_slow[1],
-                          m_data.temp_change_medium[0], m_data.temp_change_medium[1], m_data.temp_change_medium[2], m_data.temp_change_medium[3],
-                          m_data.temp_change_fast[0], m_data.temp_change_fast[1], m_data.temp_change_fast[2], m_data.temp_change_fast[3]
+                          setPoint,
+                          fan_startPwm1,
+                          lid_open_fan_speed,
+                          on_off_fan_duty_cycle,
+                          fan_low[0], fan_low[1], fan_low[2], fan_low[3],
+                          fan_medium[0], fan_medium[1], fan_medium[2], fan_medium[3],
+                          fan_high[0], fan_high[1], fan_high[2], fan_high[3],
+                          temp_error_low[0], temp_error_low[1],
+                          temp_error_medium[0], temp_error_medium[1], temp_error_medium[2], temp_error_medium[3],
+                          temp_error_hight[0], temp_error_hight[1], temp_error_hight[2], temp_error_hight[3],
+                          temp_change_slow[0], temp_change_slow[1],
+                          temp_change_medium[0], temp_change_medium[1], temp_change_medium[2], temp_change_medium[3],
+                          temp_change_fast[0], temp_change_fast[1], temp_change_fast[2], temp_change_fast[3]
                          );
     }
 };
