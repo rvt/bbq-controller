@@ -126,12 +126,14 @@ private:
 
 template<std::size_t desiredCapacity>
 void serializeProperties(Stream& device, Properties& p) {
-    char buffer[desiredCapacity + 1];
-    p.serializeProperties(buffer, desiredCapacity, device);
+    static_assert(desiredCapacity > 0, "Must be > 0");
+    char buffer[desiredCapacity];
+    p.serializeProperties(buffer, desiredCapacity - 1, device);
 }
 
 template<std::size_t desiredCapacity>
 void deserializeProperties(Stream& device, Properties& p) {
-    char buffer[desiredCapacity + 1];
-    p.deserializeProperties(buffer, desiredCapacity, device);
+    static_assert(desiredCapacity > 0, "Must be > 0");
+    char buffer[desiredCapacity];
+    p.deserializeProperties(buffer, desiredCapacity - 1, device);
 }

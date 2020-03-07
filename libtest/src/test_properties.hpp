@@ -57,7 +57,7 @@ TEST_CASE("Scenario Properties", "[properties]") {
     SECTION("Should read truncated string") {
         Stream stream("stringValue=SabcRest is Ignored");
         deserializeProperties<16>(stream, properties);
-        REQUIRE_THAT((const char*)properties.get("stringValue"), Equals("abc"));
+        REQUIRE_THAT((const char*)properties.get("stringValue"), Equals("ab"));
     }
 
 }

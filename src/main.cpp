@@ -235,22 +235,21 @@ void handleCmd(const char* topic, const char* p_payload) {
     Serial.println(topic);
     Serial.println(p_payload);
 
-
     // Look for a temperature setPoint topic
-    if (strstr(topicPos, MQTT_CONFIG_TOPIC) != nullptr) {
+    if (std::strstr(topicPos, "config") != nullptr) {
         BBQFanOnlyConfig config = bbqController->config();
         float temperature = 0;
         OptParser::get(p_payload, [&config, &temperature](OptValue values) {
 
             // Copy setpoint value
-            if (strcmp(values.key(), "sp") == 0) {
+            if (std::strcmp(values.key(), "sp") == 0) {
                 temperature = values.asFloat();
             }
 
             // Fan On/Off controller duty cycle
-            if (strcmp(values.key(), "ood") == 0) {
-                settingsDTO->data()->on_off_fan_duty_cycle = between(values.asLong(), (int32_t)5000, (int32_t)120000);
-                ventilator1.reset(new OnOffVentilator(FAN1_PIN, settingsDTO->data()->on_off_fan_duty_cycle));
+            if (std::strcmp(values.key(), "ood") == 0) {
+                controllerConfig.put("fOnOffDuty", PV(between(values.asLong(), (int32_t)5000, (int32_t)120000)));
+                ventilator1.reset(new OnOffVentilator(FAN1_PIN, controllerConfig.get("fOnOffDuty")));
             }
 
             // Lid open fan speed
@@ -260,7 +259,7 @@ void handleCmd(const char* topic, const char* p_payload) {
 
             // Copy minimum fan1 PWM speed in %
             if (strcmp(values.key(), "fs1") == 0) {
-                settingsDTO->data()->fan_startPwm1 = values.asInt();
+                //settingsDTO->data()->fan_startPwm1 = values.asInt();
                 // Tech Debth? Can we get away with static_pointer_cast without Ventilator knowing about any setPwmStart?
                 std::static_pointer_cast<PWMVentilator>(ventilator1)->setPwmStart(values.asInt());
             }
@@ -282,19 +281,19 @@ void handleCmd(const char* topic, const char* p_payload) {
         });
 
         if (temperature > 1.0f) {
-            settingsDTO->data()->setPoint = between(temperature, 90.0f, 240.0f);
-            bbqController->setPoint(settingsDTO->data()->setPoint);
+            //settingsDTO->data()->setPoint = between(temperature, 90.0f, 240.0f);
+            //bbqController->setPoint(settingsDTO->data()->setPoint);
         }
 
         // Copy to settings
-        settingsDTO->data()->lid_open_fan_speed = config.fan_speed_lid_open;
-        settingsDTO->data()->fan_low = config.fan_low;
-        settingsDTO->data()->fan_medium = config.fan_medium;
-        settingsDTO->data()->fan_high = config.fan_high;
-        settingsDTO->data()->temp_error_low = config.temp_error_low;
-        settingsDTO->data()->temp_error_medium = config.temp_error_medium;
-        settingsDTO->data()->temp_error_hight = config.temp_error_hight;
-        settingsDTO->data()->temp_change_fast = config.temp_change_fast;
+        // settingsDTO->data()->lid_open_fan_speed = config.fan_speed_lid_open;
+        // settingsDTO->data()->fan_low = config.fan_low;
+        // settingsDTO->data()->fan_medium = config.fan_medium;
+        // settingsDTO->data()->fan_high = config.fan_high;
+        // settingsDTO->data()->temp_error_low = config.temp_error_low;
+        // settingsDTO->data()->temp_error_medium = config.temp_error_medium;
+        // settingsDTO->data()->temp_error_hight = config.temp_error_hight;
+        // settingsDTO->data()->temp_change_fast = config.temp_change_fast;
 
         // Update the bbqController with new values
         bbqController->config(config);
