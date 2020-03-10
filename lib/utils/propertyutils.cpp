@@ -174,10 +174,26 @@ bool PropertyValue::asBool() const {
 
 
 void Properties::put(const char* p_entry, const PropertyValue& value) {
-    m_type.emplace(p_entry, value);
+    put(std::string(p_entry), value);
 }
 void Properties::put(const std::string& p_entry, const PropertyValue& value) {
+    auto it = m_type.find(p_entry);
+    if (it!= m_type.end()) {
+        m_type.erase (it);
+    }
     m_type.emplace(p_entry, value);
+}
+
+bool Properties::putNotContains(const std::string& p_entry, const PropertyValue& value) {
+    if (!contains(p_entry)) {
+        m_type.emplace(p_entry, value); 
+        return true;   
+    }
+    return false;
+}
+
+bool Properties::putNotContains(const char* p_entry, const PropertyValue& value) {
+    return putNotContains(std::string(p_entry), value);
 }
 
 void Properties::erase(const std::string& p_entry) {

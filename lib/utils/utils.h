@@ -9,13 +9,6 @@
 #include <iostream>
 #include <algorithm>
 
-
-std::vector<float> getConfigVector(
-    const char* lookForKey,
-    const char* strKeyValues,
-    std::vector<float> inValues,
-    bool* loaded = nullptr);
-
 // TODO make thin template
 template<std::size_t SIZE>
 std::array<float, SIZE> getConfigArray(
@@ -28,9 +21,9 @@ std::array<float, SIZE> getConfigArray(
     if (strcmp(lookForKey, givenKey) == 0) {
         int totalValues = 0;
         std::array<float, SIZE> outValues;
-        OptParser::get(strKeyValues, ",", [&outValues, &totalValues](OptValue v) {
+        OptParser::get(strKeyValues, ',', [&outValues, &totalValues](OptValue v) {
             if (v.pos() < SIZE) {
-                outValues[v.pos()] = v.asFloat();
+                outValues[v.pos()] = v;
                 totalValues++;
             }
         });

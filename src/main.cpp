@@ -10,7 +10,6 @@
 #include <ESP8266mDNS.h>
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 #include <FS.h>   // Include the SPIFFS library
-#include <StreamUtils.h>
 
 #include <propertyutils.h>
 #include <optparser.h>
@@ -19,9 +18,9 @@
 #include <crceeprom.h>
 #include <pwmventilator.h>
 #include <onoffventilator.h>
+#include <settings.h>
 
 // #include <spi.h> // Include for harware SPI
-#include <Adafruit_MAX31855.h>
 #include <max31855sensor.h>
 #include <max31865sensor.h>
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient/releases/tag/v2.6
@@ -93,12 +92,6 @@ PubSubClient mqttClient(wifiClient);
 // State machine states and configurations
 std::unique_ptr<StateMachine> bootSequence(nullptr);
 
-///////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////
-
-void publishToMQTT(const char* topic, const char* payload);
-
 #define MQTT_SERVER_LENGTH 40
 #define MQTT_PORT_LENGTH 5
 #define MQTT_USERNAME_LENGTH 18
@@ -110,6 +103,24 @@ WiFiManagerParameter wm_mqtt_user("user", "mqtt username", "", MQTT_USERNAME_LEN
 const char _customHtml_hidden[] = "type=\"password\"";
 WiFiManagerParameter wm_mqtt_password("input", "mqtt password", "", MQTT_PASSWORD_LENGTH, _customHtml_hidden, WFM_LABEL_AFTER);
 
+
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+
+bool saveConfigSPIFFS(const char* filename, Properties& properties);
+
+Settings saveBBQConfigHandler(
+    500,
+    10000,
+[]() {
+    saveConfigSPIFFS(BBQ_CONFIG_FILENAME, bbqConfig);
+    bbqConfigModified = false;
+},
+[]() {
+    return bbqConfigModified;
+}
+);
 
 ///////////////////////////////////////////////////////////////////////////
 //  Spiffs
@@ -127,7 +138,10 @@ bool loadConfigSpiffs(const char* filename, Properties& properties) {
             File configFile = SPIFFS.open(filename, "r");
 
             if (configFile) {
+                Serial.print(F("Loading config : "));
+                Serial.println(filename);
                 deserializeProperties<32>(configFile, properties);
+                // serializeProperties<32>(Serial, properties);
             }
 
             configFile.close();
@@ -156,9 +170,10 @@ bool saveConfigSPIFFS(const char* filename, Properties& properties) {
         File configFile = SPIFFS.open(filename, "w");
 
         if (configFile) {
-            serializeProperties<32>(configFile, properties);
             Serial.print(F("Saving config : "));
             Serial.println(filename);
+            serializeProperties<32>(configFile, properties);
+            // serializeProperties<32>(Serial, properties);
             ret = true;
         } else {
             Serial.print(F("Failed to write file"));
@@ -183,9 +198,10 @@ bool saveConfigSPIFFS(const char* filename, Properties& properties) {
 * lo = Lid open alert
 * lc = Low charcoal alert
 */
+void publishToMQTT(const char* topic, const char* payload);
 void publishStatusToMqtt() {
 
-    const char* format = "to=%.2f t2=%.2f sp=%.2f f1=%.2f lo=%i lc=%i f1o=%.1f";
+    auto format = "to=%.2f t2=%.2f sp=%.2f f1=%.2f lo=%i lc=%i f1o=%.1f";
     char buffer[(4 + 6) * 6 + 16]; // 10 characters per item times extra items to be sure
     sprintf(buffer, format,
             temperatureSensor1->get(),
@@ -210,30 +226,26 @@ void publishStatusToMqtt() {
 /**
  * Publish a message to mqtt
  */
-void publishToMQTT(const char* topic, const char* payload) {
-    if (!hasMqttConfigured) {
-        return;
-    }
-
+void publishToMQTT( const char* topic, const char* payload) {
     char buffer[65];
     const char* mqttBaseTopic = controllerConfig.get("mqttBaseTopic");
-    snprintf(buffer, 64, "%s/%s", topic, mqttBaseTopic);
+    snprintf(buffer, sizeof(buffer), "%s/%s", mqttBaseTopic, topic);
 
     if (mqttClient.publish(buffer, payload, true)) {
     } else {
-        Serial.println("Failed to publish");
+        Serial.println(F("Failed to publish"));
     }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Send a command to the cmdHandler
+ * Handle incomming MQTT requests
  */
 void handleCmd(const char* topic, const char* p_payload) {
     auto topicPos = topic + mqttSubscriberTopicStrLength;
-    Serial.println(topic);
-    Serial.println(p_payload);
+    Serial.print(F("Handle command : "));
+    Serial.println(topicPos);
 
     // Look for a temperature setPoint topic
     if (std::strstr(topicPos, "config") != nullptr) {
@@ -243,57 +255,50 @@ void handleCmd(const char* topic, const char* p_payload) {
 
             // Copy setpoint value
             if (std::strcmp(values.key(), "sp") == 0) {
-                temperature = values.asFloat();
+                temperature = values;
             }
 
             // Fan On/Off controller duty cycle
             if (std::strcmp(values.key(), "ood") == 0) {
-                controllerConfig.put("fOnOffDuty", PV(between(values.asLong(), (int32_t)5000, (int32_t)120000)));
-                ventilator1.reset(new OnOffVentilator(FAN1_PIN, controllerConfig.get("fOnOffDuty")));
+                int32_t v = values;
+                v = between(v, (int32_t)5000, (int32_t)120000);
+                controllerConfig.put("fOnOffDuty", PV(v));
+                ventilator1.reset(new OnOffVentilator(FAN1_PIN, (int32_t)controllerConfig.get("fOnOffDuty")));
             }
 
             // Lid open fan speed
             if (strcmp(values.key(), "lof") == 0) {
-                config.fan_speed_lid_open = between((int8_t)values.asInt(), (int8_t) -1, (int8_t)100);
+                int8_t v = values;
+                config.fan_speed_lid_open = between(v, (int8_t) -1, (int8_t)100);
             }
 
             // Copy minimum fan1 PWM speed in %
             if (strcmp(values.key(), "fs1") == 0) {
-                //settingsDTO->data()->fan_startPwm1 = values.asInt();
                 // Tech Debth? Can we get away with static_pointer_cast without Ventilator knowing about any setPwmStart?
-                std::static_pointer_cast<PWMVentilator>(ventilator1)->setPwmStart(values.asInt());
+                std::static_pointer_cast<PWMVentilator>(ventilator1)->setPwmStart((int8_t)values);
             }
 
             // Fan 1 override ( we don´t want this as an settings so if we loose MQTT connection we can always unplug)
             if (strcmp(values.key(), "f1o") == 0) {
-                ventilator1->speedOverride(between(values.asFloat(), -1.0f, 100.0f));
+                ventilator1->speedOverride(between((float)values, -1.0f, 100.0f));
             }
 
-            config.fan_low = getConfigArray("fl1", values.key(), values.asChar(), config.fan_low);
-            config.fan_medium = getConfigArray("fm1", values.key(), values.asChar(), config.fan_medium);
-            config.fan_high = getConfigArray("fh1", values.key(), values.asChar(), config.fan_high);
+            config.fan_low = getConfigArray("fl1", values.key(), values, config.fan_low);
+            config.fan_medium = getConfigArray("fm1", values.key(), values, config.fan_medium);
+            config.fan_high = getConfigArray("fh1", values.key(), values, config.fan_high);
 
-            config.temp_error_low = getConfigArray("tel", values.key(), values.asChar(), config.temp_error_low);
-            config.temp_error_medium = getConfigArray("tem", values.key(), values.asChar(), config.temp_error_medium);
-            config.temp_error_hight = getConfigArray("teh", values.key(), values.asChar(), config.temp_error_hight);
+            config.temp_error_low = getConfigArray("tel", values.key(), values, config.temp_error_low);
+            config.temp_error_medium = getConfigArray("tem", values.key(), values, config.temp_error_medium);
+            config.temp_error_hight = getConfigArray("teh", values.key(), values, config.temp_error_hight);
 
-            config.temp_change_fast = getConfigArray("tcf", values.key(), values.asChar(), config.temp_change_fast);
+            config.temp_change_fast = getConfigArray("tcf", values.key(), values, config.temp_change_fast);
         });
 
         if (temperature > 1.0f) {
-            //settingsDTO->data()->setPoint = between(temperature, 90.0f, 240.0f);
-            //bbqController->setPoint(settingsDTO->data()->setPoint);
+            bbqController->setPoint(temperature);
+            bbqConfig.put("setPoint", PV(temperature));
+            bbqConfigModified=true;
         }
-
-        // Copy to settings
-        // settingsDTO->data()->lid_open_fan_speed = config.fan_speed_lid_open;
-        // settingsDTO->data()->fan_low = config.fan_low;
-        // settingsDTO->data()->fan_medium = config.fan_medium;
-        // settingsDTO->data()->fan_high = config.fan_high;
-        // settingsDTO->data()->temp_error_low = config.temp_error_low;
-        // settingsDTO->data()->temp_error_medium = config.temp_error_medium;
-        // settingsDTO->data()->temp_error_hight = config.temp_error_hight;
-        // settingsDTO->data()->temp_change_fast = config.temp_change_fast;
 
         // Update the bbqController with new values
         bbqController->config(config);
@@ -303,7 +308,7 @@ void handleCmd(const char* topic, const char* p_payload) {
     if (strstr(topicPos, "reset") != nullptr) {
         OptParser::get(p_payload, [](OptValue v) {
             if (strcmp(v.key(), "1") == 0) {
-                // TODO
+                shouldRestart = millis();
             }
         });
     }
@@ -316,11 +321,11 @@ void handleCmd(const char* topic, const char* p_payload) {
     if (strstr(topicPos, TEMPERATURE_DUMMY_TOPIC) != nullptr) {
         OptParser::get(p_payload, [](OptValue v) {
             if (strcmp(v.key(), "t1") == 0) {
-                mockedTemp1->set(v.asFloat());
+                mockedTemp1->set(v);
             }
 
             if (strcmp(v.key(), "t2") == 0) {
-                mockedTemp2->set(v.asFloat());
+                mockedTemp2->set(v);
             }
         });
     }
@@ -328,6 +333,9 @@ void handleCmd(const char* topic, const char* p_payload) {
 #endif
 }
 
+/**
+ * Initialise MQTT and variables 
+ */
 void setupMQTT() {
 
     mqttClient.setCallback([](char* p_topic, byte * p_payload, uint16_t p_length) {
@@ -343,48 +351,18 @@ void setupMQTT() {
         handleCmd(p_topic, mqttReceiveBuffer);
     });
 
-    if (!controllerConfig.contains("mqttBaseTopic")) {
-        controllerConfig.put("mqttBaseTopic", PV("BBQ"));
-        controllerConfigModified = true;
-    }
-
-    if (!controllerConfig.contains("mqttServer")) {
-        controllerConfig.put("mqttServer", PV(""));
-        controllerConfigModified = true;
-    }
-
-    if (!controllerConfig.contains("mqttServer")) {
-        controllerConfig.put("mqttServer", PV(""));
-        controllerConfigModified = true;
-    }
-
-    if (!controllerConfig.contains("mqttUsername")) {
-        controllerConfig.put("mqttUsername", PV(""));
-        controllerConfigModified = true;
-    }
-
-    if (!controllerConfig.contains("mqttPort")) {
-        controllerConfig.put("mqttPort", PV(1883));
-        controllerConfigModified = true;
-    }
-
-    if (!controllerConfig.contains("mqttPassword")) {
-        controllerConfig.put("mqttPassword", PV(""));
-        controllerConfigModified = true;
-    }
-
     const char* mqttBaseTopic = controllerConfig.get("mqttBaseTopic");
     mqttClientID = makeCString("%08X", ESP.getChipId());
     mqttLastWillTopic = makeCString("%s/%s", mqttBaseTopic, MQTT_LASTWILL_TOPIC);
     mqttSubscriberTopic = makeCString("%s/+", mqttBaseTopic);
-    mqttSubscriberTopicStrLength = std::strlen(mqttSubscriberTopic) - 2;
+    mqttSubscriberTopicStrLength = std::strlen(mqttSubscriberTopic) - 1;
 }
 
 ///////////////////////////////////////////////////////////////////////////
-//  Sensors
+//  IOHardware
 ///////////////////////////////////////////////////////////////////////////
 
-void setupSensors() {
+void setupIOHardware() {
 #ifdef DEMO_MODE
     temperatureSensor1.reset(mockedTemp1);
     temperatureSensor2.reset(mockedTemp2);
@@ -400,18 +378,11 @@ void setupSensors() {
     sensor2->begin();
     temperatureSensor2.reset(new MAX31855sensor(sensor2));
 
-    if (!controllerConfig.contains("fStartPWM")) {
-        controllerConfig.put("fStartPWM", PV(50));
-    }
-
-    if (!controllerConfig.contains("fOnOffDuty")) {
-        controllerConfig.put("fOnOffDuty", PV(30 * 1000));
-    }
 
 #if PWM_FAN == 1
     ventilator1.reset(new PWMVentilator(FAN1_PIN, controllerConfig.get("fStartPWM"]));
 #elif ON_OFF_FAN == 1
-    ventilator1.reset(new OnOffVentilator(FAN1_PIN, controllerConfig.get("fOnOffDuty")));
+    ventilator1.reset(new OnOffVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fOnOffDuty")));
 #else
 #error Should pick PWM_FAN or ON_OFF_FAN
 #endif
@@ -422,15 +393,11 @@ void setupSensors() {
 //  BBQT Controller
 ///////////////////////////////////////////////////////////////////////////
 
+/**
+ * Create the bbqController with required support hardware
+ */
 void setupBBQController() {
     bbqController.reset(new BBQFanOnly(temperatureSensor1, ventilator1));
-
-    // Setup setpoint
-    if (!bbqConfig.contains("setPoint")) {
-        bbqConfig.put("setPoint", PV(20.f));
-        bbqConfigModified = true;
-    }
-
     bbqController->setPoint(bbqConfig.get("setPoint"));
 }
 
@@ -489,6 +456,9 @@ void serverOnlineCallback() {
         }); */
 }
 
+/**
+ * Setup statemachine that will handle reconnection to mqtt after WIFI drops
+ */
 void setupWIFIReconnectManager() {
     // Statemachine to handle (re)connection to MQTT
     State* BOOTSEQUENCESTART;
@@ -527,7 +497,7 @@ void setupWIFIReconnectManager() {
     CONNECTMQTT = new State([]() {
         mqttClient.setServer(
             controllerConfig.get("mqttServer"),
-            controllerConfig.get("mqttPort")
+            (int16_t)controllerConfig.get("mqttPort")
         );
 
         if (mqttClient.connect(
@@ -576,8 +546,6 @@ void setupWIFIReconnectManager() {
 ///////////////////////////////////////////////////////////////////////////
 //  Webserver/WIFIManager
 ///////////////////////////////////////////////////////////////////////////
-
-
 void saveParamCallback() {
     Serial.println("[CALLBACK] saveParamCallback fired");
 
@@ -587,16 +555,25 @@ void saveParamCallback() {
         controllerConfig.put("mqttUsername", PV(wm_mqtt_user.getValue()));
         controllerConfig.put("mqttPassword", PV(wm_mqtt_password.getValue()));
         controllerConfigModified = true;
+        // Redirect from MQTT so on the next reconnect we pickup new values
         mqttClient.disconnect();
+        // Send redirect back to param page
+        wm.server->sendHeader(F("Location"), F("/param?"), true);
+        wm.server->send ( 302, FPSTR(HTTP_HEAD_CT2), ""); // Empty content inhibits Content-length header so we have to close the socket ourselves. 
+        wm.server->client().stop();
     }
 }
 
-
+/**
+ * Setup the wifimanager and configuration page
+ */
 void setupWifiManager() {
-    wm_mqtt_server.setValue("foo", MQTT_SERVER_LENGTH);
-    wm_mqtt_port.setValue("foo", MQTT_PORT_LENGTH);
-    wm_mqtt_password.setValue("foo", MQTT_USERNAME_LENGTH);
-    wm_mqtt_user.setValue("foo", MQTT_PASSWORD_LENGTH);
+    char port[6];
+    snprintf(port, sizeof(port), "%d", (int16_t)controllerConfig.get("mqttPort"));
+    wm_mqtt_port.setValue(port, MQTT_PORT_LENGTH);
+    wm_mqtt_password.setValue(controllerConfig.get("mqttPassword"), MQTT_PASSWORD_LENGTH);
+    wm_mqtt_user.setValue(controllerConfig.get("mqttUsername"), MQTT_USERNAME_LENGTH);
+    wm_mqtt_server.setValue(controllerConfig.get("mqttServer"), MQTT_SERVER_LENGTH);
 
     // set country
     wm.setClass("invert");
@@ -612,7 +589,6 @@ void setupWifiManager() {
     std::vector<const char*> menu = {"wifi", "wifinoscan", "info", "param", "sep", "erase", "restart"};
     wm.setMenu(menu);
 
-
     if (!wm.autoConnect("WM_AutoConnectAP")) {
         Serial.println("failed to connect and hit timeout");
         wm.startConfigPortal();
@@ -625,6 +601,19 @@ void setupWifiManager() {
 ///////////////////////////////////////////////////////////////////////////
 //  SETUP and LOOP
 ///////////////////////////////////////////////////////////////////////////
+
+void setupDefaults() {
+    bbqConfigModified |= bbqConfig.putNotContains("setPoint", PV(20.f));
+
+    controllerConfigModified |= controllerConfig.putNotContains("fOnOffDuty", PV(30 * 1000));
+    controllerConfigModified |= controllerConfig.putNotContains("fStartPWM", PV(50));
+    controllerConfigModified |= controllerConfig.putNotContains("mqttBaseTopic", PV("BBQ"));
+    controllerConfigModified |= controllerConfig.putNotContains("mqttServer", PV(""));
+    controllerConfigModified |= controllerConfig.putNotContains("mqttUsername", PV(""));
+    controllerConfigModified |= controllerConfig.putNotContains("mqttPassword", PV(""));
+    controllerConfigModified |= controllerConfig.putNotContains("mqttPort", PV(1883));
+}
+
 void setup() {
     //********** CHANGE PIN FUNCTION  TO GPIO **********
     //https://www.esp8266.com/wiki/doku.php?id=esp8266_gpio_pin_allocations
@@ -640,9 +629,9 @@ void setup() {
     // load configurations
     loadConfigSpiffs(CONTROLLER_CONFIG_FILENAME, controllerConfig);
     loadConfigSpiffs(BBQ_CONFIG_FILENAME, bbqConfig);
-    Serial.println(".");
+    setupDefaults();
 
-    setupSensors();
+    setupIOHardware();
     setupBBQController();
     setupMQTT();
 
@@ -692,17 +681,8 @@ void loop() {
                 controllerConfigModified = false;
                 saveConfigSPIFFS(CONTROLLER_CONFIG_FILENAME, controllerConfig);
             }
-
-            //   eepromSaveHandler.handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
-            if (bbqConfigModified) {
-                bbqConfigModified = false;
-                saveConfigSPIFFS(BBQ_CONFIG_FILENAME, bbqConfig);
-            }
-
-            //   eepromSaveHandler.handle();
-        } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
-            //   mqttSaveHandler.handle();
+            saveBBQConfigHandler.handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             temperatureSensor1->handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {

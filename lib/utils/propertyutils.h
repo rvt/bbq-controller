@@ -84,13 +84,10 @@ public:
      * long: value itself
      */
     operator long() const;
-    operator uint16_t() const {
+    operator int16_t() const {
         return (long) * this;
     }
-    operator uint32_t() const {
-        return (long) * this;
-    }
-    operator int() const {
+    operator int32_t() const {
         return (long) * this;
     }
     operator char() const {
@@ -114,6 +111,8 @@ public:
 
     void put(const std::string& p_entry, const PropertyValue& value);
     void put(const char* p_entry, const PropertyValue& value);
+    bool putNotContains(const std::string& p_entry, const PropertyValue& value);
+    bool putNotContains(const char* p_entry, const PropertyValue& value);
     const PropertyValue& get(const std::string& p_entry) const;
     bool contains(const std::string& p_entry) const;
 
@@ -128,12 +127,12 @@ template<std::size_t desiredCapacity>
 void serializeProperties(Stream& device, Properties& p) {
     static_assert(desiredCapacity > 0, "Must be > 0");
     char buffer[desiredCapacity];
-    p.serializeProperties(buffer, desiredCapacity - 1, device);
+    p.serializeProperties(buffer, desiredCapacity, device);
 }
 
 template<std::size_t desiredCapacity>
 void deserializeProperties(Stream& device, Properties& p) {
     static_assert(desiredCapacity > 0, "Must be > 0");
     char buffer[desiredCapacity];
-    p.deserializeProperties(buffer, desiredCapacity - 1, device);
+    p.deserializeProperties(buffer, desiredCapacity, device);
 }
