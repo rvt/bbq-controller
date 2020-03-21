@@ -178,17 +178,20 @@ void Properties::put(const char* p_entry, const PropertyValue& value) {
 }
 void Properties::put(const std::string& p_entry, const PropertyValue& value) {
     auto it = m_type.find(p_entry);
-    if (it!= m_type.end()) {
-        m_type.erase (it);
+
+    if (it != m_type.end()) {
+        m_type.erase(it);
     }
+
     m_type.emplace(p_entry, value);
 }
 
 bool Properties::putNotContains(const std::string& p_entry, const PropertyValue& value) {
     if (!contains(p_entry)) {
-        m_type.emplace(p_entry, value); 
-        return true;   
+        m_type.emplace(p_entry, value);
+        return true;
     }
+
     return false;
 }
 
@@ -274,7 +277,7 @@ void Properties::serializeProperties(char* v, size_t desiredCapacity, Stream& de
 
 void Properties::deserializeProperties(char* buffer, size_t desiredCapacity, Stream& device) {
     while (device.available()) {
-        uint16_t readBytes = device.readBytesUntil('\n', buffer, desiredCapacity);
+        uint16_t readBytes = device.readBytesUntil('\n', buffer, desiredCapacity - 1);
         buffer[readBytes] = 0;
 
         if (readBytes > 0) {

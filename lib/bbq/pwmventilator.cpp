@@ -13,9 +13,8 @@ extern "C" void delay(uint16_t);
 #define OUTPUT 0
 #endif
 
-#define PWM_RANGE  512
-#define PWM_FREQUENCY 10000
-
+constexpr uint32_t PWM_RANGE = 512;
+constexpr uint32_t PWM_FREQUENCY = 10000;
 
 PWMVentilator::PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart) :
     Ventilator(),
@@ -26,10 +25,6 @@ PWMVentilator::PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart) :
     analogWriteFreq(PWM_FREQUENCY);
     pinMode(p_pin, OUTPUT);
     // Ensure value is in between right values
-    setPwmStart(m_pwmStart);
-}
-
-void PWMVentilator::setPwmStart(uint8_t p_pwmStart) {
     m_pwmStart = between(p_pwmStart, (uint8_t)0, (uint8_t)100);
 }
 

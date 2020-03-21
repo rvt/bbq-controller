@@ -79,3 +79,7 @@ template <typename T>
 inline T between(const T& n, const T& lower, const T& upper) {
     return std::max(lower, std::min(n, upper));
 }
+
+inline float percentmap(float value, float out_max) {
+    return value * out_max / 100.f;
+}

@@ -33,7 +33,7 @@ public:
         return m_speed;
     }
 
-    void handle() {
+    void handle(const uint32_t) {
 
     }
 };

@@ -17,6 +17,7 @@
 #include <icons.h>
 #include <crceeprom.h>
 #include <pwmventilator.h>
+#include <stefanspwmventilator.h>
 #include <onoffventilator.h>
 #include <settings.h>
 
@@ -72,16 +73,16 @@ DigitalKnob digitalKnob(BUTTON_PIN, true, 110);
 
 // Stores information about the BBQ controller (PID values, fuzzy loggic values etc, mqtt)
 Properties controllerConfig;
-bool controllerConfigModified = false;
+volatile bool controllerConfigModified = false;
 // Stores information about the current temperature settings
 Properties bbqConfig;
-bool bbqConfigModified = false;
+volatile bool bbqConfigModified = false;
 
 // CRC value of last update to MQTT
-uint16_t lastMeasurementCRC = 0;
-uint32_t shouldRestart = 0;        // Indicate that a service requested an restart. Set to millies() of current time and it will restart 5000ms later
+volatile uint16_t lastMeasurementCRC = 0;
+volatile uint32_t shouldRestart = 0;        // Indicate that a service requested an restart. Set to millies() of current time and it will restart 5000ms later
 
-bool hasMqttConfigured = false;
+volatile bool hasMqttConfigured = false;
 char* mqttLastWillTopic;
 char* mqttClientID;
 char* mqttSubscriberTopic;
@@ -141,7 +142,7 @@ bool loadConfigSpiffs(const char* filename, Properties& properties) {
                 Serial.print(F("Loading config : "));
                 Serial.println(filename);
                 deserializeProperties<32>(configFile, properties);
-                // serializeProperties<32>(Serial, properties);
+                //   serializeProperties<32>(Serial, properties);
             }
 
             configFile.close();
@@ -173,7 +174,7 @@ bool saveConfigSPIFFS(const char* filename, Properties& properties) {
             Serial.print(F("Saving config : "));
             Serial.println(filename);
             serializeProperties<32>(configFile, properties);
-            // serializeProperties<32>(Serial, properties);
+            //                 serializeProperties<32>(Serial, properties);
             ret = true;
         } else {
             Serial.print(F("Failed to write file"));
@@ -226,7 +227,7 @@ void publishStatusToMqtt() {
 /**
  * Publish a message to mqtt
  */
-void publishToMQTT( const char* topic, const char* payload) {
+void publishToMQTT(const char* topic, const char* payload) {
     char buffer[65];
     const char* mqttBaseTopic = controllerConfig.get("mqttBaseTopic");
     snprintf(buffer, sizeof(buffer), "%s/%s", mqttBaseTopic, topic);
@@ -244,8 +245,8 @@ void publishToMQTT( const char* topic, const char* payload) {
  */
 void handleCmd(const char* topic, const char* p_payload) {
     auto topicPos = topic + mqttSubscriberTopicStrLength;
-    Serial.print(F("Handle command : "));
-    Serial.println(topicPos);
+    //Serial.print(F("Handle command : "));
+    //Serial.println(topicPos);
 
     // Look for a temperature setPoint topic
     if (std::strstr(topicPos, "config") != nullptr) {
@@ -263,7 +264,7 @@ void handleCmd(const char* topic, const char* p_payload) {
                 int32_t v = values;
                 v = between(v, (int32_t)5000, (int32_t)120000);
                 controllerConfig.put("fOnOffDuty", PV(v));
-                ventilator1.reset(new OnOffVentilator(FAN1_PIN, (int32_t)controllerConfig.get("fOnOffDuty")));
+                //ventilator1.reset(new OnOffVentilator(FAN1_PIN, (int32_t)controllerConfig.get("fOnOffDuty")));
             }
 
             // Lid open fan speed
@@ -272,34 +273,31 @@ void handleCmd(const char* topic, const char* p_payload) {
                 config.fan_speed_lid_open = between(v, (int8_t) -1, (int8_t)100);
             }
 
-            // Copy minimum fan1 PWM speed in %
-            if (strcmp(values.key(), "fs1") == 0) {
-                // Tech Debth? Can we get away with static_pointer_cast without Ventilator knowing about any setPwmStart?
-                std::static_pointer_cast<PWMVentilator>(ventilator1)->setPwmStart((int8_t)values);
-            }
-
             // Fan 1 override ( we don´t want this as an settings so if we loose MQTT connection we can always unplug)
             if (strcmp(values.key(), "f1o") == 0) {
                 ventilator1->speedOverride(between((float)values, -1.0f, 100.0f));
             }
 
-            config.fan_low = getConfigArray("fl1", values.key(), values, config.fan_low);
-            config.fan_medium = getConfigArray("fm1", values.key(), values, config.fan_medium);
-            config.fan_high = getConfigArray("fh1", values.key(), values, config.fan_high);
+            config.fan_lower = getConfigArray("flo", values.key(), values, config.fan_lower);
+            config.fan_steady = getConfigArray("fst", values.key(), values, config.fan_steady);
+            config.fan_higher = getConfigArray("fhi", values.key(), values, config.fan_higher);
 
             config.temp_error_low = getConfigArray("tel", values.key(), values, config.temp_error_low);
             config.temp_error_medium = getConfigArray("tem", values.key(), values, config.temp_error_medium);
             config.temp_error_hight = getConfigArray("teh", values.key(), values, config.temp_error_hight);
 
+            config.temp_change_slow = getConfigArray("tcs", values.key(), values, config.temp_change_slow);
+            config.temp_change_medium = getConfigArray("tcm", values.key(), values, config.temp_change_medium);
             config.temp_change_fast = getConfigArray("tcf", values.key(), values, config.temp_change_fast);
         });
 
         if (temperature > 1.0f) {
             bbqController->setPoint(temperature);
             bbqConfig.put("setPoint", PV(temperature));
-            bbqConfigModified=true;
+            bbqConfigModified = true;
         }
 
+        Serial.println("Config");
         // Update the bbqController with new values
         bbqController->config(config);
         bbqController->init();
@@ -334,13 +332,13 @@ void handleCmd(const char* topic, const char* p_payload) {
 }
 
 /**
- * Initialise MQTT and variables 
+ * Initialise MQTT and variables
  */
 void setupMQTT() {
 
     mqttClient.setCallback([](char* p_topic, byte * p_payload, uint16_t p_length) {
         char mqttReceiveBuffer[64];
-        Serial.println("p_topic");
+        //Serial.println(p_topic);
 
         if (p_length >= sizeof(mqttReceiveBuffer)) {
             return;
@@ -363,11 +361,6 @@ void setupMQTT() {
 ///////////////////////////////////////////////////////////////////////////
 
 void setupIOHardware() {
-#ifdef DEMO_MODE
-    temperatureSensor1.reset(mockedTemp1);
-    temperatureSensor2.reset(mockedTemp2);
-    ventilator1.reset(new MockedFan());
-#else
     // Sensor 1 is generally used for the temperature of the bit
     auto sensor1 = new MAX31865sensor(SPI_MAX31865_CS_PIN, SPI_SDI_PIN, SPI_SDO_PIN, SPI_CLK_PIN, RNOMINAL_OVEN, RREF_OVEN);
     sensor1->begin(MAX31865_3WIRE);
@@ -378,15 +371,8 @@ void setupIOHardware() {
     sensor2->begin();
     temperatureSensor2.reset(new MAX31855sensor(sensor2));
 
-
-#if PWM_FAN == 1
-    ventilator1.reset(new PWMVentilator(FAN1_PIN, controllerConfig.get("fStartPWM"]));
-#elif ON_OFF_FAN == 1
-    ventilator1.reset(new OnOffVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fOnOffDuty")));
-#else
-#error Should pick PWM_FAN or ON_OFF_FAN
-#endif
-#endif
+    ventilator1.reset(new StefansPWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));
+    //    ventilator1.reset(new OnOffVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fOnOffDuty")));
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -398,6 +384,7 @@ void setupIOHardware() {
  */
 void setupBBQController() {
     bbqController.reset(new BBQFanOnly(temperatureSensor1, ventilator1));
+    bbqController->init();
     bbqController->setPoint(bbqConfig.get("setPoint"));
 }
 
@@ -559,7 +546,7 @@ void saveParamCallback() {
         mqttClient.disconnect();
         // Send redirect back to param page
         wm.server->sendHeader(F("Location"), F("/param?"), true);
-        wm.server->send ( 302, FPSTR(HTTP_HEAD_CT2), ""); // Empty content inhibits Content-length header so we have to close the socket ourselves. 
+        wm.server->send(302, FPSTR(HTTP_HEAD_CT2), "");   // Empty content inhibits Content-length header so we have to close the socket ourselves.
         wm.server->client().stop();
     }
 }
@@ -633,11 +620,10 @@ void setup() {
 
     setupIOHardware();
     setupBBQController();
+    ssd1306displayController.init();
     setupMQTT();
-
     setupWifiManager();
     setupWIFIReconnectManager();
-    ssd1306displayController.init();
 
     Serial.println(F("End Setup"));
     effectPeriodStartMillis = millis();
@@ -656,18 +642,18 @@ void loop() {
         digitalKnob.handle();
         // Handle analog input
         analogIn -> handle();
-
-        // Handle BBQ inputs once every 5 seconds
-        if (counter50TimesSec % 50 == 0) {
-            bbqController -> handle();
-        }
+        // Handle fan
+        ventilator1->handle(currentMillis);
+        bbqController -> handle(currentMillis);
 
         // once a second publish status to mqtt (if there are changes)
         if (counter50TimesSec % 50 == 0) {
             publishStatusToMqtt();
         }
 
-        ventilator1->handle();
+        if (counter50TimesSec % 500 == 0) {
+            // serializeProperties<32>(Serial, controllerConfig);
+        }
 
         // Maintenance stuff
         uint8_t slot50 = 0;

@@ -12,7 +12,7 @@ Splash Screen :
 
 # Currently under heavy development 
 * Test digital thermometer max31855
-* Implement Farenheit display
+* Implement Farenheit display - No requests so very low priority
 
 # Featues
 A Fuzzy logic based BBQ controller based on Fuzzy Logic with the following features:
@@ -43,9 +43,23 @@ This is still work in progress and has not yet been field tested and development
 
 # Compilation
 
-To build your version use platform io for compilation: Copy
-```setup_example.h``` to ```setup.h``` and modify the contents to your needs so it can connect to your wifi and potentially your MQTT broker.
-Then run ```pio run``` to compile the binary. This will download the needed dependencies.
+``` bash
+bbq rvt$ pio run
+Processing wemos (platform: espressif8266; framework: arduino; board: esp8285)
+-------------------------------------------------------------------------------------------------------------------
+Verbose mode can be enabled via `-v, --verbose` option
+CONFIGURATION: https://docs.platformio.org/page/boards/espressif8266/esp8285.html
+PLATFORM: Espressif 8266 2.3.3 > Generic ESP8285 Module
+...
+...
+...
+Retrieving maximum program size .pio/build/wemos/firmware.elf
+Checking size .pio/build/wemos/firmware.elf
+Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
+RAM:   [=====     ]  48.3% (used 39576 bytes from 81920 bytes)
+Flash: [=======   ]  71.7% (used 545976 bytes from 761840 bytes)
+========================================== [SUCCESS] Took 10.77 seconds ==========================================
+```
 
 To upload to your wemos device run the following command (OSX):
 ```platformio run --target upload -e wemos --upload-port /dev/cu.SLAB_USBtoUART```
@@ -79,7 +93,7 @@ I use [MQTT Spy](https://github.com/eclipse/paho.mqtt-spy/releases)  to spy for 
 
 ## Status messages
 
-Topic: ```BBQ/XXXXXXXX/config/state```
+Topic: ```BBQ/config/state```
 
 Status messages are send to an MQTT broker each time any of the following variables changed. Status messages are great to monitor the progress during cooking.
 
@@ -98,8 +112,8 @@ Example message:
 
 ### Config messages
 
-Topic: ```BBQ/XXXXXXXX/config```
-Topic: ```BBQ/XXXXXXXX/config/state``` each time any of the variables are changed the configuration is published to this topic
+Topic: ```BBQ/config```
+Topic: ```BBQ/config/state``` each time any of the variables are changed the configuration is published to this topic
 
 The controller uses a single topic to configure the behavior.
 
@@ -118,16 +132,11 @@ The controller uses a single topic to configure the behavior.
 | teh  | float,float, float,float | Fuzzy set for high temperature error |  0-XX | 15.0,200.0, 200.0,200.0 | Celsius | |
 | tcf  | float,float, float,float | Fuzzy set for temperature drop detection |  0-XX | 10.0,20.0, 20.0,30.0 | Celsius | |
 
-Example messages to ```BBQ/XXXXXXXX/config```:
+Example messages to ```BBQ/config```:
 
 * ```sp=130.0``` Set the desired pit temp to 130 degree Celsius
 * ```f1o=55``` Override fan speed to 55%
 * ```f1o=-1 sp=180.0``` Enable auto mode and set desired temp to 180Celsius in one configuration line
-* ```fl1=0.0,0.0,0.0,50.0``` Update Fuzzy Set for fan 1, this will re-configure the BBQ controller
-
-Examples message received on ```BBQ/XXXXXXXX/config/state```:
-
-```sp=150.5 fs1=30 lof=0 fl1=0.0,25.0,25.0,50.0 fm1=25.0,50.0,50.0,75.0 fh1=50.0,200.0,200.0,200.0 tel=0.0,5.0 tem=0.0,10.0,10.0,25.0 teh=10.0,100.0,200.0,200.0 tcs=0.0,0.1 tcm=0.0,0.2,0.2,0.5 tcf=0.2,0.5,2.0,2.0```
 
 ### fs1 with PWM
 

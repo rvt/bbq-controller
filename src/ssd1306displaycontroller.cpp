@@ -9,6 +9,7 @@
 #include <math.h>
 #include <ventilator.h>
 #include <pwmventilator.h>
+#include <propertyutils.h>
 
 #include <brzo_i2c.h>
 #include "SSD1306Brzo.h"
@@ -25,14 +26,16 @@ extern std::shared_ptr<TemperatureSensor> temperatureSensor2;
 extern std::shared_ptr<Ventilator> ventilator1;
 extern PubSubClient mqttClient;
 extern DigitalKnob digitalKnob;
+extern Properties bbqConfig;
+typedef PropertyValue PV;
 extern std::shared_ptr<AnalogIn> analogIn;
 extern std::shared_ptr<Ventilator> ventilator1;
+extern bool bbqConfigModified;
 
 // Temporary untill we can have the display functions handle object variables
 static std::unique_ptr<NumericKnob> m_temperatureSetPointKnob;
 static std::unique_ptr<NumericKnob> m_fanOverrideKnob;
 static std::unique_ptr<NumericKnob> m_menuKnob;
-static bool bbqConfigModified;
 
 #define MENU_BLOCK_SIZE 6
 #define MENU_FONT_NAME ArialMT_Plain_10
@@ -160,7 +163,7 @@ void SSD1306DisplayController::init() {
     STATE_SETTEMP = new State([&]() {
         if (digitalKnob.isSingle()) {
             float value = round(m_temperatureSetPointKnob->value() * 2.0f) / 2.0f;
-            //controllerConfig["setPoint"] = value;
+            bbqConfig.put("setPoint", PV(value));
             bbqController->setPoint(value);
             bbqConfigModified = true;
             return 4;

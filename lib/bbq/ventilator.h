@@ -55,7 +55,7 @@ public:
         return m_overrideSetting;
     }
 
-    virtual void handle() = 0;
+    virtual void handle(const uint32_t millis) = 0;
 
 private:
     virtual void setVentilator(const float dutyCucle) = 0;

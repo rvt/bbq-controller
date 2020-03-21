@@ -26,7 +26,7 @@ void OnOffVentilator::setVentilator(const float dutyCycle) {
 
 }
 
-void OnOffVentilator::handle() {
+void OnOffVentilator::handle(const uint32_t millis) {
     bool pinValue = 0;
 
     // any speed below 1 is considered off
@@ -34,7 +34,7 @@ void OnOffVentilator::handle() {
 
     if (dutyCycle >= 1) {
         const uint32_t ticksForOn = (m_period * dutyCycle) / 100.0f;
-        const uint32_t periodCounter = millis() % m_period;
+        const uint32_t periodCounter = millis % m_period;
         pinValue = periodCounter < ticksForOn;
     }
 

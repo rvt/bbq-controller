@@ -14,16 +14,16 @@
 
 struct BBQFanOnlyConfig {
     int8_t fan_speed_lid_open = 0;
-    std::array<float, 4> fan_lower  = std::array<float, 4> { {-10, -2, -2, 0} };
-    std::array<float, 4> fan_steady  = std::array<float, 4> { {-2, 0, 0, 2} };
-    std::array<float, 4> fan_higher = std::array<float, 4> { {0, 2, 2, 10} };
+    std::array<float, 4> fan_low  = std::array<float, 4> { {0, 25, 25, 50} };
+    std::array<float, 4> fan_medium  = std::array<float, 4> { {30, 65, 65, 100} };
+    std::array<float, 4> fan_high = std::array<float, 4> { {75, 80, 80, 100} };
 
-    std::array<float, 4> temp_error_low = std::array<float, 4> { {-5, 0, 0, 5} };
-    std::array<float, 4> temp_error_medium  = std::array<float, 4> { {0, 10, 10, 20} };
-    std::array<float, 4> temp_error_hight = std::array<float, 4> { {15, 30, 200, 200} };
+    std::array<float, 2> temp_error_low = std::array<float, 2> { {0, 5} };
+    std::array<float, 4> temp_error_medium  = std::array<float, 4> { {0, 10, 10, 25} };
+    std::array<float, 4> temp_error_hight = std::array<float, 4> { {10, 100, 200, 200} };
 
     // Change per 5 seconds
-    std::array<float, 4> temp_change_slow = std::array<float, 4> { {-0.1, 0, 0, 0.1} };
+    std::array<float, 2> temp_change_slow = std::array<float, 2> { {0, 0.1} };
     std::array<float, 4> temp_change_medium = std::array<float, 4> { {0, 0.2, 0.2, 0.5} };
     std::array<float, 4> temp_change_fast = std::array<float, 4> { {0.2, 1, 20, 20} };
 };
@@ -41,7 +41,6 @@ private:
     bool m_lidOpenTriggered;
     BBQFanOnlyConfig m_config;
     long m_periodStartMillis;
-    uint8_t m_ticker;
 public:
     BBQFanOnly(std::shared_ptr<TemperatureSensor> pTempSensor,
                std::shared_ptr<Ventilator> pFan);
@@ -68,7 +67,7 @@ public:
      */
     template<std::size_t SIZE>
     static FuzzySet* fuzzyFromVector(std::array<float, SIZE>& data, bool flipped) {
-        static_assert(SIZE == 2 || SIZE == 4, "Must be 2 or 4");
+        static_assert(SIZE==2 || SIZE==4, "Must be 2 or 4");
 
         if (SIZE == 2) {
             return new FuzzySet(-data[1], -data[0], data[0], data[1]);

@@ -3,6 +3,7 @@
 #include <temperaturesensor.h>
 #include <ventilator.h>
 #include <demo.h>
+#include <math.h>
 
 
 /** very simple oven simulation
@@ -11,55 +12,134 @@
 
 #define  NUMBERS_SIZE 10000
 
-class MockedOven  {
-private:
-    float mAirFlow;
-    float mTemperature;
-    float mBaseTemp;
 
-    float m_cAirFlow;
-    bool mUp;
+class Oven {
+    virtual void handle(const uint32_t millis) = 0;
+    virtual void lidOpen(bool lo) = 0;
+    virtual void airFlow(float flow) = 0;
+    virtual float temperature() = 0;
+};
 
-    float numbers[NUMBERS_SIZE] = {};
-    int numCalled;
-    bool m_lidOpen;
+class briquette {
+    float s_maxBurnTime = 1800.0;
+    float m_potentialEnergy = s_maxBurnTime;
+    float m_burnRate = 0.0;
+    uint32_t m_time = 0;
 
+    float m_lastAirFlow = -1;
+    float m_lastAlpha = 0;
+    bool m_isBurning = true;
+    bool m_up = true;
+    float m_alphaAdjust = 1.0f;
 public:
-    MockedOven() : mAirFlow(0.0f), mTemperature(20.0f), mBaseTemp(20.0f), m_cAirFlow(0.0f), mUp(true), numCalled(0), m_lidOpen(false) {
-        for (int i = 0; i < NUMBERS_SIZE; i++) {
-            numbers[i] = 0.0f;
+    float handle(float airFlow) {
+        assert(airFlow >= 0.0f && airFlow <= 100.0f);
+
+
+        if (!m_isBurning) {
+            return 0.0f;
         }
+
+        if (airFlow > m_lastAirFlow) {
+            m_up = true;
+            m_lastAlpha = 0.007 * m_alphaAdjust;
+        } else if (airFlow < m_lastAirFlow) {
+            m_up = false;
+            m_lastAlpha = 0.002 * m_alphaAdjust;
+        }
+
+        m_lastAirFlow = airFlow;
+
+        // maps airflow from 0..1
+        float af = fmap(airFlow, 0.0f, 100.0f, 0.0f, 1.0f);
+
+        // maps burn potential from 0..2 so we can put it in
+        // https://www.wolframalpha.com/input/?i=plot+-%28x-1%29%5E8%2B1+from+-0.1+to+2
+        // currentBurn is 0..1
+        float burnPotential = fmap(m_potentialEnergy, 0.0f, s_maxBurnTime, 0.1f, 1.9f);
+        float currentBurn = (-pow(burnPotential - 1, 4) + 1.0f) * af;
+
+        if (m_up) {
+            m_burnRate = (m_burnRate + (currentBurn - m_burnRate) * m_lastAlpha) * 1.0f;
+        } else {
+            m_burnRate = (m_burnRate + (0.0f - m_burnRate) * m_lastAlpha) * 1.0f;
+        }
+
+        // https://www.wolframalpha.com/input/?i=plot+1%2F%281+%2B+2%5E%28-x%29%29+from+-10+to10
+
+        // Reduce energy
+        if (m_burnRate >= 1.0f) {
+            m_burnRate = 1.0f;
+        }
+
+        if (m_burnRate < 0) {
+            m_burnRate = 0.0f;
+        }
+
+        m_potentialEnergy = m_potentialEnergy - m_burnRate;
+
+        if (m_potentialEnergy < 0) {
+            m_potentialEnergy = 0;
+        }
+
+        return m_burnRate;
     }
 
-    void handle() {
-        float alpha;
 
-        if (mUp) {
-            alpha = 0.02f;
-        } else {
-            alpha = 0.01f;
+    void startBurn() {
+        m_isBurning = true;
+    }
+
+    void alphaAdjust(float aa) {
+        m_alphaAdjust = aa;
+    }
+
+    static float fmap(float value, float in_min, float in_max, float out_min, float out_max) {
+        return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+    }
+
+};
+
+
+class MockedOven  : public Oven {
+private:
+    std::vector<briquette> briqettes;
+    float m_AirFlow = 0.0;
+    float m_temperature;
+    bool m_lidOpen;
+    int m_totalBriqettes = 18;
+    int m_maxBriqettes = 24;
+    uint32_t lastTIme = 0;
+public:
+    MockedOven() {
+        briqettes.resize(m_totalBriqettes);
+    }
+
+    void handle(const uint32_t millis) {
+        if (millis - lastTIme > 900 * 1000) {
+            lastTIme = millis;
+            m_totalBriqettes = m_totalBriqettes + 1;
+
+            if (m_totalBriqettes >= m_maxBriqettes) {
+                m_totalBriqettes = m_maxBriqettes;
+            } else {
+                briqettes.resize(m_totalBriqettes);
+            }
         }
 
-        float probe = mAirFlow;
+        m_temperature = 0.0;
 
-        if (m_lidOpen) {
-            probe = 0;
-            alpha = 0.1f;
+        for (auto& value : briqettes) {
+            m_temperature += value.handle(m_AirFlow) * 1.8f;
         }
 
-        for (int i = 0; i < (m_lidOpen ? 5 : 1); i++) {
-            m_cAirFlow = m_cAirFlow + (probe - m_cAirFlow) * alpha;
-            memmove(&numbers[1], &numbers[0], sizeof(float) * (NUMBERS_SIZE - 1));
-            numbers[0] = m_cAirFlow + rand() % 16 - 8 + 2;
-        }
+        // Temperure is now 0..m_totalBriqettes
 
-        float sum = 0.0f;
+        // https://www.wolframalpha.com/input/?i=plot+1%2F%281+%2B+2%5E%28-x%29%29+from+-10+to10
+        float bMapped = briquette::fmap(m_totalBriqettes, 0.0f, m_maxBriqettes, -10.0f, 10.0f);
+        float maxTempTotalOvenCoef = 1.0f / (1.0f + pow(2.0f, -bMapped));
 
-        for (int i = 0; i < NUMBERS_SIZE; i++) {
-            sum += numbers[i];
-        }
-
-        mTemperature = (sum / NUMBERS_SIZE) * 2 + mBaseTemp;
+        m_temperature = (250.0f / m_maxBriqettes) * m_temperature * maxTempTotalOvenCoef;
     }
 
     void lidOpen(bool lo) {
@@ -67,13 +147,11 @@ public:
     }
 
     void airFlow(float flow) {
-        flow = flow * 1;
-        mUp = flow > mAirFlow;
-        mAirFlow = flow;
+        m_AirFlow = flow;
     }
 
     float temperature() {
-        return mTemperature;
+        return m_temperature;
     }
 };
 

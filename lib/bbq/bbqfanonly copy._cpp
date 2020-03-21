@@ -45,14 +45,13 @@ BBQFanOnly::BBQFanOnly(std::shared_ptr<TemperatureSensor> pTempSensor,
     m_tempSensor(pTempSensor),
     m_fan(pFan),
     m_fuzzy(new Fuzzy()),
-    m_setPoint(20.0f),
+    m_setPoint(m_tempSensor->get()),
     m_tempLastError(0.0),
     m_fanCurrentSpeed(m_fan->speed()),
     m_tempLast(m_tempSensor->get()),
     m_lastTempChange(0.0),
     m_lidOpenTriggered(false),
-    m_periodStartMillis(0),
-    m_ticker(0) {
+    m_periodStartMillis(0) {
 }
 
 BBQFanOnly::~BBQFanOnly() {
@@ -118,39 +117,38 @@ void BBQFanOnly::init() {
     FuzzyOutput* fan = new FuzzyOutput(FAN_OUTPUT);
     m_fuzzy->addFuzzyOutput(fan);
 
-    //FuzzySet* fanOff = new FuzzySet(0, 0, 0, 0);
-    //fan->addFuzzySet(fanOff);
-    FuzzySet* fanLower = fuzzyFromVector(m_config.fan_lower, false);
-    fan->addFuzzySet(fanLower);
-    FuzzySet* fanSteady = fuzzyFromVector(m_config.fan_steady, false);
-    fan->addFuzzySet(fanSteady);
-    FuzzySet* fanHigher = fuzzyFromVector(m_config.fan_higher, false);
-    fan->addFuzzySet(fanHigher);
+    FuzzySet* fanOff = new FuzzySet(0, 0, 0, 0);
+    fan->addFuzzySet(fanOff);
+    FuzzySet* fanLow = fuzzyFromVector(m_config.fan_low, false);
+    fan->addFuzzySet(fanLow);
+    FuzzySet* fanMedium = fuzzyFromVector(m_config.fan_medium, false);
+    fan->addFuzzySet(fanMedium);
+    FuzzySet* fanHigh = fuzzyFromVector(m_config.fan_high, false);
+    fan->addFuzzySet(fanHigh);
 
     uint8_t rule = 30;
-    joinSingle(rule++, tempErrorNegativeHigh, fanHigher);
-    joinSingle(rule++, tempErrorPositiveHigh, fanLower);
+    joinSingle(rule++, tempErrorNegativeHigh, fanHigh);
 
-    // 32
-    joinSingleAND(rule++, tempErrorNegativeMedium, tempIncreasesFast, fanHigher);
-    joinSingleAND(rule++, tempErrorNegativeMedium, tempIncreasedMedium, fanHigher);
-    joinSingleAND(rule++, tempErrorNegativeMedium, tempChangesSlow, fanHigher);
-    joinSingleAND(rule++, tempErrorNegativeMedium, tempDecreasesMedium, fanHigher);
-    joinSingleAND(rule++, tempErrorNegativeMedium, tempDecreasesFast, fanHigher);
+    // 36
+    joinSingleAND(rule++, tempErrorNegativeMedium, tempIncreasesFast, fanLow);
+    joinSingleAND(rule++, tempErrorNegativeMedium, tempIncreasedMedium, fanMedium);
+    joinSingleAND(rule++, tempErrorNegativeMedium, tempChangesSlow, fanMedium);
+    joinSingleAND(rule++, tempErrorNegativeMedium, tempDecreasesMedium, fanMedium);
+    joinSingleAND(rule++, tempErrorNegativeMedium, tempDecreasesFast, fanHigh);
 
-    // 47
-    joinSingleAND(rule++, tempErrorLow, tempIncreasedMedium, fanLower);
-    joinSingleAND(rule++, tempErrorLow, tempIncreasesFast, fanLower);
-    joinSingleAND(rule++, tempErrorLow, tempChangesSlow, fanSteady);
-    joinSingleAND(rule++, tempErrorLow, tempDecreasesFast, fanHigher);
-    joinSingleAND(rule++, tempErrorLow, tempDecreasesMedium, fanHigher);
+    // 42
+    joinSingleAND(rule++, tempErrorLow, tempIncreasedMedium, fanOff);
+    joinSingleAND(rule++, tempErrorLow, tempIncreasesFast, fanOff);
+    joinSingleAND(rule++, tempErrorLow, tempChangesSlow, fanLow);
+    joinSingleAND(rule++, tempErrorLow, tempDecreasesFast, fanHigh);
+    joinSingleAND(rule++, tempErrorLow, tempDecreasesMedium, fanMedium);
 
-    // 52
-    joinSingleAND(rule++, tempErrorPositiveMedium, tempIncreasedMedium, fanLower);
-    joinSingleAND(rule++, tempErrorPositiveMedium, tempIncreasesFast, fanLower);
-    joinSingleAND(rule++, tempErrorPositiveMedium, tempChangesSlow, fanLower);
-    joinSingleAND(rule++, tempErrorPositiveMedium, tempDecreasesFast, fanLower);
-    joinSingleAND(rule++, tempErrorPositiveMedium, tempDecreasesMedium, fanLower);
+    // 48
+    joinSingleAND(rule++, tempErrorPositiveMedium, tempIncreasedMedium, fanOff);
+    joinSingleAND(rule++, tempErrorPositiveMedium, tempIncreasesFast, fanOff);
+    joinSingleAND(rule++, tempErrorPositiveMedium, tempChangesSlow, fanLow);
+    joinSingleAND(rule++, tempErrorPositiveMedium, tempDecreasesFast, fanMedium);
+    joinSingleAND(rule++, tempErrorPositiveMedium, tempDecreasesMedium, fanLow);
 }
 
 
@@ -162,12 +160,8 @@ float BBQFanOnly::setPoint() const {
 }
 
 void BBQFanOnly::handle(const uint32_t millis) {
-    if (millis - m_periodStartMillis > 1000) {
-        m_ticker++;
-        m_periodStartMillis = millis;
-    } else {
-        return;
-    }
+    if (millis - m_periodStartMillis < 5000) return;
+    m_periodStartMillis = millis;
 
     m_tempLastError = m_tempSensor->get() - m_setPoint;
     m_lastTempChange = m_tempSensor->get() - m_tempLast;
@@ -191,24 +185,12 @@ void BBQFanOnly::handle(const uint32_t millis) {
     // We choice to control speed instead speed override because we always want a user to override
     // the speed of the fan themselve
     // When lid is detected as open we keep current fan speed
-
     if (m_lidOpenTriggered && false) {
         m_fan->speed(m_config.fan_speed_lid_open > -1 ? m_config.fan_speed_lid_open : m_fanCurrentSpeed);
     } else {
-        m_fanCurrentSpeed = m_fanCurrentSpeed + m_fuzzy->defuzzify(FAN_OUTPUT);
-
-        if (m_fanCurrentSpeed <= 0.0f) {
-            m_fanCurrentSpeed = 0.f;
-        }
-
-        if (m_fanCurrentSpeed >= 100.f) {
-            m_fanCurrentSpeed = 100.f;
-        }
-
+        m_fanCurrentSpeed = m_fuzzy->defuzzify(FAN_OUTPUT);
         m_fan->speed(m_fanCurrentSpeed);
     }
-
-
 
 }
 
