@@ -9,7 +9,7 @@
 #include <ESP8266WiFi.h>  // https://github.com/esp8266/Arduino
 #include <ESP8266mDNS.h>
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
-#include <FS.h>   // Include the SPIFFS library
+#include <LittleFS.h>   // Include the LittleFS library
 
 #include <propertyutils.h>
 #include <optparser.h>
@@ -41,7 +41,7 @@
 typedef PropertyValue PV ;
 
 // of transitions
-volatile uint32_t counter50TimesSec = 1;
+uint32_t counter50TimesSec = 1;
 
 // Number calls per second we will be handling
 #define FRAMES_PER_SECOND        50
@@ -73,20 +73,16 @@ DigitalKnob digitalKnob(BUTTON_PIN, true, 110);
 
 // Stores information about the BBQ controller (PID values, fuzzy loggic values etc, mqtt)
 Properties controllerConfig;
-volatile bool controllerConfigModified = false;
+bool controllerConfigModified = false;
 // Stores information about the current temperature settings
 Properties bbqConfig;
-volatile bool bbqConfigModified = false;
+bool bbqConfigModified = false;
 
 // CRC value of last update to MQTT
-volatile uint16_t lastMeasurementCRC = 0;
-volatile uint32_t shouldRestart = 0;        // Indicate that a service requested an restart. Set to millies() of current time and it will restart 5000ms later
+uint16_t lastMeasurementCRC = 0;
+uint32_t shouldRestart = 0;        // Indicate that a service requested an restart. Set to millies() of current time and it will restart 5000ms later
 
-volatile bool hasMqttConfigured = false;
-char* mqttLastWillTopic;
-char* mqttClientID;
-char* mqttSubscriberTopic;
-uint8_t mqttSubscriberTopicStrLength;
+bool hasMqttConfigured = false;
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
@@ -109,13 +105,13 @@ WiFiManagerParameter wm_mqtt_password("input", "mqtt password", "", MQTT_PASSWOR
 ///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
 
-bool saveConfigSPIFFS(const char* filename, Properties& properties);
+bool saveConfigLittleFS(const char* filename, Properties& properties);
 
 Settings saveBBQConfigHandler(
     500,
     10000,
 []() {
-    saveConfigSPIFFS(BBQ_CONFIG_FILENAME, bbqConfig);
+    saveConfigLittleFS(BBQ_CONFIG_FILENAME, bbqConfig);
     bbqConfigModified = false;
 },
 []() {
@@ -131,12 +127,12 @@ Settings saveBBQConfigHandler(
 bool loadConfigSpiffs(const char* filename, Properties& properties) {
     bool ret = false;
 
-    if (SPIFFS.begin()) {
+    if (LittleFS.begin()) {
         Serial.println("mounted file system");
 
-        if (SPIFFS.exists(filename)) {
+        if (LittleFS.exists(filename)) {
             //file exists, reading and loading
-            File configFile = SPIFFS.open(filename, "r");
+            File configFile = LittleFS.open(filename, "r");
 
             if (configFile) {
                 Serial.print(F("Loading config : "));
@@ -151,9 +147,9 @@ bool loadConfigSpiffs(const char* filename, Properties& properties) {
             Serial.println(filename);
         }
 
-        // SPIFFS.end();
+        // LittleFS.end();
     } else {
-        Serial.print(F("Failed to begin SPIFFS"));
+        Serial.print(F("Failed to begin LittleFS"));
     }
 
     return ret;
@@ -161,14 +157,14 @@ bool loadConfigSpiffs(const char* filename, Properties& properties) {
 
 
 /**
- * Store custom oarameter configuration in SPIFFS
+ * Store custom oarameter configuration in LittleFS
  */
-bool saveConfigSPIFFS(const char* filename, Properties& properties) {
+bool saveConfigLittleFS(const char* filename, Properties& properties) {
     bool ret = false;
 
-    if (SPIFFS.begin()) {
-        SPIFFS.remove(filename);
-        File configFile = SPIFFS.open(filename, "w");
+    if (LittleFS.begin()) {
+        LittleFS.remove(filename);
+        File configFile = LittleFS.open(filename, "w");
 
         if (configFile) {
             Serial.print(F("Saving config : "));
@@ -182,7 +178,7 @@ bool saveConfigSPIFFS(const char* filename, Properties& properties) {
         }
 
         configFile.close();
-        //    SPIFFS.end();
+        //    LittleFS.end();
     }
 
     return ret;
@@ -244,15 +240,20 @@ void publishToMQTT(const char* topic, const char* payload) {
  * Handle incomming MQTT requests
  */
 void handleCmd(const char* topic, const char* p_payload) {
-    auto topicPos = topic + mqttSubscriberTopicStrLength;
-    //Serial.print(F("Handle command : "));
-    //Serial.println(topicPos);
+    auto topicPos = topic + strlen(controllerConfig.get("mqttBaseTopic"));
+    Serial.print(F("Handle command : "));
+    Serial.print(topicPos);
+    Serial.print(F(" : "));
+    Serial.println(p_payload);
 
     // Look for a temperature setPoint topic
-    if (std::strstr(topicPos, "config") != nullptr) {
+    char payloadBuffer[32];
+    strncpy(payloadBuffer, p_payload, sizeof(payloadBuffer));
+    if (std::strstr(topicPos, "/config") != nullptr) {
         BBQFanOnlyConfig config = bbqController->config();
         float temperature = 0;
-        OptParser::get(p_payload, [&config, &temperature](OptValue values) {
+
+        OptParser::get(payloadBuffer, [&config, &temperature](OptValue values) {
 
             // Copy setpoint value
             if (std::strcmp(values.key(), "sp") == 0) {
@@ -269,13 +270,12 @@ void handleCmd(const char* topic, const char* p_payload) {
 
             // Lid open fan speed
             if (strcmp(values.key(), "lof") == 0) {
-                int8_t v = values;
-                config.fan_speed_lid_open = between(v, (int8_t) -1, (int8_t)100);
+                config.fan_speed_lid_open = between((int8_t)values, (int8_t) -1, (int8_t)100);
             }
 
             // Fan 1 override ( we don´t want this as an settings so if we loose MQTT connection we can always unplug)
             if (strcmp(values.key(), "f1o") == 0) {
-                ventilator1->speedOverride(between((float)values, -1.0f, 100.0f));
+                ventilator1->speedOverride(values);
             }
 
             config.fan_lower = getConfigArray("flo", values.key(), values, config.fan_lower);
@@ -303,12 +303,10 @@ void handleCmd(const char* topic, const char* p_payload) {
         bbqController->init();
     }
 
-    if (strstr(topicPos, "reset") != nullptr) {
-        OptParser::get(p_payload, [](OptValue v) {
-            if (strcmp(v.key(), "1") == 0) {
-                shouldRestart = millis();
-            }
-        });
+    if (strstr(topicPos, "/reset") != nullptr) {
+        if (strcmp(payloadBuffer, "1") == 0) {
+            shouldRestart = millis();
+        }
     }
 
     // Dummy data topic during testing
@@ -349,11 +347,6 @@ void setupMQTT() {
         handleCmd(p_topic, mqttReceiveBuffer);
     });
 
-    const char* mqttBaseTopic = controllerConfig.get("mqttBaseTopic");
-    mqttClientID = makeCString("%08X", ESP.getChipId());
-    mqttLastWillTopic = makeCString("%s/%s", mqttBaseTopic, MQTT_LASTWILL_TOPIC);
-    mqttSubscriberTopic = makeCString("%s/+", mqttBaseTopic);
-    mqttSubscriberTopicStrLength = std::strlen(mqttSubscriberTopic) - 1;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -488,10 +481,10 @@ void setupWIFIReconnectManager() {
         );
 
         if (mqttClient.connect(
-                mqttClientID,
+                controllerConfig.get("mqttClientID"),
                 controllerConfig.get("mqttUsername"),
                 controllerConfig.get("mqttPassword"),
-                mqttLastWillTopic,
+                controllerConfig.get("mqttLastWillTopic"),
                 0,
                 1,
                 MQTT_LASTWILL_OFFLINE)
@@ -508,6 +501,9 @@ void setupWIFIReconnectManager() {
         return 5;
     });
     SUBSCRIBECOMMANDTOPIC = new State([]() {
+        char mqttSubscriberTopic[32];
+        strncpy(mqttSubscriberTopic, controllerConfig.get("mqttBaseTopic"), sizeof(mqttSubscriberTopic));
+        strncat(mqttSubscriberTopic, "/+", sizeof(mqttSubscriberTopic));
         if (mqttClient.subscribe(mqttSubscriberTopic, 0)) {
             return 6;
         }
@@ -562,27 +558,30 @@ void setupWifiManager() {
     wm_mqtt_user.setValue(controllerConfig.get("mqttUsername"), MQTT_USERNAME_LENGTH);
     wm_mqtt_server.setValue(controllerConfig.get("mqttServer"), MQTT_SERVER_LENGTH);
 
-    // set country
-    wm.setClass("invert");
-    wm.setCountry("US"); // setting wifi country seems to improve OSX soft ap connectivity, may help others as well
-    wm.setWebServerCallback(serverOnlineCallback);
-    wm.setConfigPortalTimeout(120);
     wm.addParameter(&wm_mqtt_server);
     wm.addParameter(&wm_mqtt_port);
     wm.addParameter(&wm_mqtt_user);
     wm.addParameter(&wm_mqtt_password);
 
+    /////////////////
+    // set country
+    wm.setClass("invert");
+    wm.setCountry("US"); // setting wifi country seems to improve OSX soft ap connectivity, may help others as well
+
+    // Set configuration portal
+    wm.setShowStaticFields(false);
+    wm.setConfigPortalBlocking(false); // Must be blocking or else AP stays active
+    wm.setDebugOutput(true);
+    wm.setWebServerCallback(serverOnlineCallback);
     wm.setSaveParamsCallback(saveParamCallback);
+    wm.setHostname(controllerConfig.get("mqttClientID"));
     std::vector<const char*> menu = {"wifi", "wifinoscan", "info", "param", "sep", "erase", "restart"};
     wm.setMenu(menu);
 
-    if (!wm.autoConnect("WM_AutoConnectAP")) {
-        Serial.println("failed to connect and hit timeout");
-        wm.startConfigPortal();
-    }
-
-    //if you get here you have connected to the WiFi
     wm.startWebPortal();
+    wm.autoConnect(controllerConfig.get("mqttClientID"));
+    WiFi.setSleepMode(WIFI_NONE_SLEEP);
+    MDNS.begin(controllerConfig.get("mqttClientID"));
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -590,11 +589,26 @@ void setupWifiManager() {
 ///////////////////////////////////////////////////////////////////////////
 
 void setupDefaults() {
+     char chipHexBuffer[9];
+    snprintf(chipHexBuffer, sizeof(chipHexBuffer), "%08X", ESP.getChipId());
+
+    char mqttClientID[16];
+    snprintf(mqttClientID, sizeof(mqttClientID), "BBQ_%s", chipHexBuffer);
+
+    char mqttBaseTopic[16];
+    snprintf(mqttBaseTopic, sizeof(mqttBaseTopic), "BBQ/%s", chipHexBuffer);
+
+    char mqttLastWillTopic[64];
+    snprintf(mqttLastWillTopic, sizeof(mqttLastWillTopic), "%s/%s", mqttBaseTopic, MQTT_LASTWILL_TOPIC);
+
     bbqConfigModified |= bbqConfig.putNotContains("setPoint", PV(20.f));
 
     controllerConfigModified |= controllerConfig.putNotContains("fOnOffDuty", PV(30 * 1000));
     controllerConfigModified |= controllerConfig.putNotContains("fStartPWM", PV(50));
-    controllerConfigModified |= controllerConfig.putNotContains("mqttBaseTopic", PV("BBQ"));
+
+    controllerConfigModified |= controllerConfig.putNotContains("mqttClientID", PV(mqttClientID));
+    controllerConfig.put("mqttBaseTopic", PV(mqttBaseTopic));
+    controllerConfig.put("mqttLastWillTopic", PV(mqttLastWillTopic));
     controllerConfigModified |= controllerConfig.putNotContains("mqttServer", PV(""));
     controllerConfigModified |= controllerConfig.putNotContains("mqttUsername", PV(""));
     controllerConfigModified |= controllerConfig.putNotContains("mqttPassword", PV(""));
@@ -612,7 +626,7 @@ void setup() {
 
     // Enable serial port
     Serial.begin(115200);
-    delay(250);
+    delay(050);
     // load configurations
     loadConfigSpiffs(CONTROLLER_CONFIG_FILENAME, controllerConfig);
     loadConfigSpiffs(BBQ_CONFIG_FILENAME, bbqConfig);
@@ -665,7 +679,7 @@ void loop() {
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             if (controllerConfigModified) {
                 controllerConfigModified = false;
-                saveConfigSPIFFS(CONTROLLER_CONFIG_FILENAME, controllerConfig);
+                saveConfigLittleFS(CONTROLLER_CONFIG_FILENAME, controllerConfig);
             }
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             saveBBQConfigHandler.handle();

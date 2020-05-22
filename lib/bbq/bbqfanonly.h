@@ -12,11 +12,15 @@
 #include <cstdlib>
 #include <algorithm>
 
+constexpr uint8_t UPDATES_PER_SECOND = 1; // numnber of fuzzy calculations per second 
+constexpr uint8_t TEMPERATUR_DIFFERENCE_OVER_SEC = 3;
+
+
 struct BBQFanOnlyConfig {
     int8_t fan_speed_lid_open = 0;
-    std::array<float, 4> fan_lower  = std::array<float, 4> { {-10, -2, -2, 0} };
+    std::array<float, 4> fan_lower  = std::array<float, 4> { {-10, -2, -2, 1} };
     std::array<float, 4> fan_steady  = std::array<float, 4> { {-2, 0, 0, 2} };
-    std::array<float, 4> fan_higher = std::array<float, 4> { {0, 2, 2, 10} };
+    std::array<float, 4> fan_higher = std::array<float, 4> { {1, 2, 2, 10} };
 
     std::array<float, 4> temp_error_low = std::array<float, 4> { {-5, 0, 0, 5} };
     std::array<float, 4> temp_error_medium  = std::array<float, 4> { {0, 10, 10, 20} };
@@ -34,14 +38,10 @@ private:
     std::shared_ptr<Ventilator> m_fan;
     Fuzzy* m_fuzzy;
     float m_setPoint;        // Setpoint
-    float m_tempLastError;   // Last temperature error input
-    float m_fanCurrentSpeed; // current fan speed
-    float m_tempLast;        // Temperature that is bassed through a filter
-    float m_lastTempChange;      // Keep
     bool m_lidOpenTriggered;
     BBQFanOnlyConfig m_config;
     long m_periodStartMillis;
-    uint8_t m_ticker;
+    std::array<float, UPDATES_PER_SECOND *  TEMPERATUR_DIFFERENCE_OVER_SEC + 1> m_tempStore;
 public:
     BBQFanOnly(std::shared_ptr<TemperatureSensor> pTempSensor,
                std::shared_ptr<Ventilator> pFan);
@@ -56,8 +56,14 @@ public:
     virtual bool lidOpen();
 
     // Fuzzy inputs monitoring
-    float tempChangeInput() const;
-    float lastErrorInput() const;
+    float tempChangeInput() const {
+        return m_tempStore.front() - m_tempStore.back();
+    }
+
+    float lastErrorInput() const {
+        return m_tempStore.front() - m_setPoint;
+    }
+
     bool ruleFired(uint8_t i);
     void config(const BBQFanOnlyConfig& p_config);
     BBQFanOnlyConfig config() const;

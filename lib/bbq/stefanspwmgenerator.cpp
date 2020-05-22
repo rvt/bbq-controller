@@ -12,7 +12,7 @@ extern "C" {
 #endif
 
 constexpr uint32_t STEFANS_PWM_PERIOD1K = 5000; // 1Khz PWM
-constexpr uint32_t STEFANS_PWM_PERIOD = STEFANS_PWM_PERIOD1K / 15;
+constexpr uint32_t STEFANS_PWM_PERIOD = STEFANS_PWM_PERIOD1K / 10;
 constexpr uint32_t STEFANS_PWM_PERIOD10 = STEFANS_PWM_PERIOD / 10; // 10 % of STEFANS_PWM_PERIOD
 
 StefansPWMVentilator::StefansPWMVentilator(uint8_t p_pin, uint8_t p_pwmStart) :
@@ -56,8 +56,10 @@ StefansPWMVentilator::StefansPWMVentilator(uint8_t p_pin, uint8_t p_pwmStart) :
 }
 
 void StefansPWMVentilator::setVentilator(const float dutyCycle) {
-    if (m_pwmValue < 0.1f && dutyCycle > 1.0f) {
-        m_currentPwmValue = 50.0f;
+    // If we where in a off situation and we turn the fan on we give it a little
+    // 'kick' and after that it will settle to the given fan speed
+    if (m_currentPwmValue < 0.1f && dutyCycle > 1.0f) {
+        m_currentPwmValue = 75.0f;
     }
 
     m_pwmValue = dutyCycle;
@@ -66,30 +68,23 @@ void StefansPWMVentilator::setVentilator(const float dutyCycle) {
 
 void StefansPWMVentilator::handle(const uint32_t millis) {
 
-    if (fabs(m_currentPwmValue - m_pwmValue) > 1.0) {
+    if (fabs(m_currentPwmValue - m_pwmValue) > 0.5f) {
+        // Small filter to rampup/down the fan
         m_currentPwmValue = m_currentPwmValue + (m_pwmValue - m_currentPwmValue) * 0.1f;
 
-        float withStart ;
-
-        if (m_currentPwmValue > 1.0f) {
-            withStart = m_currentPwmValue * (100.f - m_pwmStart) / 100.0 + m_pwmStart;
+        int32_t pwmDuty;
+        if (m_currentPwmValue >= 1.0f) {
+            float withStart = m_currentPwmValue * (100.f - m_pwmStart) / 100.0 + m_pwmStart;
+            pwmDuty = percentmap(withStart, STEFANS_PWM_PERIOD);
         } else {
-            withStart = 0;
-        }
-
-        int32_t pwmDuty = percentmap(withStart, STEFANS_PWM_PERIOD);
-
-        if (millis - m_lastMillis > 1000) {
-            m_lastMillis = millis;
-            Serial.print("Duty : ");
-            Serial.print(pwmDuty);
-            Serial.print(" ");
-            Serial.println(millis);
+            pwmDuty = 0;
         }
 
         // Not sure why but when I get very close to 100% doing PWM
         // With PWM_USE_NMI set to 1 will crash the controller 
-        if (pwmDuty + STEFANS_PWM_PERIOD10 < STEFANS_PWM_PERIOD) {
+        // However, 100% is allowed!
+        if (pwmDuty + STEFANS_PWM_PERIOD10 < STEFANS_PWM_PERIOD || 
+            pwmDuty == STEFANS_PWM_PERIOD) {
             pwm_set_duty(pwmDuty, 0);
             pwm_start();
         }

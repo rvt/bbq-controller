@@ -10,6 +10,7 @@
 #include <digitalinput.h>
 #include <numericknob.h>
 #include <OLEDDisplayUi.h>
+#include <Ethernet.h>
 
 class SSD1306Brzo;
 class OLEDDisplay;
@@ -49,7 +50,10 @@ private:
 
     SSD1306Brzo* display;
     OLEDDisplayUi* ui;
-    uint32_t m_lastMillis;;
+    uint32_t m_lastMillis;
 
+    void toStringIp(const IPAddress& ip, char* ipAddress) {
+        snprintf(ipAddress, 16, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+    };
 
 };

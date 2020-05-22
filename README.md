@@ -69,6 +69,12 @@ The default duty cycle for *ON OFF* van control is 30 seconds.
 
 For other compiler options check config.h for other options. When time permits I can make them into more options that can be set of MQTT.
 
+# Configuration
+
+The device will use the know wifi network or it wil present itself as a WIFI accesspoint using
+the wifimanager.
+Just connect to that accesspoint and open a browser to configure WIFI andf MQTT.
+
 # Run unit tests 
 
 * requires cmake to be installed, also assumes you ran ```pio run``` before

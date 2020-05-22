@@ -46,16 +46,13 @@ BBQFanOnly::BBQFanOnly(std::shared_ptr<TemperatureSensor> pTempSensor,
     m_fan(pFan),
     m_fuzzy(new Fuzzy()),
     m_setPoint(20.0f),
-    m_tempLastError(0.0),
-    m_fanCurrentSpeed(m_fan->speed()),
-    m_tempLast(m_tempSensor->get()),
-    m_lastTempChange(0.0),
     m_lidOpenTriggered(false),
-    m_periodStartMillis(0),
-    m_ticker(0) {
+    m_periodStartMillis(0) {
+    m_tempStore.fill(m_tempSensor->get());
 }
 
 BBQFanOnly::~BBQFanOnly() {
+    m_fan->speed(0.f);
 }
 
 void BBQFanOnly::config(const BBQFanOnlyConfig& p_config) {
@@ -138,19 +135,19 @@ void BBQFanOnly::init() {
     joinSingleAND(rule++, tempErrorNegativeMedium, tempDecreasesMedium, fanHigher);
     joinSingleAND(rule++, tempErrorNegativeMedium, tempDecreasesFast, fanHigher);
 
-    // 47
-    joinSingleAND(rule++, tempErrorLow, tempIncreasedMedium, fanLower);
+    // 37
     joinSingleAND(rule++, tempErrorLow, tempIncreasesFast, fanLower);
+    joinSingleAND(rule++, tempErrorLow, tempIncreasedMedium, fanLower);
     joinSingleAND(rule++, tempErrorLow, tempChangesSlow, fanSteady);
-    joinSingleAND(rule++, tempErrorLow, tempDecreasesFast, fanHigher);
     joinSingleAND(rule++, tempErrorLow, tempDecreasesMedium, fanHigher);
+    joinSingleAND(rule++, tempErrorLow, tempDecreasesFast, fanHigher);
 
-    // 52
-    joinSingleAND(rule++, tempErrorPositiveMedium, tempIncreasedMedium, fanLower);
+    // 42
     joinSingleAND(rule++, tempErrorPositiveMedium, tempIncreasesFast, fanLower);
+    joinSingleAND(rule++, tempErrorPositiveMedium, tempIncreasedMedium, fanLower);
     joinSingleAND(rule++, tempErrorPositiveMedium, tempChangesSlow, fanLower);
-    joinSingleAND(rule++, tempErrorPositiveMedium, tempDecreasesFast, fanLower);
     joinSingleAND(rule++, tempErrorPositiveMedium, tempDecreasesMedium, fanLower);
+    joinSingleAND(rule++, tempErrorPositiveMedium, tempDecreasesFast, fanLower);
 }
 
 
@@ -162,22 +159,18 @@ float BBQFanOnly::setPoint() const {
 }
 
 void BBQFanOnly::handle(const uint32_t millis) {
-    if (millis - m_periodStartMillis > 1000) {
-        m_ticker++;
-        m_periodStartMillis = millis;
-    } else {
-        return;
-    }
+    if (millis - m_periodStartMillis < 1000 / UPDATES_PER_SECOND)  return;
+    m_periodStartMillis = millis;
 
-    m_tempLastError = m_tempSensor->get() - m_setPoint;
-    m_lastTempChange = m_tempSensor->get() - m_tempLast;
-    m_tempLast = m_tempSensor->get();
+    // rotate right and store on the first position the latest temperature 
+    std::rotate(m_tempStore.begin(), m_tempStore.begin()+m_tempStore.size()-1, m_tempStore.end());
+    m_tempStore[0] = m_tempSensor->get();
 
     // Feed temp error
-    m_fuzzy->setInput(TEMP_ERROR_INPUT, m_tempLastError);
+    m_fuzzy->setInput(TEMP_ERROR_INPUT, lastErrorInput());
 
     // Temperature change input
-    m_fuzzy->setInput(TEMP_CHANGE_INPUT, m_lastTempChange);
+    m_fuzzy->setInput(TEMP_CHANGE_INPUT, tempChangeInput());
 
     /////////////////////////////////////////////
 
@@ -193,35 +186,15 @@ void BBQFanOnly::handle(const uint32_t millis) {
     // When lid is detected as open we keep current fan speed
 
     if (m_lidOpenTriggered && false) {
-        m_fan->speed(m_config.fan_speed_lid_open > -1 ? m_config.fan_speed_lid_open : m_fanCurrentSpeed);
+        m_fan->speed(m_config.fan_speed_lid_open);
     } else {
-        m_fanCurrentSpeed = m_fanCurrentSpeed + m_fuzzy->defuzzify(FAN_OUTPUT);
-
-        if (m_fanCurrentSpeed <= 0.0f) {
-            m_fanCurrentSpeed = 0.f;
-        }
-
-        if (m_fanCurrentSpeed >= 100.f) {
-            m_fanCurrentSpeed = 100.f;
-        }
-
-        m_fan->speed(m_fanCurrentSpeed);
+        m_fan->increase(m_fuzzy->defuzzify(FAN_OUTPUT));
     }
-
-
 
 }
 
 bool BBQFanOnly::ruleFired(uint8_t i) {
     return m_fuzzy->isFiredRule(i);
-}
-
-float BBQFanOnly::tempChangeInput() const {
-    return m_lastTempChange;
-}
-
-float BBQFanOnly::lastErrorInput() const {
-    return m_tempLastError;
 }
 
 bool BBQFanOnly::lowCharcoal() {

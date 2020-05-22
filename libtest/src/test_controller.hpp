@@ -12,7 +12,7 @@ TEST_CASE("Graph Controller against simulated oven FuzzySet", "[GRAPH][.]") {
     tdf->calculatePertinence(-10);
 }
 
-// Run with :  rm tests; make; ./tests [GRAPH] > out.csv
+// Run with :  date; rm tests; make; ./tests [GRAPH] > out.csv
 // Plot with https://plot.ly/create/#/
 TEST_CASE("Graph Controller against simulated oven", "[GRAPH][.]") {
     MockedOven oven;

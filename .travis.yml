@@ -16,7 +16,7 @@
 
 language: python
 python:
-    - "2.7"
+    - "3.7"
 
 sudo: false
 cache:
@@ -24,19 +24,29 @@ cache:
         - "~/.platformio"
 
 install:
-    # - pip install -U platformio
-    # Use development version of PlatformIO 3.2 (temporary)
     - pip install -U platformio
     - platformio update
-    # Download and install recent cmake
     - |
       if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then
-        CMAKE_URL="http://www.cmake.org/files/v3.5/cmake-3.5.1-Linux-x86_64.tar.gz"
-        mkdir -p ${DEPS_DIR}/cmake
-        travis_retry wget --no-check-certificate --quiet -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C ${DEPS_DIR}/cmake
+        DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
+        mkdir -p ${DEPS_DIR} && cd ${DEPS_DIR}
+        CMAKE_URL="http://www.cmake.org/files/v3.5/cmake-3.5.2-Linux-x86_64.tar.gz"
+        mkdir cmake && travis_retry wget --no-check-certificate --quiet -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake
         export PATH=${DEPS_DIR}/cmake/bin:${PATH}
+        cd ..
+      else
+          if ! brew ls --version cmake &>/dev/null; then brew install cmake; fi
       fi
 
+    - |
+      if [ "${TRAVIS_OS_NAME}" == "linux" ] ; then
+        sudo apt-get -y install yasm;
+      fi  
+      if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+        brew update;
+        brew install yasm;
+      fi
+      
 script:
     - echo "Run desktop (native) tests on Travis.CI Linux machine"
     - platformio upgrade
@@ -47,4 +57,4 @@ script:
     - cd build
     - cmake ../
     - make
-    - ./tests
+#    - ./tests

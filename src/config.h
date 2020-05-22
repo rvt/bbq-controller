@@ -55,5 +55,5 @@ constexpr float RNOMINAL_OVEN = 100.0;
 // Period of ON/OF fan in milliseconds
 constexpr uint32_t ON_OFF_FAN_PERIOD = (30 * 1000);
 
-#define CONTROLLER_CONFIG_FILENAME "controllerCfg.json"
-#define BBQ_CONFIG_FILENAME "bbqCfg.json"
+#define CONTROLLER_CONFIG_FILENAME "controllerCfg.conf"
+#define BBQ_CONFIG_FILENAME "bbqCfg.conf"

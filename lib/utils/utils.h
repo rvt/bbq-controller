@@ -21,7 +21,9 @@ std::array<float, SIZE> getConfigArray(
     if (strcmp(lookForKey, givenKey) == 0) {
         int totalValues = 0;
         std::array<float, SIZE> outValues;
-        OptParser::get(strKeyValues, ',', [&outValues, &totalValues](OptValue v) {
+        char buffer[32];
+        strncpy(buffer, strKeyValues, sizeof(buffer));
+        OptParser::get(buffer, ',', [&outValues, &totalValues](OptValue v) {
             if (v.pos() < SIZE) {
                 outValues[v.pos()] = v;
                 totalValues++;

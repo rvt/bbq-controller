@@ -4,6 +4,7 @@
 #include <ventilator.h>
 #include <demo.h>
 #include <math.h>
+#include <algorithm>
 
 
 /** very simple oven simulation
@@ -42,7 +43,7 @@ public:
 
         if (airFlow > m_lastAirFlow) {
             m_up = true;
-            m_lastAlpha = 0.007 * m_alphaAdjust;
+            m_lastAlpha = 0.004 * m_alphaAdjust;
         } else if (airFlow < m_lastAirFlow) {
             m_up = false;
             m_lastAlpha = 0.002 * m_alphaAdjust;
@@ -107,8 +108,8 @@ private:
     float m_AirFlow = 0.0;
     float m_temperature;
     bool m_lidOpen;
-    int m_totalBriqettes = 18;
-    int m_maxBriqettes = 24;
+    int m_totalBriqettes = 8;
+    int m_maxBriqettes = 10;
     uint32_t lastTIme = 0;
 public:
     MockedOven() {
@@ -130,7 +131,10 @@ public:
         m_temperature = 0.0;
 
         for (auto& value : briqettes) {
-            m_temperature += value.handle(m_AirFlow) * 1.8f;
+            float flow = (rand() % 20) - 10.f + m_AirFlow;
+            if (flow < 0 ) flow=0;
+            if (flow > 100 ) flow=100;
+            m_temperature += value.handle(flow) * 1.8f;
         }
 
         // Temperure is now 0..m_totalBriqettes
