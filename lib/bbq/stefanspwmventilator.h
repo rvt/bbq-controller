@@ -1,4 +1,7 @@
 #pragma once
+
+#if defined(ESP8266)
+
 #include <stdint.h>
 #include "ventilator.h"
 
@@ -21,3 +24,4 @@ private:
     virtual void setVentilator(const float dutyCycle);
     virtual void handle(const uint32_t millis);
 };
+#endif

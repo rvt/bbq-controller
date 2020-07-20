@@ -1,5 +1,7 @@
 #pragma once
 
+// We can properly do better than this
+//#if defined(ESP8266)
 #include <memory>
 #include <array>
 #include <cstddef>
@@ -10,17 +12,29 @@
 #include <digitalinput.h>
 #include <numericknob.h>
 #include <OLEDDisplayUi.h>
+
+#if defined(ESP8266)
 #include <Ethernet.h>
+#endif
+
+#if defined(ESP32)
+    #include <WiFi.h>
+    #include <esp_wifi.h>      
+#elif defined(ESP8266)
+        #include <ESP8266WiFi.h>
+#endif
+
+#include "displayController.h"
 
 class SSD1306Brzo;
 class OLEDDisplay;
 class OLEDDisplayUiState;
 
-class SSD1306DisplayController {
+class SSD1306DisplayController : public DisplayController {
 public:
-    void init();
-    uint32_t handle();
     SSD1306DisplayController(uint8_t m_wireSda,  uint8_t m_wireScl);
+    virtual void init();
+    virtual uint32_t handle();
     virtual ~SSD1306DisplayController();
 
 private:
@@ -57,3 +71,4 @@ private:
     };
 
 };
+//#endif

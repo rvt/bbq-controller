@@ -1,8 +1,10 @@
 
 #include "ssd1306displaycontroller.h"
+//#if defined(ESP8266)
+
 #include <icons.h>
 #include <PubSubClient.h>
-#include <ESP8266WiFi.h>
+//#include <ESP8266WiFi.h>
 #include "icons.h"
 #include <digitalknob.h>
 #include <memory>
@@ -65,7 +67,7 @@ void SSD1306DisplayController::init() {
     normalRunScreens = {
         currentTemperatureSetting,
         currentTemperatureSensor1,
-        currentTemperatureSensor2,
+        //currentTemperatureSensor2,
         currentFanSpeed
     };
 
@@ -206,7 +208,7 @@ void SSD1306DisplayController::init() {
 
     // Start UI
     // Don´t set this to high as we want to have time left for the controller to do it´s work
-    ui->setTargetFPS(30);
+    ui->setTargetFPS(20);
     ui->setTimePerTransition(250);
 
     ui->setActiveSymbol(activeSymbol);
@@ -377,3 +379,4 @@ void SSD1306DisplayController::normalOverlayDisplay(OLEDDisplay* display, OLEDDi
         xPos += (bbqlidclosed_width + 4);
     }
 }
+//#endif

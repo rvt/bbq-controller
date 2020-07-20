@@ -6,18 +6,46 @@
 
 #include "makestring.h"
 
-#include <ESP8266WiFi.h>  // https://github.com/esp8266/Arduino
-#include <ESP8266mDNS.h>
-#include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
-#include <LittleFS.h>   // Include the LittleFS library
+#include "DisplayController.h"
+extern "C" {
+#include <crc16.h>
+}
+#if defined(ESP32)
+    #include <SPIFFS.h>
+    #define FileSystemFS SPIFFS
+    #include <WiFi.h>
+    #include <esp_wifi.h>  
+    
+    #define WIFI_getChipId() (uint32_t)ESP.getEfuseMac()
 
+    #include <ESPmDNS.h>
+
+#elif defined(ESP8266)
+    #include <ESP_EEPROM.h>
+    #include <crceeprom.h>
+    #include <ESP8266WiFi.h>
+    #include <ESP8266mDNS.h>
+    #include <LittleFS.h>   // Include the LittleFS library
+    #include <stefanspwmventilator.h>
+
+    extern "C" {
+      #include "user_interface.h"
+    }
+    #include <ESP8266WebServer.h>
+
+    #define WIFI_getChipId() ESP.getChipId()
+
+    #define FileSystemFS LittleFS
+#endif
+
+
+#include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
+#include "ssd1306displaycontroller.h"
 #include <propertyutils.h>
 #include <optparser.h>
 #include <utils.h>
 #include <icons.h>
-#include <crceeprom.h>
 #include <pwmventilator.h>
-#include <stefanspwmventilator.h>
 #include <onoffventilator.h>
 #include <settings.h>
 
@@ -26,8 +54,6 @@
 #include <max31865sensor.h>
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient/releases/tag/v2.6
 
-#include "ssd1306displaycontroller.h"
-#include <ESP_EEPROM.h>
 #include <config.h>
 #include <analogin.h>
 #include <digitalknob.h>
@@ -51,7 +77,11 @@ uint32_t counter50TimesSec = 1;
 uint32_t effectPeriodStartMillis = 0;
 
 // Display System
-SSD1306DisplayController ssd1306displayController(WIRE_SDA, WIRE_SCL);
+#if defined(ESP32)
+DisplayController displayController = DisplayController();
+#else
+DisplayController displayController = SSD1306DisplayController(WIRE_SDA, WIRE_SCL);
+#endif
 
 // bbqCOntroller, sensors and ventilators
 std::unique_ptr<BBQFanOnly> bbqController(nullptr);
@@ -105,13 +135,13 @@ WiFiManagerParameter wm_mqtt_password("input", "mqtt password", "", MQTT_PASSWOR
 ///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
 
-bool saveConfigLittleFS(const char* filename, Properties& properties);
+bool saveConfig(const char* filename, Properties& properties);
 
 Settings saveBBQConfigHandler(
     500,
     10000,
 []() {
-    saveConfigLittleFS(BBQ_CONFIG_FILENAME, bbqConfig);
+    saveConfig(BBQ_CONFIG_FILENAME, bbqConfig);
     bbqConfigModified = false;
 },
 []() {
@@ -119,20 +149,15 @@ Settings saveBBQConfigHandler(
 }
 );
 
-///////////////////////////////////////////////////////////////////////////
-//  Spiffs
-///////////////////////////////////////////////////////////////////////////
-
-
-bool loadConfigSpiffs(const char* filename, Properties& properties) {
+bool loadConfig(const char* filename, Properties& properties) {
     bool ret = false;
 
-    if (LittleFS.begin()) {
+    if (FileSystemFS.begin()) {
         Serial.println("mounted file system");
 
-        if (LittleFS.exists(filename)) {
+        if (FileSystemFS.exists(filename)) {
             //file exists, reading and loading
-            File configFile = LittleFS.open(filename, "r");
+            File configFile = FileSystemFS.open(filename, "r");
 
             if (configFile) {
                 Serial.print(F("Loading config : "));
@@ -147,9 +172,9 @@ bool loadConfigSpiffs(const char* filename, Properties& properties) {
             Serial.println(filename);
         }
 
-        // LittleFS.end();
+        // FileSystemFS.end();
     } else {
-        Serial.print(F("Failed to begin LittleFS"));
+        Serial.print(F("Failed to begin FileSystemFS"));
     }
 
     return ret;
@@ -157,20 +182,20 @@ bool loadConfigSpiffs(const char* filename, Properties& properties) {
 
 
 /**
- * Store custom oarameter configuration in LittleFS
+ * Store custom oarameter configuration in FileSystemFS
  */
-bool saveConfigLittleFS(const char* filename, Properties& properties) {
+bool saveConfig(const char* filename, Properties& properties) {
     bool ret = false;
 
-    if (LittleFS.begin()) {
-        LittleFS.remove(filename);
-        File configFile = LittleFS.open(filename, "w");
+    if (FileSystemFS.begin()) {
+        FileSystemFS.remove(filename);
+        File configFile = FileSystemFS.open(filename, "w");
 
         if (configFile) {
             Serial.print(F("Saving config : "));
             Serial.println(filename);
             serializeProperties<32>(configFile, properties);
-            //                 serializeProperties<32>(Serial, properties);
+            // serializeProperties<32>(Serial, properties);
             ret = true;
         } else {
             Serial.print(F("Failed to write file"));
@@ -178,7 +203,7 @@ bool saveConfigLittleFS(const char* filename, Properties& properties) {
         }
 
         configFile.close();
-        //    LittleFS.end();
+        //    FileSystemFS.end();
     }
 
     return ret;
@@ -211,7 +236,7 @@ void publishStatusToMqtt() {
            );
 
     // Quick hack to only update when data actually changed
-    uint16_t thisCrc = CRCEEProm::crc16((uint8_t*)buffer, std::strlen(buffer));
+    uint16_t thisCrc = crc16((uint8_t*)buffer, std::strlen(buffer));
 
     if (thisCrc != lastMeasurementCRC) {
         publishToMQTT("status", buffer);
@@ -297,7 +322,7 @@ void handleCmd(const char* topic, const char* p_payload) {
             bbqConfigModified = true;
         }
 
-        Serial.println("Config");
+        Serial.println("Config received");
         // Update the bbqController with new values
         bbqController->config(config);
         bbqController->init();
@@ -364,8 +389,10 @@ void setupIOHardware() {
     sensor2->begin();
     temperatureSensor2.reset(new MAX31855sensor(sensor2));
 
-    ventilator1.reset(new StefansPWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));
-    //    ventilator1.reset(new OnOffVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fOnOffDuty")));
+
+    //ventilator1.reset(new StefansPWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));
+    //ventilator1.reset(new OnOffVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fOnOffDuty")));
+    ventilator1.reset(new PWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -471,7 +498,10 @@ void setupWIFIReconnectManager() {
 
             return 1;
         }
-
+        // For some reason the access point active, so we disable it explicitly
+        if (WiFi.status() == WL_CONNECTED) {
+            WiFi.mode(WIFI_STA);
+        }
         return 3;
     });
     CONNECTMQTT = new State([]() {
@@ -571,7 +601,7 @@ void setupWifiManager() {
     // Set configuration portal
     wm.setShowStaticFields(false);
     wm.setConfigPortalBlocking(false); // Must be blocking or else AP stays active
-    wm.setDebugOutput(true);
+    wm.setDebugOutput(false);
     wm.setWebServerCallback(serverOnlineCallback);
     wm.setSaveParamsCallback(saveParamCallback);
     wm.setHostname(controllerConfig.get("mqttClientID"));
@@ -580,8 +610,11 @@ void setupWifiManager() {
 
     wm.startWebPortal();
     wm.autoConnect(controllerConfig.get("mqttClientID"));
+    #if defined(ESP8266)
     WiFi.setSleepMode(WIFI_NONE_SLEEP);
     MDNS.begin(controllerConfig.get("mqttClientID"));
+    MDNS.addService(0, "http", "tcp", 80);
+    #endif
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -589,8 +622,8 @@ void setupWifiManager() {
 ///////////////////////////////////////////////////////////////////////////
 
 void setupDefaults() {
-     char chipHexBuffer[9];
-    snprintf(chipHexBuffer, sizeof(chipHexBuffer), "%08X", ESP.getChipId());
+    char chipHexBuffer[9];
+    snprintf(chipHexBuffer, sizeof(chipHexBuffer), "%08X", WIFI_getChipId());
 
     char mqttClientID[16];
     snprintf(mqttClientID, sizeof(mqttClientID), "BBQ_%s", chipHexBuffer);
@@ -619,22 +652,22 @@ void setup() {
     //********** CHANGE PIN FUNCTION  TO GPIO **********
     //https://www.esp8266.com/wiki/doku.php?id=esp8266_gpio_pin_allocations
     //GPIO 1 (TX) swap the pin to a GPIO.
-    pinMode(1, FUNCTION_3);
+    //pinMode(1, FUNCTION_3);
     //GPIO 3 (RX) swap the pin to a GPIO.
-    pinMode(3, FUNCTION_3);
+    //pinMode(3, FUNCTION_3);
     //**************************************************
 
     // Enable serial port
     Serial.begin(115200);
     delay(050);
     // load configurations
-    loadConfigSpiffs(CONTROLLER_CONFIG_FILENAME, controllerConfig);
-    loadConfigSpiffs(BBQ_CONFIG_FILENAME, bbqConfig);
+    loadConfig(CONTROLLER_CONFIG_FILENAME, controllerConfig);
+    loadConfig(BBQ_CONFIG_FILENAME, bbqConfig);
     setupDefaults();
 
     setupIOHardware();
     setupBBQController();
-    ssd1306displayController.init();
+    displayController.init();
     setupMQTT();
     setupWifiManager();
     setupWIFIReconnectManager();
@@ -646,7 +679,7 @@ void setup() {
 #define NUMBER_OF_SLOTS 10
 void loop() {
     const uint32_t currentMillis = millis();
-    int remainingTimeBudget = ssd1306displayController.handle();
+    int remainingTimeBudget = displayController.handle();
 
     if (remainingTimeBudget > 0 && currentMillis - effectPeriodStartMillis >= EFFECT_PERIOD_CALLBACK) {
         effectPeriodStartMillis += EFFECT_PERIOD_CALLBACK;
@@ -679,7 +712,7 @@ void loop() {
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             if (controllerConfigModified) {
                 controllerConfigModified = false;
-                saveConfigLittleFS(CONTROLLER_CONFIG_FILENAME, controllerConfig);
+                saveConfig(CONTROLLER_CONFIG_FILENAME, controllerConfig);
             }
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             saveBBQConfigHandler.handle();

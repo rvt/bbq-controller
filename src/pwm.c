@@ -18,6 +18,7 @@
 
 /* Set the following three defines to your needs */
 
+#if defined(ESP8266)
 #ifndef SDK_PWM_PERIOD_COMPAT_MODE
 #define SDK_PWM_PERIOD_COMPAT_MODE 0
 #endif
@@ -481,3 +482,4 @@ void ICACHE_FLASH_ATTR
 set_pwm_debug_en(uint8_t print_en) {
     (void) print_en;
 }
+#endif

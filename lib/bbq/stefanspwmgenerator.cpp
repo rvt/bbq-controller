@@ -1,4 +1,7 @@
 #include "stefanspwmventilator.h"
+
+#if defined(ESP8266)
+
 #include <utils.h>
 #include <math.h>
 
@@ -92,3 +95,4 @@ void StefansPWMVentilator::handle(const uint32_t millis) {
     }
 
 };
+#endif

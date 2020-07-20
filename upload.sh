@@ -11,7 +11,7 @@ set -e
 # ping ARILUX00879231.local
 #./generateHtmlArray.sh 
 #platformio run
-platformio run --target upload -e wemos 
+platformio run --target upload -e wemos
 platformio device monitor --baud 115200
 
 # connect serial IO
