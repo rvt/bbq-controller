@@ -33,9 +33,9 @@ class OLEDDisplayUiState;
 class SSD1306DisplayController : public DisplayController {
 public:
     SSD1306DisplayController(uint8_t m_wireSda,  uint8_t m_wireScl);
-    virtual void init();
-    virtual uint32_t handle();
     virtual ~SSD1306DisplayController();
+    virtual void init();
+    virtual int32_t handle();
 
 private:
     ///////////////////////////////////////////////////////////////////////////
@@ -56,7 +56,7 @@ private:
 
     // All screens for normal operation
     std::array<FrameCallback, 1> startScreens = { };
-    std::array<FrameCallback, 4> normalRunScreens = { };
+    std::array<FrameCallback, 3> normalRunScreens = { };
     std::array<OverlayCallback, 1> displayOverlay = { };
     std::array<FrameCallback, 3> menuScreens = { };
 

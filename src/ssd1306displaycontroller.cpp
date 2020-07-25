@@ -31,7 +31,6 @@ extern DigitalKnob digitalKnob;
 extern Properties bbqConfig;
 typedef PropertyValue PV;
 extern std::shared_ptr<AnalogIn> analogIn;
-extern std::shared_ptr<Ventilator> ventilator1;
 extern bool bbqConfigModified;
 
 // Temporary untill we can have the display functions handle object variables
@@ -44,6 +43,7 @@ static std::unique_ptr<NumericKnob> m_menuKnob;
 #define MENU_FONT_SIZE 10
 
 SSD1306DisplayController::SSD1306DisplayController(uint8_t m_wireSda,  uint8_t m_wireScl) :
+    DisplayController(),
     display(new SSD1306Brzo(0x3c, m_wireSda, m_wireScl)),
     ui(new OLEDDisplayUi(display)),
     m_lastMillis(0) {
@@ -226,7 +226,7 @@ void SSD1306DisplayController::init() {
 
 }
 
-uint32_t SSD1306DisplayController::handle() {
+int32_t SSD1306DisplayController::handle() {
     uint32_t budget =  ui->update();
     uint32_t currentMillis = millis();
 
@@ -287,8 +287,8 @@ void SSD1306DisplayController::currentFanSpeed(OLEDDisplay* display, OLEDDisplay
         sprintf(buffer, "%3.0f%%", ventilator1->speed());
     }
 
-    display->drawString(x + 0 + fan_width + 4, y + 20, buffer);
-    display->drawXbm(x, y + 20, fan_width, fan_height, fan_bits);
+    display->drawString(x + 0 + fan24_width + 4, y + 20, buffer);
+    display->drawXbm(x, y + 20, fan24_width, fan24_height, fan24_bits);
 }
 
 void SSD1306DisplayController::startScreen(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
@@ -347,7 +347,7 @@ void SSD1306DisplayController::menuOverrideFan(OLEDDisplay* display, OLEDDisplay
     }
 
     display->drawString(x + 40, y + 22, buffer);
-    display->drawXbm(x, y + 20, fan_width, fan_height, fan_bits);
+    display->drawXbm(x, y + 20, fan48_width, fan48_height, fan48_bits);
 }
 
 void SSD1306DisplayController::normalOverlayDisplay(OLEDDisplay* display, OLEDDisplayUiState* state) {

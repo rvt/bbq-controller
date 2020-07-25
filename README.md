@@ -40,6 +40,7 @@ This is still work in progress and has not yet been field tested and development
 # Hardware Tests
 
 - Tested on wemos ESP8266 [Wemos® Nodemcu Wifi And ESP8266 NodeMCU + 1.3 Inch OLED](https://www.banggood.com/Wemos-Nodemcu-Wifi-And-ESP8266-NodeMCU-1_3-Inch-OLED-Board-White-p-1160048.html)
+- Tested on ttfo_t_display [LiliGO T-Display 1.14" Color Display](https://github.com/Xinyuan-LilyGO/TTGO-T-Display)
 
 # Compilation
 

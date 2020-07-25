@@ -2,10 +2,7 @@
 
 class DisplayController {
 public:
-    virtual uint32_t handle() {
-        return 0;
-    }
-    virtual void init() {
-    }
+    virtual int32_t handle() = 0;
+    virtual void init() = 0;
 };
 
