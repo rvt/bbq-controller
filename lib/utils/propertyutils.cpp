@@ -1,12 +1,12 @@
 #include "propertyutils.h"
 
-#include <stdlib.h>
 #include <memory>
 #include <algorithm>
+
 #include <cassert>
 #include <cmath>
-#include <cstdlib>
-#include <cstdio>
+#include <string.h> 
+#include <stdio.h>
 
 static PropertyValue emptyProperty("0");
 
