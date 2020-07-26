@@ -6,7 +6,7 @@
 
 #include "makestring.h"
 
-#include "DisplayController.h"
+#include "displayController.h"
 extern "C" {
 #include <crc16.h>
 }
