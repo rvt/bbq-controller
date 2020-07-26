@@ -53,7 +53,7 @@ extern "C" {
 #include <onoffventilator.h>
 #include <settings.h>
 
-#include <spi.h> // Include for harware SPI
+#include <SPI.h> // Include for harware SPI
 #include <max31855sensor.h>
 #include <max31865sensor.h>
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient/releases/tag/v2.6
