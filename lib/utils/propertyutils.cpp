@@ -5,8 +5,8 @@
 
 #include <cassert>
 #include <cmath>
-#include <string.h> 
 #include <stdio.h>
+#include <cstring>
 
 static PropertyValue emptyProperty("0");
 
