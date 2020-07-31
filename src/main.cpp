@@ -12,33 +12,33 @@ extern "C" {
 }
 
 #if defined(ESP32)
-    #define FileSystemFS SPIFFS
-    #define FileSystemFSBegin() SPIFFS.begin(true)
-    #include <WiFi.h>
-    #include <esp_wifi.h>  
-    
-    #define WIFI_getChipId() (uint32_t)ESP.getEfuseMac()
+#define FileSystemFS SPIFFS
+#define FileSystemFSBegin() SPIFFS.begin(true)
+#include <WiFi.h>
+#include <esp_wifi.h>
 
-    #include <ESPmDNS.h>
-    #include <SPIFFS.h>
+#define WIFI_getChipId() (uint32_t)ESP.getEfuseMac()
+
+#include <ESPmDNS.h>
+#include <SPIFFS.h>
 
 #elif defined(ESP8266)
-    #include <ESP_EEPROM.h>
-    #include <crceeprom.h>
-    #include <ESP8266WiFi.h>
-    #include <ESP8266mDNS.h>
-    #include <LittleFS.h>   // Include the LittleFS library
-    #include <stefanspwmventilator.h>
+#include <ESP_EEPROM.h>
+#include <crceeprom.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
+#include <LittleFS.h>
+#include <stefanspwmventilator.h>
 
-    extern "C" {
-      #include "user_interface.h"
-    }
-    #include <ESP8266WebServer.h>
+extern "C" {
+#include "user_interface.h"
+}
+#include <ESP8266WebServer.h>
 
-    #define WIFI_getChipId() ESP.getChipId()
+#define WIFI_getChipId() ESP.getChipId()
 
-    #define FileSystemFS LittleFS
-    #define FileSystemFSBegin() LittleFS.begin()
+#define FileSystemFS LittleFS
+#define FileSystemFSBegin() LittleFS.begin()
 #endif
 
 
@@ -82,9 +82,9 @@ uint32_t effectPeriodStartMillis = 0;
 
 // Display System
 #if defined(TTG_T_DISPLAY)
-    DisplayController* displayController = new TTGO_T_DisplayController();
+DisplayController* displayController = new TTGO_T_DisplayController();
 #elif defined(GEEKKCREIT_OLED)
-    DisplayController* displayController = new SSD1306DisplayController(WIRE_SDA, WIRE_SCL);
+DisplayController* displayController = new SSD1306DisplayController(WIRE_SDA, WIRE_SCL);
 #else
 #error Must have a displaydriver use TTG_T_DISPLAY or GEEKKCREIT_OLED
 #endif
@@ -255,7 +255,9 @@ void publishStatusToMqtt() {
  * Publish a message to mqtt
  */
 void publishToMQTT(const char* topic, const char* payload) {
-    if (!mqttClient.connected()) return;
+    if (!mqttClient.connected()) {
+        return;
+    }
 
     char buffer[65];
     const char* mqttBaseTopic = controllerConfig.get("mqttBaseTopic");
@@ -282,6 +284,7 @@ void handleCmd(const char* topic, const char* p_payload) {
     // Look for a temperature setPoint topic
     char payloadBuffer[32];
     strncpy(payloadBuffer, p_payload, sizeof(payloadBuffer));
+
     if (std::strstr(topicPos, "/config") != nullptr) {
         BBQFanOnlyConfig config = bbqController->config();
         float temperature = 0;
@@ -506,6 +509,7 @@ void setupWIFIReconnectManager() {
 
             return 1;
         }
+
         // For some reason the access point active, so we disable it explicitly
         // FOR ESP32 we will keep on this state untill WIFI is connected
         if (WiFi.status() == WL_CONNECTED) {
@@ -513,6 +517,7 @@ void setupWIFIReconnectManager() {
         } else {
             return 2;
         }
+
         return 3;
     });
     CONNECTMQTT = new State([]() {
@@ -545,6 +550,7 @@ void setupWIFIReconnectManager() {
         char mqttSubscriberTopic[32];
         strncpy(mqttSubscriberTopic, controllerConfig.get("mqttBaseTopic"), sizeof(mqttSubscriberTopic));
         strncat(mqttSubscriberTopic, "/+", sizeof(mqttSubscriberTopic));
+
         if (mqttClient.subscribe(mqttSubscriberTopic, 0)) {
             return 6;
         }
@@ -621,11 +627,11 @@ void setupWifiManager() {
 
     wm.startWebPortal();
     wm.autoConnect(controllerConfig.get("mqttClientID"));
-    #if defined(ESP8266)
+#if defined(ESP8266)
     WiFi.setSleepMode(WIFI_NONE_SLEEP);
     MDNS.begin(controllerConfig.get("mqttClientID"));
     MDNS.addService(0, "http", "tcp", 80);
-    #endif
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -668,9 +674,9 @@ void setup() {
     //pinMode(3, FUNCTION_3);
     //**************************************************
     // Needed for ESP32, otherwhise crash
-    #if defined(ESP32)
-    WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP    
-    #endif
+#if defined(ESP32)
+    WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
+#endif
     // Enable serial port
     Serial.begin(115200);
     delay(050);
@@ -682,10 +688,10 @@ void setup() {
     setupIOHardware();
     setupBBQController();
     displayController->init();
+    displayController->handle();
     setupMQTT();
     setupWifiManager();
     setupWIFIReconnectManager();
-
     Serial.println(F("End Setup"));
     effectPeriodStartMillis = millis();
 }
@@ -693,9 +699,9 @@ void setup() {
 #define NUMBER_OF_SLOTS 10
 void loop() {
     const uint32_t currentMillis = millis();
-    int remainingTimeBudget = displayController->handle();
+    displayController->handle();
 
-    if (remainingTimeBudget > 0 && currentMillis - effectPeriodStartMillis >= EFFECT_PERIOD_CALLBACK) {
+    if (currentMillis - effectPeriodStartMillis >= EFFECT_PERIOD_CALLBACK) {
         effectPeriodStartMillis += EFFECT_PERIOD_CALLBACK;
         counter50TimesSec++;
 

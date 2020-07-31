@@ -132,8 +132,15 @@ public:
 
         for (auto& value : briqettes) {
             float flow = (rand() % 20) - 10.f + m_AirFlow;
-            if (flow < 0 ) flow=0;
-            if (flow > 100 ) flow=100;
+
+            if (flow < 0) {
+                flow = 0;
+            }
+
+            if (flow > 100) {
+                flow = 100;
+            }
+
             m_temperature += value.handle(flow) * 1.8f;
         }
 

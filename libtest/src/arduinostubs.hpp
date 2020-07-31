@@ -64,7 +64,7 @@ extern "C" void ledcAttachPin(uint8_t p_pin, uint8_t p_pwmChannel) {
 
 }
 extern "C" void  ledcWrite(uint8_t m_pwmChannel, uint8_t pwmValue) {
-    
+
 }
 
 #endif

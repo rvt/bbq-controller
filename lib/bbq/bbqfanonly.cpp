@@ -159,11 +159,14 @@ float BBQFanOnly::setPoint() const {
 }
 
 void BBQFanOnly::handle(const uint32_t millis) {
-    if (millis - m_periodStartMillis < 1000 / UPDATES_PER_SECOND)  return;
+    if (millis - m_periodStartMillis < 1000 / UPDATES_PER_SECOND) {
+        return;
+    }
+
     m_periodStartMillis = millis;
 
-    // rotate right and store on the first position the latest temperature 
-    std::rotate(m_tempStore.begin(), m_tempStore.begin()+m_tempStore.size()-1, m_tempStore.end());
+    // rotate right and store on the first position the latest temperature
+    std::rotate(m_tempStore.begin(), m_tempStore.begin() + m_tempStore.size() - 1, m_tempStore.end());
     m_tempStore[0] = m_tempSensor->get();
 
     // Feed temp error

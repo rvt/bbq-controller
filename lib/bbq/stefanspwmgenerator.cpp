@@ -76,6 +76,7 @@ void StefansPWMVentilator::handle(const uint32_t millis) {
         m_currentPwmValue = m_currentPwmValue + (m_pwmValue - m_currentPwmValue) * 0.1f;
 
         int32_t pwmDuty;
+
         if (m_currentPwmValue >= 1.0f) {
             float withStart = m_currentPwmValue * (100.f - m_pwmStart) / 100.0 + m_pwmStart;
             pwmDuty = percentmap(withStart, STEFANS_PWM_PERIOD);
@@ -84,9 +85,9 @@ void StefansPWMVentilator::handle(const uint32_t millis) {
         }
 
         // Not sure why but when I get very close to 100% doing PWM
-        // With PWM_USE_NMI set to 1 will crash the controller 
+        // With PWM_USE_NMI set to 1 will crash the controller
         // However, 100% is allowed!
-        if (pwmDuty + STEFANS_PWM_PERIOD10 < STEFANS_PWM_PERIOD || 
+        if (pwmDuty + STEFANS_PWM_PERIOD10 < STEFANS_PWM_PERIOD ||
             pwmDuty == STEFANS_PWM_PERIOD) {
             pwm_set_duty(pwmDuty, 0);
             pwm_start();

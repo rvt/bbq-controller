@@ -12,7 +12,7 @@
 #include <cstdlib>
 #include <algorithm>
 
-constexpr uint8_t UPDATES_PER_SECOND = 1; // numnber of fuzzy calculations per second 
+constexpr uint8_t UPDATES_PER_SECOND = 1; // numnber of fuzzy calculations per second
 constexpr uint8_t TEMPERATUR_DIFFERENCE_OVER_SEC = 3;
 
 
@@ -41,7 +41,7 @@ private:
     bool m_lidOpenTriggered;
     BBQFanOnlyConfig m_config;
     long m_periodStartMillis;
-    std::array<float, UPDATES_PER_SECOND *  TEMPERATUR_DIFFERENCE_OVER_SEC + 1> m_tempStore;
+    std::array < float, UPDATES_PER_SECOND*   TEMPERATUR_DIFFERENCE_OVER_SEC + 1 > m_tempStore;
 public:
     BBQFanOnly(std::shared_ptr<TemperatureSensor> pTempSensor,
                std::shared_ptr<Ventilator> pFan);

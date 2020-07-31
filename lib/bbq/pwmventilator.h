@@ -15,8 +15,8 @@ public:
      * p_pwmStart : Minimum value where the fab can run, below that we set the pwm to 0 (0..100%)
      */
     PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart);
-    PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart, uint8_t p_pwmChannel );
-    PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart, uint8_t m_pwmMinimum, uint8_t p_pwmChannel );
+    PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart, uint8_t p_pwmChannel);
+    PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart, uint8_t m_pwmMinimum, uint8_t p_pwmChannel);
 private:
     virtual void setVentilator(float dutyCycle);
     virtual void handle(const uint32_t millis) {};
