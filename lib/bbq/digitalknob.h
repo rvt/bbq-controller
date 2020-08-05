@@ -38,7 +38,7 @@ public:
      */
     DigitalKnob(uint8_t p_pin);
     /**
-     * Build a button with specific conviguration
+     * Build a button with specific configuration
      * param: Pin number
      * param: Invert the pin input, when pull-ip stndard config is inverted
      * param: Alpha wilter value default 150, the hihger the value the more filtering on the digital input
@@ -86,6 +86,11 @@ public:
      * Resets it´s internal state s a second call to this function will return false
      */
     virtual bool isEdgeDown() const;
+    /**
+     * Returns true when edge down or up was detected
+     * Resets it´s internal state s a second call to this function will return false
+     */
+    virtual bool isEdge() const;
     /**
      * Reset the internal state, but not the button states
      */

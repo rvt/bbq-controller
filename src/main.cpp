@@ -16,6 +16,7 @@ extern "C" {
 #define FileSystemFSBegin() SPIFFS.begin(true)
 #include <WiFi.h>
 #include <esp_wifi.h>
+#include "rotaryencoder.h"
 
 #define WIFI_getChipId() (uint32_t)ESP.getEfuseMac()
 
@@ -103,10 +104,16 @@ MockedTemperature* mockedTemp2 = new MockedTemperature(30.0);
 // WiFI Manager
 WiFiManager wm;
 
+
+DigitalKnob digitalKnob(BUTTON_PIN, true, 110);
+#if defined(GEEKKCREIT_OLED)
 // Analog and digital inputs
 std::shared_ptr<AnalogIn> analogIn = std::make_shared<AnalogIn>(0.2f);
-DigitalKnob digitalKnob(BUTTON_PIN, true, 110);
-
+#elif defined(TTG_T_DISPLAY)
+DigitalKnob rotary1(ROTARY_PIN1, true, 110);
+DigitalKnob rotary2(ROTARY_PIN2, true, 110);
+RotaryEncoder rotaryEncoder(&rotary2, &rotary2);
+#endif
 // Stores information about the BBQ controller (PID values, fuzzy loggic values etc, mqtt)
 Properties controllerConfig;
 bool controllerConfigModified = false;
@@ -618,7 +625,7 @@ void setupWifiManager() {
     // Set configuration portal
     wm.setShowStaticFields(false);
     wm.setConfigPortalBlocking(false); // Must be blocking or else AP stays active
-    wm.setDebugOutput(false);
+    wm.setDebugOutput(true);
     wm.setWebServerCallback(serverOnlineCallback);
     wm.setSaveParamsCallback(saveParamCallback);
     wm.setHostname(controllerConfig.get("mqttClientID"));
@@ -707,8 +714,15 @@ void loop() {
 
         // DigitalKnob (the button) must be handled at 50 times/sec to correct handle presses and double presses
         digitalKnob.handle();
-        // Handle analog input
+#if defined(TTG_T_DISPLAY)
+        rotary1.handle();
+        rotary2.handle();
+        rotaryEncoder.handle();
+#endif
+
+#if defined(GEEKKCREIT_OLED)
         analogIn -> handle();
+#endif
         // Handle fan
         ventilator1->handle(currentMillis);
         bbqController -> handle(currentMillis);

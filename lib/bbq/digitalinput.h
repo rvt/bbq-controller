@@ -8,4 +8,5 @@ public:
     virtual bool isLong() const = 0;
     virtual bool isEdgeUp() const = 0;
     virtual bool isEdgeDown() const = 0;
+    virtual bool isEdge() const = 0;
 };

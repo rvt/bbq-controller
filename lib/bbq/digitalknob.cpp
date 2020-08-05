@@ -121,7 +121,13 @@ bool DigitalKnob::isEdgeDown() const {
     m_value[DIGITAL_KNOB_IS_EDGE_DOWN] = false;
     return v;
 }
-
+bool DigitalKnob::isEdge() const {
+    bool v1 = m_value[DIGITAL_KNOB_IS_EDGE_DOWN];
+    bool v2 = m_value[DIGITAL_KNOB_IS_EDGE_UP];
+    m_value[DIGITAL_KNOB_IS_EDGE_DOWN] = false;
+    m_value[DIGITAL_KNOB_IS_EDGE_UP] = false;
+    return v1 || v2;
+}
 bool DigitalKnob::isDouble() const {
     bool v = m_value[DIGITAL_KNOB_IS_DOUBLE_CLICK];
     m_value[DIGITAL_KNOB_IS_DOUBLE_CLICK] = false;

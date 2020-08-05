@@ -10,6 +10,7 @@
 #include <pwmventilator.h>
 #include <propertyutils.h>
 #include <14segm.h>
+#include <rotaryknob.h>
 
 #define FRAMES_PER_SECOND 50
 #define MILLIS_PER_FRAME (1000 / FRAMES_PER_SECOND)
@@ -24,15 +25,16 @@ extern std::shared_ptr<TemperatureSensor> temperatureSensor2;
 extern std::shared_ptr<Ventilator> ventilator1;
 extern PubSubClient mqttClient;
 extern DigitalKnob digitalKnob;
+extern DigitalKnob rotary1;
+extern DigitalKnob rotary2;
 extern Properties bbqConfig;
 typedef PropertyValue PV;
-extern std::shared_ptr<AnalogIn> analogIn;
 extern bool bbqConfigModified;
 
 // Temporary untill we can have the display functions handle object variables
-static std::unique_ptr<NumericKnob> m_temperatureSetPointKnob;
-static std::unique_ptr<NumericKnob> m_fanOverrideKnob;
-static std::unique_ptr<NumericKnob> m_menuKnob;
+static std::unique_ptr<NumericInput> m_temperatureSetPointKnob;
+static std::unique_ptr<NumericInput> m_fanOverrideKnob;
+static std::unique_ptr<NumericInput> m_menuKnob;
 
 #define TEXT_WHERE_NO_BITMAP 1
 
@@ -252,9 +254,9 @@ TTGO_T_DisplayController::~TTGO_T_DisplayController() {
 
 void TTGO_T_DisplayController::init() {
 
-    m_temperatureSetPointKnob.reset(new NumericKnob(analogIn, bbqController->setPoint(), 90, 240, 0.1));
-    m_fanOverrideKnob.reset(new NumericKnob(analogIn, ventilator1->speedOverride(), -1, 100, 0.1));
-    m_menuKnob.reset(new NumericKnob(analogIn, 0, 0, 2, 0.01));
+    m_temperatureSetPointKnob.reset(new RotaryKnob(&rotary1, &rotary2, bbqController->setPoint(), 90, 240, 1.f));
+    m_fanOverrideKnob.reset(new RotaryKnob(&rotary1, &rotary2, ventilator1->speedOverride(), -1, 100, 1));
+    m_menuKnob.reset(new RotaryKnob(&rotary1, &rotary2, 0, 0, 2, 0.1));
 
     startScreens = {
         [&](TFT_eSprite * tft, int16_t x, int16_t y) {
