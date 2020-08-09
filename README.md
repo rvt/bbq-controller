@@ -10,7 +10,7 @@ Splash Screen :
 ![Splash Screen](images/splash.png "Splash Screen of Controller")
 
 
-# Currently under heavy development 
+# Currently under development - ESP32 Color Version 
 * Test digital thermometer max31855
 * Implement Farenheit display
 
