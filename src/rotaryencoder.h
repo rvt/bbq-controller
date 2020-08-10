@@ -2,6 +2,7 @@
 
 #include <digitalknob.h>
 #include <NumericInput.h>
+#include <Arduino.h>
 
 class RotaryEncoder  : public NumericInput {
     private:
@@ -13,7 +14,7 @@ class RotaryEncoder  : public NumericInput {
         RotaryEncoder() : RotaryEncoder(nullptr, nullptr) {
 
         }
-        RotaryEncoder(DigitalKnob *p_pin1, DigitalKnob *p_pin2) :
+        RotaryEncoder(DigitalKnob *p_pin1, DigitalKnob *p_pin2) : NumericInput(),
             m_pin1(p_pin1),
             m_pin2(p_pin2),
             m_pos(0),
@@ -21,7 +22,7 @@ class RotaryEncoder  : public NumericInput {
 
             }
 
-        void handle() {
+        virtual void handle() {
             if (m_pin1==nullptr || m_pin2==nullptr) return;
             m_pin1->handle();
             m_pin2->handle();
@@ -35,18 +36,16 @@ class RotaryEncoder  : public NumericInput {
             bool p1d = m_pin1->isEdgeDown();
             bool p2u = m_pin2->isEdgeUp();
             bool p2d = m_pin2->isEdgeDown();
+            int8_t direction=0;
             if (p1u || p1d) {
-                if (m_pin1->current() ^ m_pin2->current()) {
-                    m_pos--;
-                } else {
-                    m_pos++;
-                }
+                direction=1;
             } else if (p2u || p2d) {
-                if (m_pin1->current() ^ m_pin2->current()) {
-                    m_pos++;
-                } else {
-                    m_pos--;
-                }
+                direction=-1;
+            }
+            if (direction && (m_pin1->current() ^ m_pin2->current())) {
+                m_pos=m_pos + direction;
+            } else {
+                m_pos=m_pos - direction;
             }
         }
 

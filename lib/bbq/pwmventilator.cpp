@@ -42,9 +42,11 @@ PWMVentilator::PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart, uint8_t p_pwmMin
 #if defined(ESP8266)
     analogWriteRange(PWM_RANGE);
     analogWriteFreq(PWM_FREQUENCY);
+    #pragma message "Configuring PWM pin ESP8266 "
 #elif defined(ESP32)
     ledcSetup(p_pwmChannel, PWM_FREQUENCY, PWM_RESOLUTION);
     ledcAttachPin(p_pin, p_pwmChannel);
+    #pragma message "Configuring PWM pin ESP32 "
 #endif
     pinMode(p_pin, OUTPUT);
 }

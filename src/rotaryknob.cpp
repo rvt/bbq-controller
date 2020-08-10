@@ -4,14 +4,6 @@
 #include <utils.h>
 
 
-        DigitalKnob *m_pin1;
-        DigitalKnob *m_pin2;
-        float m_value;
-        float m_minValue;
-        float m_maxValue;
-        float m_velocity;
-        RotaryEncoder m_encoder;
-
 RotaryKnob::RotaryKnob(
         DigitalKnob *p_pin1, 
         DigitalKnob *p_pin2, 

@@ -109,10 +109,11 @@ DigitalKnob digitalKnob(BUTTON_PIN, true, 110);
 #if defined(GEEKKCREIT_OLED)
 // Analog and digital inputs
 std::shared_ptr<AnalogIn> analogIn = std::make_shared<AnalogIn>(0.2f);
+#pragma message "Using analog potentiometer for menu"
 #elif defined(TTG_T_DISPLAY)
 DigitalKnob rotary1(ROTARY_PIN1, true, 110);
 DigitalKnob rotary2(ROTARY_PIN2, true, 110);
-RotaryEncoder rotaryEncoder(&rotary2, &rotary2);
+#pragma message "Using rotary encoder for menu"
 #endif
 // Stores information about the BBQ controller (PID values, fuzzy loggic values etc, mqtt)
 Properties controllerConfig;
@@ -411,6 +412,11 @@ void setupIOHardware() {
     //ventilator1.reset(new StefansPWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));
     //ventilator1.reset(new OnOffVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fOnOffDuty")));
     ventilator1.reset(new PWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));
+
+    digitalKnob.init();
+    rotary1.init();
+    rotary2.init();
+
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -714,11 +720,6 @@ void loop() {
 
         // DigitalKnob (the button) must be handled at 50 times/sec to correct handle presses and double presses
         digitalKnob.handle();
-#if defined(TTG_T_DISPLAY)
-        rotary1.handle();
-        rotary2.handle();
-        rotaryEncoder.handle();
-#endif
 
 #if defined(GEEKKCREIT_OLED)
         analogIn -> handle();

@@ -31,10 +31,6 @@ extern Properties bbqConfig;
 typedef PropertyValue PV;
 extern bool bbqConfigModified;
 
-// Temporary untill we can have the display functions handle object variables
-static std::unique_ptr<NumericInput> m_temperatureSetPointKnob;
-static std::unique_ptr<NumericInput> m_fanOverrideKnob;
-static std::unique_ptr<NumericInput> m_menuKnob;
 
 #define TEXT_WHERE_NO_BITMAP 1
 
@@ -200,7 +196,7 @@ int32_t SuperSimpleRotator::handle() {
 
 void SuperSimpleRotator::setFrames(const std::vector<RotatorFrameFunction>& frames) {
     m_frames = frames;
-    m_currentFrame = m_frames.size() - 1;
+    m_currentFrame = 0;
 }
 
 void SuperSimpleRotator::setUnderlays(const std::vector<RotatorOverlayFunction>& underlays) {
@@ -215,20 +211,25 @@ void SuperSimpleRotator::setTimePerFrame(uint16_t timePerFrame) {
     m_timePerFrame = timePerFrame;
 }
 
-void SuperSimpleRotator::switchToFrame(size_t currentFrame) {
-    if (m_frames.size() < currentFrame) {
-        m_currentFrame = currentFrame;
+void SuperSimpleRotator::switchToFrame(size_t nextFrame) {
+    if (nextFrame>=0 && nextFrame < m_frames.size()) {
+        m_currentFrame = nextFrame;
     }
 }
 void SuperSimpleRotator::setAutoTransition(boolean autoTransition) {
     m_autoTransition = autoTransition;
 }
 
-
 TTGO_T_DisplayController::TTGO_T_DisplayController() : DisplayController(),
     m_lastMillis(0),
     m_tft(new TFT_eSPI()),
-    m_rotator(new SuperSimpleRotator(m_tft)) {
+    m_rotator(new SuperSimpleRotator(m_tft)),
+    m_temperatureSetPointKnob(nullptr),
+    m_fanOverrideKnob(nullptr),
+    m_menuKnob(nullptr),
+    m_currentInput(nullptr),
+    m_counter(false)
+     {
     m_palette[ITFT_BLACK] = TFT_BLACK;
     m_palette[ITFT_ORANGE] = TFT_ORANGE;
     m_palette[ITFT_DARKGREEN] = TFT_DARKGREEN;
@@ -254,9 +255,9 @@ TTGO_T_DisplayController::~TTGO_T_DisplayController() {
 
 void TTGO_T_DisplayController::init() {
 
-    m_temperatureSetPointKnob.reset(new RotaryKnob(&rotary1, &rotary2, bbqController->setPoint(), 90, 240, 1.f));
-    m_fanOverrideKnob.reset(new RotaryKnob(&rotary1, &rotary2, ventilator1->speedOverride(), -1, 100, 1));
-    m_menuKnob.reset(new RotaryKnob(&rotary1, &rotary2, 0, 0, 2, 0.1));
+    m_temperatureSetPointKnob = new RotaryKnob(&rotary1, &rotary2, bbqController->setPoint(), 90, 240, .5f);
+    m_fanOverrideKnob = new RotaryKnob(&rotary1, &rotary2, ventilator1->speedOverride(), -1, 100, 1);
+    m_menuKnob = new RotaryKnob(&rotary1, &rotary2, 0, 0, 2, 0.2);
 
     startScreens = {
         [&](TFT_eSprite * tft, int16_t x, int16_t y) {
@@ -297,32 +298,37 @@ void TTGO_T_DisplayController::init() {
     State* STATE_SETFAN;
     State* STATE_CHANGETOMENUBUTTONRELEASE;
 
+    // 0
     STATE_STARTSCREEN = new State([&]() {
         m_rotator->setUnderlays(displayOverlay);
         m_rotator->setFrames(startScreens);
         return 1;
     });
 
+    // 1
     STATE_WAITLOGO = new StateTimed((2500), [&]() {
         // Display splash screen
         return 2;
     });
 
+    // 2
     STATE_CHANGETORUNSCREEN = new State([&]() {
         m_rotator->setFrames(normalRunScreens);
         m_rotator->setAutoTransition(true);
+        m_currentInput = nullptr;
         return 3;
     });
 
+    // 3
     STATE_RUNSCREEN = new State([&]() {
-        if (digitalKnob.isEdgeUp()) {
-            std::static_pointer_cast<PWMVentilator>(ventilator1)->setOn(false);
+        if (digitalKnob.isEdgeDown()) {
             return 5;
         }
 
         return 3;
     });
 
+    // 4
     STATE_CHANGETOMENUBUTTONRELEASE = new State([&]() {
         if (digitalKnob.current() == false) {
             // Clears the internal status so we don´t get a false click later
@@ -333,40 +339,44 @@ void TTGO_T_DisplayController::init() {
         return 5;
     });
 
+    // 5
     STATE_CHANGETOMENUSCREEN = new State([&]() {
+        digitalKnob.reset();
         m_rotator->setFrames(menuScreens);
         m_rotator->setAutoTransition(false);
         m_menuKnob->value(0);
+        m_currentInput = m_menuKnob;
         return 6;
     });
 
+    // 6
     STATE_SELECTMENUITEM = new State([&]() {
-        uint8_t menu = ((int)round(m_menuKnob->value()));
-
-        if (digitalKnob.isSingle()) {
-            //m_rotator->switchToFrame(menu);
+        if (digitalKnob.isEdgeDown()) {
+            uint8_t menu = ((int)round(m_menuKnob->value()));
+            m_rotator->switchToFrame(menu);
 
             switch (menu) {
                 case 0:
-                    std::static_pointer_cast<PWMVentilator>(ventilator1)->setOn(true);
                     return 2;
 
                 case 1:
                     m_temperatureSetPointKnob->value(bbqController->setPoint());
+                    m_currentInput = m_temperatureSetPointKnob;
                     return 7;
 
                 case 2:
                     m_fanOverrideKnob->value(ventilator1->speedOverride());
+                    m_currentInput = m_fanOverrideKnob;
                     return 8;
             };
         }
 
-        m_menuKnob->handle();
         return 6;
     });
 
+    // 7
     STATE_SETTEMP = new State([&]() {
-        if (digitalKnob.isSingle()) {
+        if (digitalKnob.isEdgeDown()) {
             float value = round(m_temperatureSetPointKnob->value() * 2.0f) / 2.0f;
             bbqConfig.put("setPoint", PV(value));
             bbqController->setPoint(value);
@@ -374,22 +384,15 @@ void TTGO_T_DisplayController::init() {
             return 4;
         }
 
-        if (!digitalKnob.isLong()) {
-            m_temperatureSetPointKnob->handle();
-        }
-
         return 7;
     });
 
+    // 8
     STATE_SETFAN = new State([&]() {
-        if (digitalKnob.isSingle()) {
+        if (digitalKnob.isEdgeDown()) {
             float value = round(m_fanOverrideKnob->value());
             ventilator1->speedOverride(value);
             return 4;
-        }
-
-        if (!digitalKnob.isLong()) {
-            m_fanOverrideKnob->handle();
         }
 
         return 8;
@@ -409,7 +412,7 @@ void TTGO_T_DisplayController::init() {
 
     //Set up the display
     m_tft->init();
-    m_tft->setRotation(3);
+    m_tft->setRotation(1);
     m_tft->fillScreen(TFT_BLACK);
     m_tft->setCursor(0, 0);
     m_tft->setTextColor(ITFT_WHITE, TFT_BLACK);
@@ -422,11 +425,15 @@ void TTGO_T_DisplayController::init() {
 int32_t TTGO_T_DisplayController::handle() {
     uint32_t currentMillis = millis();
 
+    if (m_currentInput!=nullptr) {
+        m_currentInput->handle();
+    }
     m_rotator->handle();
 
     if ((currentMillis - m_lastMillis) >= MILLIS_PER_FRAME) {
         m_lastMillis = currentMillis;
         menuSequence->handle();
+        m_counter++;
     }
 
     return MILLIS_PER_FRAME;
@@ -453,11 +460,9 @@ bool TTGO_T_DisplayController::currentTemperatureSetting(TFT_eSprite* tft, int16
 
 bool TTGO_T_DisplayController::currentTemperatureSensor1(TFT_eSprite* tft, int16_t x, int16_t y) {
     char buffer[16];
-    //tft->setFont(ArialMT_Plain_24);
-    //tft->setTextAlignment(TEXT_ALIGN_LEFT);
     tft->setFreeFont(SEG14);
     tft->setTextDatum(CR_DATUM);
-    sprintf(buffer, "1 %.1f°C", temperatureSensor1->get());
+    sprintf(buffer, "1: %.1f°C", temperatureSensor1->get());
     tft->setTextColor(ITFT_ORANGE);
     tft->drawString(buffer, x + TFT_HEIGHT - RIGHT_DISTANCE, y + TFT_WIDTHD2, GFXFF);
     tft->drawXBitmap(x + LEFT_DISTANCE, y + TFT_WIDTHD2 - thermometer48_height / 2, thermometer48_bits, thermometer48_width, thermometer48_height, ITFT_ORANGE);
@@ -466,11 +471,9 @@ bool TTGO_T_DisplayController::currentTemperatureSensor1(TFT_eSprite* tft, int16
 
 bool TTGO_T_DisplayController::currentTemperatureSensor2(TFT_eSprite* tft, int16_t x, int16_t y) {
     char buffer[16];
-    //tft->setFont(ArialMT_Plain_24);
-    //tft->setTextAlignment(TEXT_ALIGN_LEFT);
     tft->setFreeFont(SEG14);
     tft->setTextDatum(CR_DATUM);
-    sprintf(buffer, "2 %.1f°C", temperatureSensor2->get());
+    sprintf(buffer, "2: %.1f°C", temperatureSensor2->get());
     tft->drawString(buffer, x + TFT_HEIGHT - RIGHT_DISTANCE, y + TFT_WIDTHD2, GFXFF);
     tft->drawXBitmap(x + LEFT_DISTANCE, y + TFT_WIDTHD2 - thermometer48_height / 2, thermometer48_bits, thermometer48_width, thermometer48_height, ITFT_ORANGE);
     return true;
@@ -506,60 +509,70 @@ bool TTGO_T_DisplayController::currentFanSpeed(TFT_eSprite* tft, int16_t x, int1
 }
 
 bool TTGO_T_DisplayController::menuMain(TFT_eSprite* tft, int16_t x, int16_t y) {
-    //tft->setFont(MENU_FONT_NAME);
-    //tft->setTextAlignment(TEXT_ALIGN_LEFT);
-
     uint8_t menu = ((int)round(m_menuKnob->value()));
+
     int8_t markerPos = -6;
+    const uint8_t yOffset = 24;
+    const uint8_t extraOffset = 40;
 
     switch (menu) {
         case 0:
-            markerPos = 12;
+            markerPos = yOffset * 0;
             break;
 
         case 1:
-            markerPos = 24;
+            markerPos = yOffset * 1;
             break;
 
         case 2:
-            markerPos = 36;
+            markerPos = yOffset * 2;
             break;
     }
 
-    //tft->fillRect(x + 0,   y + (MENU_FONT_SIZE / 2 - (MENU_BLOCK_SIZE / 2)) - 1 + markerPos + (MENU_BLOCK_SIZE / 2), MENU_BLOCK_SIZE, MENU_BLOCK_SIZE);
-    //tft->drawString("Back", x + 8, y + 12 );
-    //tft->drawString("Set Temperature", x + 8, y + 24) ;
-    //tft->drawString("Override fan", x + 8, y + 36);
+    tft->setTextColor(ITFT_LIGHTGREY);
+    tft->drawString("Back", x + LEFT_DISTANCE + 40, y + yOffset * 0 + extraOffset, 4 );
+    tft->drawString("Set Temperature", x + LEFT_DISTANCE + 40, y + yOffset * 1 + extraOffset, 4) ;
+    tft->drawString("Override fan", x + LEFT_DISTANCE + 40, y + yOffset * 2 + extraOffset, 4);
+
+    tft->setTextColor(m_counter%20<10?ITFT_WHITE:ITFT_LIGHTGREY);
+    tft->drawString("o", x + LEFT_DISTANCE + 20 , y + markerPos + extraOffset, 4);
+    
     return true;
 }
 
 bool TTGO_T_DisplayController::menuSetDesiredTemperature(TFT_eSprite* tft, int16_t x, int16_t y) {
-    //tft->setFont(ArialMT_Plain_16);
-    //tft->setTextAlignment(TEXT_ALIGN_LEFT);
     float value = round(m_temperatureSetPointKnob->value() * 2.0f) / 2.0f;
     char buffer[16];
-    sprintf(buffer, "Set: %.1f°C", value);
-    //tft->drawString(buffer, x + 20, y + 22);
-    //tft->drawXbm(x, y + 20, thermometer_width, thermometer_height, (uint8_t*)thermometer_bits);
+    sprintf(buffer, "%.1f°C", value);
+
+    tft->setFreeFont(SEG14);
+    tft->setTextDatum(CR_DATUM);
+    tft->setTextColor(m_counter%20<10?ITFT_ORANGE:ITFT_LIGHTGREY);
+    tft->drawString(buffer, x + TFT_HEIGHT - RIGHT_DISTANCE, y + TFT_WIDTHD2, GFXFF);
+    tft->drawXBitmap(x + LEFT_DISTANCE, y + TFT_WIDTHD2 - thermometer48_height / 2, thermometer48_bits, thermometer48_width, thermometer48_height, ITFT_ORANGE);
+
     return true;
 }
 
 bool TTGO_T_DisplayController::menuOverrideFan(TFT_eSprite* tft, int16_t x, int16_t y) {
-    //tft->setFont(ArialMT_Plain_16);
-    //tft->setTextAlignment(TEXT_ALIGN_LEFT);
     int16_t value = round(m_fanOverrideKnob->value());
     char buffer[16];
 
     if (value == -1) {
-        sprintf(buffer, "Set: Auto");
+        sprintf(buffer, "Auto");
     } else if (value == 0) {
-        sprintf(buffer, "Set: Off");
+        sprintf(buffer, "Off");
     } else {
-        sprintf(buffer, "Set: %i%%", value);
+        sprintf(buffer, "%i%%", value);
     }
 
-    //tft->drawString(buffer, x + 40, y + 22);
-    //tft->drawXbm(x, y + 20, fan_width, fan_height, fan_bits);
+    tft->setTextDatum(CR_DATUM);
+    tft->setFreeFont(SEG14);
+    tft->setTextColor(ITFT_SKYBLUE);
+    tft->drawXBitmap(x + LEFT_DISTANCE, y + TFT_WIDTHD2 - fan48_height / 2, fan48_bits, fan48_width, fan48_height, ITFT_SKYBLUE);
+    tft->setTextColor(m_counter%20<10?ITFT_SKYBLUE:ITFT_LIGHTGREY);
+    tft->drawString(buffer, x + TFT_HEIGHT - RIGHT_DISTANCE /* x-advance 0 */, y + TFT_WIDTHD2, GFXFF);
+
     return true;
 }
 
