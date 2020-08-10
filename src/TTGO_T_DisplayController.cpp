@@ -480,8 +480,6 @@ bool TTGO_T_DisplayController::currentTemperatureSensor2(TFT_eSprite* tft, int16
 }
 
 bool TTGO_T_DisplayController::currentFanSpeed(TFT_eSprite* tft, int16_t x, int16_t y) {
-    float value = ventilator1->speedOverride();
-
     tft->setTextDatum(CR_DATUM);
 
     if (!ventilator1->isOverride()) {
@@ -489,16 +487,16 @@ bool TTGO_T_DisplayController::currentFanSpeed(TFT_eSprite* tft, int16_t x, int1
         tft->drawString("Auto", x + TFT_HEIGHT, y + 30, 4);
     } else {
         tft->setTextColor(ITFT_ORANGE);
-        tft->drawString("Manual", x + TFT_HEIGHT, y + 20 + 10, 4);
+        tft->drawString("Manual", x + TFT_HEIGHT, y + 30 + 48 + 26, 4);
     }
 
     char buffer[16];
-    value = ventilator1->speed();
+    float value = ventilator1->speed();
 
     if (value < 0.1) {
         sprintf(buffer, "Off");
     } else {
-        sprintf(buffer, "%3.0f%%", ventilator1->speed());
+        sprintf(buffer, "%3.0f%%", value);
     }
 
     tft->setFreeFont(SEG14);

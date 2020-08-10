@@ -23,8 +23,8 @@ extern "C" uint32_t digitalRead(uint8_t);
 #define DIGITAL_KNOB_IS_EDGE_DOWN 5
 
 //Hysteresis to detect low/high states for debounce
-#define DIGITAL_KNOB_HIGH 175
-#define DIGITAL_KNOB_LOW 125
+constexpr int16_t DIGITAL_KNOB_HIGH = 200;
+constexpr int16_t DIGITAL_KNOB_LOW = 255-DIGITAL_KNOB_HIGH;
 
 // Bitmasks for detething the type of press based on the type of press 32 or 64 bit
 #define DIGITAL_KNOB_SINGLE_CLICK_AMASK 0b00000111111111111000000000000000
@@ -65,7 +65,10 @@ void DigitalKnob::handle() {
         m_value[DIGITAL_KNOB_CURRENT] = true;
     } else if (m_rawValue < DIGITAL_KNOB_LOW) {
         m_value[DIGITAL_KNOB_CURRENT] = false;
+    } else {
+        return;
     }
+
 
     // Shift and insert current bit into register
     m_status.m_status32 = m_status.m_status32 << 1;
@@ -73,13 +76,13 @@ void DigitalKnob::handle() {
 
     // Reset buttons if they where not captured for a duration
     if (m_status.m_status32 == 0x00) {
-        resetButtons();
+       // resetButtons();
     }
 
     // Detect up/down edges
-    m_value[DIGITAL_KNOB_IS_EDGE_UP] = (m_value[DIGITAL_KNOB_CURRENT] && !previousButtonState);
-    m_value[DIGITAL_KNOB_IS_EDGE_DOWN] = (previousButtonState && !m_value[DIGITAL_KNOB_CURRENT]);
-
+    m_value[DIGITAL_KNOB_IS_EDGE_UP] = (m_value[DIGITAL_KNOB_CURRENT] && !previousButtonState) || m_value[DIGITAL_KNOB_IS_EDGE_UP];
+    m_value[DIGITAL_KNOB_IS_EDGE_DOWN] = (previousButtonState && !m_value[DIGITAL_KNOB_CURRENT]) || m_value[DIGITAL_KNOB_IS_EDGE_DOWN];
+    
     // detect long press
     if ((m_status.m_status32 | DIGITAL_KNOB_LONG_PRESS_AMASK) == DIGITAL_KNOB_LONG_PRESS_AMASK &&
         (m_status.m_status32 & DIGITAL_KNOB_LONG_PRESS_TMASK) == DIGITAL_KNOB_LONG_PRESS_TMASK) {

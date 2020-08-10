@@ -111,8 +111,8 @@ DigitalKnob digitalKnob(BUTTON_PIN, true, 110);
 std::shared_ptr<AnalogIn> analogIn = std::make_shared<AnalogIn>(0.2f);
 #pragma message "Using analog potentiometer for menu"
 #elif defined(TTG_T_DISPLAY)
-DigitalKnob rotary1(ROTARY_PIN1, true, 110);
-DigitalKnob rotary2(ROTARY_PIN2, true, 110);
+DigitalKnob rotary1(ROTARY_PIN1, true, 1000);
+DigitalKnob rotary2(ROTARY_PIN2, true, 1000);
 #pragma message "Using rotary encoder for menu"
 #endif
 // Stores information about the BBQ controller (PID values, fuzzy loggic values etc, mqtt)

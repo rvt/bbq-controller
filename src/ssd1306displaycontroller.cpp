@@ -268,7 +268,6 @@ void SSD1306DisplayController::currentTemperatureSensor2(OLEDDisplay* display, O
 void SSD1306DisplayController::currentFanSpeed(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     display->setFont(ArialMT_Plain_10);
     display->setTextAlignment(TEXT_ALIGN_RIGHT);
-    float value = ventilator1->speedOverride();
 
     if (!ventilator1->isOverride()) {
         display->drawString(x + 128, y + 20, "Auto");
@@ -279,12 +278,12 @@ void SSD1306DisplayController::currentFanSpeed(OLEDDisplay* display, OLEDDisplay
     char buffer[16];
     display->setFont(ArialMT_Plain_24);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
-    value = ventilator1->speed();
+    float value = ventilator1->speed();
 
     if (value < 0.1) {
         sprintf(buffer, "Off");
     } else {
-        sprintf(buffer, "%3.0f%%", ventilator1->speed());
+        sprintf(buffer, "%3.0f%%", value);
     }
 
     display->drawString(x + 0 + fan24_width + 4, y + 20, buffer);

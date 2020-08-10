@@ -32,20 +32,19 @@ class RotaryEncoder  : public NumericInput {
             // 0 ^ 1 = 0
             // 1 ^ 0 = 0
             // 1 ^ 1 = 1
-            bool p1u = m_pin1->isEdgeUp();
-            bool p1d = m_pin1->isEdgeDown();
-            bool p2u = m_pin2->isEdgeUp();
-            bool p2d = m_pin2->isEdgeDown();
             int8_t direction=0;
-            if (p1u || p1d) {
+            if (m_pin1->isEdge()) {
                 direction=1;
-            } else if (p2u || p2d) {
+                m_pin2->reset();
+            } else if (m_pin2->isEdge()) {
                 direction=-1;
             }
-            if (direction && (m_pin1->current() ^ m_pin2->current())) {
-                m_pos=m_pos + direction;
-            } else {
-                m_pos=m_pos - direction;
+            if (direction) {
+                if (m_pin1->current() ^ m_pin2->current()) {
+                    m_pos=m_pos + direction;
+                } else {
+                    m_pos=m_pos - direction;
+                }
             }
         }
 
