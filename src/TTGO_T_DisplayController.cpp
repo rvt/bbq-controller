@@ -321,25 +321,14 @@ void TTGO_T_DisplayController::init() {
 
     // 3
     STATE_RUNSCREEN = new State([&]() {
-        if (digitalKnob.isEdgeDown()) {
-            return 5;
+        if (digitalKnob.isEdgeUp()) {
+            return 4;
         }
 
         return 3;
     });
 
     // 4
-    STATE_CHANGETOMENUBUTTONRELEASE = new State([&]() {
-        if (digitalKnob.current() == false) {
-            // Clears the internal status so we don´t get a false click later
-            digitalKnob.reset();
-            return 4;
-        }
-
-        return 5;
-    });
-
-    // 5
     STATE_CHANGETOMENUSCREEN = new State([&]() {
         digitalKnob.reset();
         m_rotator->setFrames(menuScreens);
@@ -349,9 +338,20 @@ void TTGO_T_DisplayController::init() {
         return 6;
     });
 
+    // 5
+    STATE_CHANGETOMENUBUTTONRELEASE = new State([&]() {
+//        if (digitalKnob.current() == false) {
+            // Clears the internal status so we don´t get a false click later
+//            digitalKnob.reset();
+//            return 4;
+//        }
+
+        return 4;
+    });
+
     // 6
     STATE_SELECTMENUITEM = new State([&]() {
-        if (digitalKnob.isEdgeDown()) {
+        if (digitalKnob.isEdgeUp()) {
             uint8_t menu = ((int)round(m_menuKnob->value()));
             m_rotator->switchToFrame(menu);
 
@@ -376,7 +376,7 @@ void TTGO_T_DisplayController::init() {
 
     // 7
     STATE_SETTEMP = new State([&]() {
-        if (digitalKnob.isEdgeDown()) {
+        if (digitalKnob.isEdgeUp()) {
             float value = round(m_temperatureSetPointKnob->value() * 2.0f) / 2.0f;
             bbqConfig.put("setPoint", PV(value));
             bbqController->setPoint(value);
@@ -389,7 +389,7 @@ void TTGO_T_DisplayController::init() {
 
     // 8
     STATE_SETFAN = new State([&]() {
-        if (digitalKnob.isEdgeDown()) {
+        if (digitalKnob.isEdgeUp()) {
             float value = round(m_fanOverrideKnob->value());
             ventilator1->speedOverride(value);
             return 4;

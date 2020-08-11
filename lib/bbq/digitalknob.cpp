@@ -80,8 +80,8 @@ void DigitalKnob::handle() {
     }
 
     // Detect up/down edges
-    m_value[DIGITAL_KNOB_IS_EDGE_UP] = (m_value[DIGITAL_KNOB_CURRENT] && !previousButtonState) || m_value[DIGITAL_KNOB_IS_EDGE_UP];
-    m_value[DIGITAL_KNOB_IS_EDGE_DOWN] = (previousButtonState && !m_value[DIGITAL_KNOB_CURRENT]) || m_value[DIGITAL_KNOB_IS_EDGE_DOWN];
+    m_value[DIGITAL_KNOB_IS_EDGE_UP] =   ( m_value[DIGITAL_KNOB_CURRENT] && !previousButtonState) || m_value[DIGITAL_KNOB_IS_EDGE_UP];
+    m_value[DIGITAL_KNOB_IS_EDGE_DOWN] = (!m_value[DIGITAL_KNOB_CURRENT] &&  previousButtonState) || m_value[DIGITAL_KNOB_IS_EDGE_DOWN];
     
     // detect long press
     if ((m_status.m_status32 | DIGITAL_KNOB_LONG_PRESS_AMASK) == DIGITAL_KNOB_LONG_PRESS_AMASK &&
