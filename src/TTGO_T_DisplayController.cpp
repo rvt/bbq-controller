@@ -212,7 +212,7 @@ void SuperSimpleRotator::setTimePerFrame(uint16_t timePerFrame) {
 }
 
 void SuperSimpleRotator::switchToFrame(size_t nextFrame) {
-    if (nextFrame>=0 && nextFrame < m_frames.size()) {
+    if (nextFrame >= 0 && nextFrame < m_frames.size()) {
         m_currentFrame = nextFrame;
     }
 }
@@ -228,8 +228,7 @@ TTGO_T_DisplayController::TTGO_T_DisplayController() : DisplayController(),
     m_fanOverrideKnob(nullptr),
     m_menuKnob(nullptr),
     m_currentInput(nullptr),
-    m_counter(false)
-     {
+    m_counter(false) {
     m_palette[ITFT_BLACK] = TFT_BLACK;
     m_palette[ITFT_ORANGE] = TFT_ORANGE;
     m_palette[ITFT_DARKGREEN] = TFT_DARKGREEN;
@@ -340,11 +339,11 @@ void TTGO_T_DisplayController::init() {
 
     // 5
     STATE_CHANGETOMENUBUTTONRELEASE = new State([&]() {
-//        if (digitalKnob.current() == false) {
-            // Clears the internal status so we don´t get a false click later
-//            digitalKnob.reset();
-//            return 4;
-//        }
+        //        if (digitalKnob.current() == false) {
+        // Clears the internal status so we don´t get a false click later
+        //            digitalKnob.reset();
+        //            return 4;
+        //        }
 
         return 4;
     });
@@ -425,9 +424,10 @@ void TTGO_T_DisplayController::init() {
 int32_t TTGO_T_DisplayController::handle() {
     uint32_t currentMillis = millis();
 
-    if (m_currentInput!=nullptr) {
+    if (m_currentInput != nullptr) {
         m_currentInput->handle();
     }
+
     m_rotator->handle();
 
     if ((currentMillis - m_lastMillis) >= MILLIS_PER_FRAME) {
@@ -528,13 +528,13 @@ bool TTGO_T_DisplayController::menuMain(TFT_eSprite* tft, int16_t x, int16_t y) 
     }
 
     tft->setTextColor(ITFT_LIGHTGREY);
-    tft->drawString("Back", x + LEFT_DISTANCE + 40, y + yOffset * 0 + extraOffset, 4 );
+    tft->drawString("Back", x + LEFT_DISTANCE + 40, y + yOffset * 0 + extraOffset, 4);
     tft->drawString("Set Temperature", x + LEFT_DISTANCE + 40, y + yOffset * 1 + extraOffset, 4) ;
     tft->drawString("Override fan", x + LEFT_DISTANCE + 40, y + yOffset * 2 + extraOffset, 4);
 
-    tft->setTextColor(m_counter%20<10?ITFT_WHITE:ITFT_LIGHTGREY);
-    tft->drawString("o", x + LEFT_DISTANCE + 20 , y + markerPos + extraOffset, 4);
-    
+    tft->setTextColor(m_counter % 26 < 13 ? ITFT_WHITE : ITFT_LIGHTGREY);
+    tft->drawString("o", x + LEFT_DISTANCE + 20, y + markerPos + extraOffset, 4);
+
     return true;
 }
 
@@ -545,7 +545,7 @@ bool TTGO_T_DisplayController::menuSetDesiredTemperature(TFT_eSprite* tft, int16
 
     tft->setFreeFont(SEG14);
     tft->setTextDatum(CR_DATUM);
-    tft->setTextColor(m_counter%20<10?ITFT_ORANGE:ITFT_LIGHTGREY);
+    tft->setTextColor(m_counter % 26 < 13 ? ITFT_ORANGE : ITFT_LIGHTGREY);
     tft->drawString(buffer, x + TFT_HEIGHT - RIGHT_DISTANCE, y + TFT_WIDTHD2, GFXFF);
     tft->drawXBitmap(x + LEFT_DISTANCE, y + TFT_WIDTHD2 - thermometer48_height / 2, thermometer48_bits, thermometer48_width, thermometer48_height, ITFT_ORANGE);
 
@@ -568,7 +568,7 @@ bool TTGO_T_DisplayController::menuOverrideFan(TFT_eSprite* tft, int16_t x, int1
     tft->setFreeFont(SEG14);
     tft->setTextColor(ITFT_SKYBLUE);
     tft->drawXBitmap(x + LEFT_DISTANCE, y + TFT_WIDTHD2 - fan48_height / 2, fan48_bits, fan48_width, fan48_height, ITFT_SKYBLUE);
-    tft->setTextColor(m_counter%20<10?ITFT_SKYBLUE:ITFT_LIGHTGREY);
+    tft->setTextColor(m_counter % 26 < 13 ? ITFT_SKYBLUE : ITFT_LIGHTGREY);
     tft->drawString(buffer, x + TFT_HEIGHT - RIGHT_DISTANCE /* x-advance 0 */, y + TFT_WIDTHD2, GFXFF);
 
     return true;

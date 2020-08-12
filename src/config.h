@@ -45,13 +45,13 @@ constexpr int8_t SPI_CLK_PIN = -1; /* Set to -1 for HW SPI, connects to pin D5 1
 
 // Pin Layout https://github.com/Xinyuan-LilyGO/TTGO-T-Display
 // https://nl.aliexpress.com/item/33048962331.html
-constexpr uint8_t FAN1_PIN = 13;   // TOUCH4 OUT PWM
-constexpr uint8_t BUTTON_PIN = 33; // TOICH5 IN
-constexpr uint8_t ROTARY_PIN1 = 2; // TOICH5 IN
-constexpr uint8_t ROTARY_PIN2 = 15; // TOICH5 IN
+constexpr uint8_t FAN1_PIN = 13;    //  OUT PWM
+constexpr uint8_t BUTTON_PIN = 32;  //  IN
+constexpr uint8_t ROTARY_PIN1 = 2;  //  IN
+constexpr uint8_t ROTARY_PIN2 = 15; //  IN
 
 // Pin 15 didn´t make the esp start up so we skipped it and took 2
-constexpr uint8_t SPI_MAX31865_CS_PIN = 37;  // OUT
+constexpr uint8_t SPI_MAX31865_CS_PIN = 33;  // OUT
 constexpr uint8_t SPI_MAX31855_CS_PIN = 38;  // OUT
 
 /*

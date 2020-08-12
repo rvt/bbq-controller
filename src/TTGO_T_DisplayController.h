@@ -74,16 +74,16 @@ public:
 
 class TTGO_T_DisplayController : public DisplayController {
 protected:
-    uint32_t m_lastMillis;    
+    uint32_t m_lastMillis;
     TFT_eSPI* m_tft;
     SuperSimpleRotator* m_rotator;
     uint16_t m_palette[16];
     // Temporary untill we can have the display functions handle object variables
-    NumericInput *m_temperatureSetPointKnob;
-    NumericInput *m_fanOverrideKnob;
-    NumericInput *m_menuKnob;
-    NumericInput *m_currentInput;
-    uint32_t m_counter;    
+    NumericInput* m_temperatureSetPointKnob;
+    NumericInput* m_fanOverrideKnob;
+    NumericInput* m_menuKnob;
+    NumericInput* m_currentInput;
+    uint32_t m_counter;
 
 public:
     TTGO_T_DisplayController();

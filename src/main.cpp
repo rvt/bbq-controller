@@ -241,7 +241,7 @@ void publishStatusToMqtt() {
     char buffer[(4 + 6) * 6 + 16]; // 10 characters per item times extra items to be sure
     sprintf(buffer, format,
             temperatureSensor1->get(),
-            temperatureSensor2->get(),
+            -1.f, //temperatureSensor2->get(),
             bbqController->setPoint(),
             ventilator1->speed(),
             bbqController->lidOpen(),
@@ -404,9 +404,9 @@ void setupIOHardware() {
     temperatureSensor1.reset(sensor1);
 
     // Sensor 2 is generally used to measure the temperature of the pit itself
-    auto sensor2 = new Adafruit_MAX31855(SPI_CLK_PIN, SPI_MAX31855_CS_PIN, SPI_SDI_PIN);
-    sensor2->begin();
-    temperatureSensor2.reset(new MAX31855sensor(sensor2));
+    //auto sensor2 = new Adafruit_MAX31855(SPI_CLK_PIN, SPI_MAX31855_CS_PIN, SPI_SDI_PIN);
+    //sensor2->begin();
+    //temperatureSensor2.reset(new MAX31855sensor(sensor2));
 
 
     //ventilator1.reset(new StefansPWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));
@@ -414,9 +414,10 @@ void setupIOHardware() {
     ventilator1.reset(new PWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));
 
     digitalKnob.init();
+#if defined(TTG_T_DISPLAY)
     rotary1.init();
     rotary2.init();
-
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -754,7 +755,7 @@ void loop() {
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             temperatureSensor1->handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
-            temperatureSensor2->handle();
+            //temperatureSensor2->handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             wm.process();
         } else if (shouldRestart != 0 && (currentMillis - shouldRestart >= 5000)) {

@@ -28,8 +28,37 @@ void MAX31865sensor::handle() {
         uint16_t rtd = readRegister16(MAX31856_RTDMSB_REG);
         enableBias(false);  // to lessen sensor self-heating
         m_commState = 0;
+        uint8_t fault = readFault();
 
-        if (readFault() != 0) {
+        if (fault != 0) {
+            Serial.print("Fault 0x");
+            Serial.println(fault, HEX);
+
+            if (fault & MAX31865_FAULT_HIGHTHRESH) {
+                Serial.println(F("RTD High Threshold"));
+            }
+
+            if (fault & MAX31865_FAULT_LOWTHRESH) {
+                Serial.println(F("RTD Low Threshold"));
+            }
+
+            if (fault & MAX31865_FAULT_REFINLOW) {
+                Serial.println(F("REFIN- > 0.85 x Bias"));
+            }
+
+            if (fault & MAX31865_FAULT_REFINHIGH) {
+                Serial.println(F("REFIN- < 0.85 x Bias - FORCE- open"));
+            }
+
+            if (fault & MAX31865_FAULT_RTDINLOW) {
+                Serial.println(F("RTDIN- < 0.85 x Bias - FORCE- open"));
+            }
+
+            if (fault & MAX31865_FAULT_OVUV) {
+                Serial.println(F("Under/Over voltage"));
+            }
+
+            clearFault();
             return;
         }
 

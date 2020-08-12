@@ -28,7 +28,7 @@ constexpr uint16_t PWM_FREQUENCY = 25000;
 PWMVentilator::PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart) : PWMVentilator(p_pin, p_pwmStart, 0) {
 
 }
-PWMVentilator::PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart, uint8_t p_pwmChannel) : PWMVentilator(p_pin, p_pwmStart, 30, 0) {
+PWMVentilator::PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart, uint8_t p_pwmChannel) : PWMVentilator(p_pin, p_pwmStart, 30, p_pwmChannel) {
 
 }
 
@@ -42,19 +42,20 @@ PWMVentilator::PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart, uint8_t p_pwmMin
 #if defined(ESP8266)
     analogWriteRange(PWM_RANGE);
     analogWriteFreq(PWM_FREQUENCY);
-    #pragma message "Configuring PWM pin ESP8266 "
-#elif defined(ESP32)
-    ledcSetup(p_pwmChannel, PWM_FREQUENCY, PWM_RESOLUTION);
-    ledcAttachPin(p_pin, p_pwmChannel);
-    #pragma message "Configuring PWM pin ESP32 "
-#endif
     pinMode(p_pin, OUTPUT);
+#pragma message "Configuring PWM pin ESP8266 "
+#elif defined(ESP32)
+    ledcAttachPin(p_pin, m_pwmChannel);
+    ledcSetup(m_pwmChannel, PWM_FREQUENCY, PWM_RESOLUTION);
+#endif
 }
 
 
 void PWMVentilator::setVentilator(float dutyCycle) {
     uint16_t pwmValue;
     bool doWait = false;
+
+    dutyCycle = between(dutyCycle, 0.f, 200.f);
 
     // any speed below 1 is considered off
     if (dutyCycle >= 1.f && m_prevPwmValue < 1.0f) {
@@ -71,8 +72,8 @@ void PWMVentilator::setVentilator(float dutyCycle) {
 
 #if defined(ESP8266)
     analogWrite(m_pin,  between(pwmValue, (uint16_t)0, PWM_RANGE));
-#else
-    ledcWrite(m_pwmChannel, between(pwmValue, (uint16_t)0, PWM_RANGE));
+#elif defined(ESP32)
+    ledcWrite(m_pwmChannel, pwmValue);
 #endif
 
     if (doWait) {
