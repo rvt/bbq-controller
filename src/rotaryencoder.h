@@ -1,7 +1,7 @@
 #pragma once
 
 #include <digitalknob.h>
-#include <NumericInput.h>
+#include <numericinput.h>
 #include <Arduino.h>
 
 class RotaryEncoder  : public NumericInput {
