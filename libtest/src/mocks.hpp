@@ -109,7 +109,7 @@ private:
     float m_temperature;
     bool m_lidOpen;
     int m_totalBriqettes = 8;
-    int m_maxBriqettes = 10;
+    int m_maxBriqettes = 15;
     uint32_t lastTIme = 0;
 public:
     MockedOven() {

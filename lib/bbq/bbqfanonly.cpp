@@ -26,18 +26,9 @@
 #define LID_ALERT_OUTPUT 2
 #define CHARCOAL_ALERT_OUTPUT 3
 
-#define LID_OPEN_ALERT_RULE 20
-#define LID_CLOSE_ALERT_RULE 21
 #define CHARCOAL_ALERT_RULE 10
 
 #define TEMP_CHANGE_DELAY 5000
-
-// Measured with my own BBQ temp will drop around 5 degrees in 10 seconds after I open the lid
-// Since we get called every 5 seconds this is the temperature difference we need to detect
-#define TEMP_DROP_LID_OPEN_FIVE_SEC ((135-126) / 2) - 1)
-
-// Once we detect a temperature rise we assume the lid is closed again
-#define TEMP_RISE_LID_CLOSE TEMP_DROP_LID_OPEN_FIVE_SEC
 
 BBQFanOnly::BBQFanOnly(std::shared_ptr<TemperatureSensor> pTempSensor,
                        std::shared_ptr<Ventilator> pFan) :
@@ -46,7 +37,6 @@ BBQFanOnly::BBQFanOnly(std::shared_ptr<TemperatureSensor> pTempSensor,
     m_fan(pFan),
     m_fuzzy(new Fuzzy()),
     m_setPoint(20.0f),
-    m_lidOpenTriggered(false),
     m_periodStartMillis(0) {
     m_tempStore.fill(m_tempSensor->get());
 }
@@ -96,21 +86,6 @@ void BBQFanOnly::init() {
     FuzzySet* tempIncreasesFast = fuzzyFromVector(m_config.temp_change_fast, false);
     tempDrop->addFuzzySet(tempIncreasesFast);
 
-    // Create Output for Lid Open Detection
-    std::array<float, 2> lidDetectOutputArray = { {0, 1} };
-
-    FuzzyOutput* lidOpenDection = new FuzzyOutput(LID_OPEN_ALERT_RULE);
-    m_fuzzy->addFuzzyOutput(lidOpenDection);
-    FuzzySet* lidOpenDetectOutput = fuzzyFromVector(lidDetectOutputArray, false);
-    joinSingle(LID_OPEN_ALERT_RULE, tempDecreasesMedium, lidOpenDetectOutput);
-
-    // Create Output for Lid Close Detection
-    FuzzyOutput* lidCloseDection = new FuzzyOutput(LID_CLOSE_ALERT_RULE);
-    m_fuzzy->addFuzzyOutput(lidCloseDection);
-    FuzzySet* lidCloseDetectOutput = fuzzyFromVector(lidDetectOutputArray, false);
-    joinSingle(LID_CLOSE_ALERT_RULE, tempIncreasedMedium, lidCloseDetectOutput);
-
-
     // Create Output for Fan
     FuzzyOutput* fan = new FuzzyOutput(FAN_OUTPUT);
     m_fuzzy->addFuzzyOutput(fan);
@@ -159,7 +134,7 @@ float BBQFanOnly::setPoint() const {
 }
 
 void BBQFanOnly::handle(const uint32_t millis) {
-    if (millis - m_periodStartMillis < 1000 / UPDATES_PER_SECOND) {
+    if (millis - m_periodStartMillis < (1000 / UPDATES_PER_SECOND)) {
         return;
     }
 
@@ -180,20 +155,7 @@ void BBQFanOnly::handle(const uint32_t millis) {
     // Run fuzzy rules
     m_fuzzy->fuzzify();
 
-    // If the temperature drops more than TEMP_DROP_LID_OPEN_FIVE_SEC
-    // We just do it by detecting if the rule is fired
-    m_lidOpenTriggered = (m_lidOpenTriggered || m_fuzzy->isFiredRule(LID_OPEN_ALERT_RULE)) && !m_fuzzy->isFiredRule(LID_CLOSE_ALERT_RULE);
-
-    // We choice to control speed instead speed override because we always want a user to override
-    // the speed of the fan themselve
-    // When lid is detected as open we keep current fan speed
-
-    if (m_lidOpenTriggered && false) {
-        m_fan->speed(m_config.fan_speed_lid_open);
-    } else {
-        m_fan->increase(m_fuzzy->defuzzify(FAN_OUTPUT));
-    }
-
+    m_fan->increase(m_fuzzy->defuzzify(FAN_OUTPUT));
 }
 
 bool BBQFanOnly::ruleFired(uint8_t i) {
@@ -202,10 +164,6 @@ bool BBQFanOnly::ruleFired(uint8_t i) {
 
 bool BBQFanOnly::lowCharcoal() {
     return m_fuzzy->isFiredRule(CHARCOAL_ALERT_RULE);
-}
-
-bool BBQFanOnly::lidOpen() {
-    return m_lidOpenTriggered;
 }
 
 FuzzyRule* BBQFanOnly::joinSingle(int rule, FuzzySet* fi, FuzzySet* fo) {

@@ -52,7 +52,7 @@ constexpr uint8_t ROTARY_PIN2 = 15; //  IN
 
 // Pin 15 didn´t make the esp start up so we skipped it and took 2
 constexpr uint8_t SPI_MAX31865_CS_PIN = 33;  // OUT
-constexpr uint8_t SPI_MAX31855_CS_PIN = 38;  // OUT
+constexpr uint8_t SPI_MAX31855_CS_PIN = 39;  // OUT
 
 /*
 * Software SPI from https://github.com/Xinyuan-LilyGO/TTGO-T-Display/issues/14

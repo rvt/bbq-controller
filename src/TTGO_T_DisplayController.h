@@ -30,6 +30,7 @@ class OLEDDisplayUiState;
 
 typedef std::function<bool(TFT_eSprite* tft, int16_t x, int16_t y)> RotatorFrameFunction;
 typedef std::function<void(TFT_eSprite* tft)> RotatorOverlayFunction;
+typedef std::function<float()> FloatProducer;
 
 
 class ArrayWalker {
@@ -98,8 +99,7 @@ private:
     bool startScreen(TFT_eSPI* m_tft, TFT_eSprite* tft, int16_t x, int16_t y);
 
     bool currentTemperatureSetting(TFT_eSprite* tft, int16_t x, int16_t y);
-    bool currentTemperatureSensor1(TFT_eSprite* tft, int16_t x, int16_t y);
-    bool currentTemperatureSensor2(TFT_eSprite* tft, int16_t x, int16_t y);
+    bool currentTemperatureSensor(TFT_eSprite* tft, int16_t x, int16_t y, uint8_t num, float value);
 
     bool menuMain(TFT_eSprite* tft, int16_t x, int16_t y);
     bool menuSetDesiredTemperature(TFT_eSprite* tft, int16_t x, int16_t y);

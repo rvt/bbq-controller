@@ -370,12 +370,13 @@ void SSD1306DisplayController::normalOverlayDisplay(OLEDDisplay* display, OLEDDi
         xPos += (mqttcloud_width + 4);
     }
 
+    /*
     if (bbqController->lidOpen()) {
         display->drawXbm(xPos, 0, bbqlidopen_width, bbqlidopen_height, bbqlidopen_bits);
         xPos += (bbqlidopen_width + 4);
     } else {
         display->drawXbm(xPos, 0, bbqlidclosed_width, bbqlidclosed_height, bbqlidclosed_bits);
         xPos += (bbqlidclosed_width + 4);
-    }
+    }*/
 }
 //#endif

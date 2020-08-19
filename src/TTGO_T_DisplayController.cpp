@@ -266,8 +266,8 @@ void TTGO_T_DisplayController::init() {
 
     normalRunScreens = {
         [&](TFT_eSprite * tft, int16_t x, int16_t y) { return currentTemperatureSetting(tft, x, y); },
-        [&](TFT_eSprite * tft, int16_t x, int16_t y) { return currentTemperatureSensor1(tft, x, y); },
-        //currentTemperatureSensor2,
+        [&](TFT_eSprite * tft, int16_t x, int16_t y) { return currentTemperatureSensor(tft, x, y, 1, temperatureSensor1->get()); },
+        [&](TFT_eSprite * tft, int16_t x, int16_t y) { return currentTemperatureSensor(tft, x, y, 2, temperatureSensor2->get()); },
         [&](TFT_eSprite * tft, int16_t x, int16_t y) {
             return currentFanSpeed(tft, x, y);
         }
@@ -458,22 +458,12 @@ bool TTGO_T_DisplayController::currentTemperatureSetting(TFT_eSprite* tft, int16
     return true;
 }
 
-bool TTGO_T_DisplayController::currentTemperatureSensor1(TFT_eSprite* tft, int16_t x, int16_t y) {
+bool TTGO_T_DisplayController::currentTemperatureSensor(TFT_eSprite* tft, int16_t x, int16_t y, uint8_t num, float value) {
     char buffer[16];
     tft->setFreeFont(SEG14);
     tft->setTextDatum(CR_DATUM);
-    sprintf(buffer, "1: %.1f°C", temperatureSensor1->get());
+    sprintf(buffer, "%d: %.1f°C", num, value);
     tft->setTextColor(ITFT_ORANGE);
-    tft->drawString(buffer, x + TFT_HEIGHT - RIGHT_DISTANCE, y + TFT_WIDTHD2, GFXFF);
-    tft->drawXBitmap(x + LEFT_DISTANCE, y + TFT_WIDTHD2 - thermometer48_height / 2, thermometer48_bits, thermometer48_width, thermometer48_height, ITFT_ORANGE);
-    return true;
-}
-
-bool TTGO_T_DisplayController::currentTemperatureSensor2(TFT_eSprite* tft, int16_t x, int16_t y) {
-    char buffer[16];
-    tft->setFreeFont(SEG14);
-    tft->setTextDatum(CR_DATUM);
-    sprintf(buffer, "2: %.1f°C", temperatureSensor2->get());
     tft->drawString(buffer, x + TFT_HEIGHT - RIGHT_DISTANCE, y + TFT_WIDTHD2, GFXFF);
     tft->drawXBitmap(x + LEFT_DISTANCE, y + TFT_WIDTHD2 - thermometer48_height / 2, thermometer48_bits, thermometer48_width, thermometer48_height, ITFT_ORANGE);
     return true;
@@ -605,6 +595,7 @@ bool TTGO_T_DisplayController::normalOverlayDisplay(TFT_eSprite* tft) {
 
     xPos += tft->drawString("Mqtt", xPos, 0, 2) + 10;
 
+    /*
     if (bbqController->lidOpen()) {
         tft->setTextColor(ITFT_ORANGE);
         xPos += tft->drawString("Lid Open", xPos, 0, 2) + 10;
@@ -612,6 +603,7 @@ bool TTGO_T_DisplayController::normalOverlayDisplay(TFT_eSprite* tft) {
         tft->setTextColor(ITFT_GREEN);
         xPos += tft->drawString("Lid Closed", xPos, 0, 2) + 10;
     }
+    */
 
     return true;
 }

@@ -7,7 +7,10 @@ A small hand-held battery operated BBQ/Smoker temperature controller that can ru
 ... and it is also be possible to control and monitor over wifi, but that is optional.
 
 Splash Screen :
+esp2866 splash Screen
 ![Splash Screen](images/splash.png "Splash Screen of Controller")
+esp32 splash screen
+![Splash Screen](icons/splash240.png "Splash Screen of Controller COlor version")
 
 
 # Currently under heavy development 
@@ -17,24 +20,22 @@ Splash Screen :
 # Featues
 A Fuzzy logic based BBQ controller based on Fuzzy Logic with the following features:
 
-* Oled display of temperature read out setting of Pit and meat temperature
-* OLed display of fanspeed
+* Oled/color display of temperature read out setting of Pit and meat temperature
 * Get and Set Fuzzy logic sets configuration without re-compilation
-* Store and Load last settings and configuration in EEPROM for offline controlling your BBQ (no WIFI needed)
+* Store and Load last settings and configuration in SPIFFS for offline controlling your BBQ (no WIFI needed)
 * Change temperature setting setpoint with build in menu or over MQTT 
 * Ventilator override over MQTT or via menu
-* Lid open detection can set a predefined fan speed, or keeps current fan speed
+* Lid open detection can set a predefined fan speed, or keeps current fan speed (Currently worked upon again)
 * Tested with OpenHAB + InfluxDB + Grafana
 * Parts of code tested with catch2
-* PWM or ON/OFF ventilator control (with compiler option)
+* PWM or ON/OFF ventilator control (needs recompile)
 
 
 # Note
 
-This is still work in progress and has not yet been field tested and development has been done using a simulator during unit tests so here is my TODO:
-
 * Connect and test MAX31855 temperature sensor for meat monitor
 * Test and implement low charcoal detection
+* Test and implement load open detection
 * Implement 'stall' detection and alerting [More about stall](https://amazingribs.com/more-technique-and-science/more-cooking-science/understanding-and-beating-barbecue-stall-bane-all)
 
 # Hardware Tests
@@ -65,7 +66,7 @@ Flash: [=======   ]  71.7% (used 545976 bytes from 761840 bytes)
 To upload to your wemos device run the following command (OSX):
 ```platformio run --target upload -e wemos --upload-port /dev/cu.SLAB_USBtoUART```
 
-Currently the system is set for *ON OFF* ventilator control. If you need PWM ventilator control you can edit platformio.ini and set -DPWM_FAN=1.
+Currently the system is set for *PWM* ventilator control. If you need ON/OFF ventilator control you can edit platformio.ini and set -DONOFF_FAN=1. (With enough support we can make thos configurable)
 The default duty cycle for *ON OFF* van control is 30 seconds.
 
 For other compiler options check config.h for other options. When time permits I can make them into more options that can be set of MQTT.
@@ -76,7 +77,7 @@ The device will use the know wifi network or it wil present itself as a WIFI acc
 the wifimanager.
 Just connect to that accesspoint and open a browser to configure WIFI andf MQTT.
 
-# Run unit tests 
+# Run unit tests
 
 * requires cmake to be installed, also assumes you ran ```pio run``` before
 
@@ -156,7 +157,7 @@ so the actual range will be translated from 0%..100% (what you see on display) t
 In addition when you start from 0% to it will issue a 100ms delay at 100% to allow the fan to start up.
 note: The 100ms delay is temporary hack
 
-## Hardware needed (under construction)
+## Hardware needed (under construction) please ask if you need any clarification!
 
 * Wemos® Nodemcu Wifi And ESP8266 NodeMCU + 1.3 Inch OLED
 * Linear 10K Potentiometer
@@ -176,7 +177,7 @@ Additional documentation from the official website:
 [MAX31865](https://www.maximintegrated.com/en/products/sensors/MAX31865.html)
 [MAX31855](https://www.maximintegrated.com/en/products/sensors/MAX31855.html)
 
-## Pin Connection
+## ESP8266 Pin Connection
 
 | ESP Pin | Device pin | Device | Note |
 | ---  | ---  | ---    | ---    |
@@ -201,8 +202,8 @@ Additional documentation from the official website:
 * To use Fan control use a mos-fet or transistor for PWM fan control. Alternative you can use ON/OF fan control of PWM is not working out (see also compile options to select between the methods). 
 * If you notice some noise through the Lin-Potentiometer: add a 0.1uF radiaal Elco between the middle pin and DGND.
 
-MAX31855 is a two wire connection to a thermocouple and has a positive and negative side. Make sure you connect them correctly. I don´ think the device will break if incorrectly connected.
-MAX31865 is a 3 or 4 wire connection to a thermocouple. Read this carefully : [Adafruit 4-Wire RTDs](https://learn.adafruit.com/adafruit-max31865-rtd-pt100-amplifier/rtd-wiring-config) The general idea is that if you have a 3 or 4 wire thermocouple you need
+MAX31855 is a two wire connection to a k-type thermocouple and has a positive and negative side. Make sure you connect them correctly. I don´ think the device will break if incorrectly connected.
+MAX31865 is a 3 or 4 wire connection to a PT100 thermocouple. Read this carefully : [Adafruit 4-Wire RTDs](https://learn.adafruit.com/adafruit-max31865-rtd-pt100-amplifier/rtd-wiring-config) The general idea is that if you have a 3 or 4 wire thermocouple you need
 to reconfigure the shield accordingly. When incorrectly connected you won´ break the device but you will get incorrect readings.
 
 

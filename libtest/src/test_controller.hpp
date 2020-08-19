@@ -22,7 +22,7 @@ TEST_CASE("Graph Controller against simulated oven", "[GRAPH][.]") {
     std::shared_ptr<MockedFan> uMockedFan(mockedFan);
     BBQFanOnly* bbqFanOnly = new BBQFanOnly(std::move(uMockedTemp), std::move(uMockedFan));
     bbqFanOnly->init();
-    bbqFanOnly->setPoint(130);
+    bbqFanOnly->setPoint(160);
     mockedTemp->set(oven.temperature()); // set temperature sensor to oven temperature
 
     std::cout << "time,Temperature,setPoint,fan,lastError,change\n";
@@ -38,7 +38,7 @@ TEST_CASE("Graph Controller against simulated oven", "[GRAPH][.]") {
         bbqFanOnly->handle(seconds * 1000);
 
         if (seconds == 2400) {
-            bbqFanOnly->setPoint(160);
+            bbqFanOnly->setPoint(125);
         }
 
         if (seconds == 3360) {

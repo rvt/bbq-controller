@@ -241,10 +241,10 @@ void publishStatusToMqtt() {
     char buffer[(4 + 6) * 6 + 16]; // 10 characters per item times extra items to be sure
     sprintf(buffer, format,
             temperatureSensor1->get(),
-            -1.f, //temperatureSensor2->get(),
+            temperatureSensor2->get(),
             bbqController->setPoint(),
             ventilator1->speed(),
-            bbqController->lidOpen(),
+            false, // bbqController->lidOpen(),
             bbqController->lowCharcoal(),
             ventilator1->speedOverride()
            );
@@ -398,21 +398,24 @@ void setupMQTT() {
 ///////////////////////////////////////////////////////////////////////////
 
 void setupIOHardware() {
+    // Sensor 2 is generally used to measure the temperature of the pit itself
+    auto sensor2 = new Adafruit_MAX31855(SPI_CLK_PIN, SPI_MAX31855_CS_PIN, SPI_SDO_PIN);
+    sensor2->begin();
+    temperatureSensor2.reset(new MAX31855sensor(sensor2));
+    //temperatureSensor2.reset(new DummyTemperatureSensor());
+
     // Sensor 1 is generally used for the temperature of the bit
     auto sensor1 = new MAX31865sensor(SPI_MAX31865_CS_PIN, SPI_SDI_PIN, SPI_SDO_PIN, SPI_CLK_PIN, RNOMINAL_OVEN, RREF_OVEN);
     sensor1->begin(MAX31865_3WIRE);
     temperatureSensor1.reset(sensor1);
 
-    // Sensor 2 is generally used to measure the temperature of the pit itself
-    //auto sensor2 = new Adafruit_MAX31855(SPI_CLK_PIN, SPI_MAX31855_CS_PIN, SPI_SDI_PIN);
-    //sensor2->begin();
-    //temperatureSensor2.reset(new MAX31855sensor(sensor2));
-
 
     //ventilator1.reset(new StefansPWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));
-    //ventilator1.reset(new OnOffVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fOnOffDuty")));
+#if defined(PWM_FAN)
     ventilator1.reset(new PWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));
-
+#elif defined(ONOFF_FAN)
+    ventilator1.reset(new OnOffVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fOnOffDuty")));
+#endif
     digitalKnob.init();
 #if defined(TTG_T_DISPLAY)
     rotary1.init();
@@ -755,7 +758,7 @@ void loop() {
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             temperatureSensor1->handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
-            //temperatureSensor2->handle();
+            temperatureSensor2->handle();
         } else if (counter50TimesSec % NUMBER_OF_SLOTS == slot50++) {
             wm.process();
         } else if (shouldRestart != 0 && (currentMillis - shouldRestart >= 5000)) {

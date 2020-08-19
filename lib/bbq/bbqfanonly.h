@@ -13,10 +13,9 @@
 #include <algorithm>
 
 constexpr uint8_t UPDATES_PER_SECOND = 1; // numnber of fuzzy calculations per second
-constexpr uint8_t TEMPERATUR_DIFFERENCE_OVER_SEC = 3;
+constexpr uint8_t TEMPERATUR_DIFFERENCE_OVER_SEC = 5;
 
-
-struct BBQFanOnlyConfig {
+struct BBQFanOnlyConfig_org {
     int8_t fan_speed_lid_open = 0;
     std::array<float, 4> fan_lower  = std::array<float, 4> { {-10, -2, -2, 1} };
     std::array<float, 4> fan_steady  = std::array<float, 4> { {-2, 0, 0, 2} };
@@ -32,16 +31,32 @@ struct BBQFanOnlyConfig {
     std::array<float, 4> temp_change_fast = std::array<float, 4> { {0.2, 1, 20, 20} };
 };
 
+
+struct BBQFanOnlyConfig {
+    int8_t fan_speed_lid_open = 0;
+    std::array<float, 4> fan_lower  = std::array<float, 4> { {-5, -2, -2, 1} };
+    std::array<float, 4> fan_steady  = std::array<float, 4> { {-1, 0, 0, 1} };
+    std::array<float, 4> fan_higher = std::array<float, 4> { {1, 2, 2, 5} };
+
+    std::array<float, 4> temp_error_low = std::array<float, 4> { {-5, 0, 0, 5} };
+    std::array<float, 4> temp_error_medium  = std::array<float, 4> { {0, 20, 20, 40} };
+    std::array<float, 4> temp_error_hight = std::array<float, 4> { {20, 75, 200, 200} };
+
+    // Change per 5 seconds
+    std::array<float, 4> temp_change_slow = std::array<float, 4> { {-2, 0, 0, 2} };
+    std::array<float, 4> temp_change_medium = std::array<float, 4> { {0, 2, 2, 4} };
+    std::array<float, 4> temp_change_fast = std::array<float, 4> { {2, 10, 20, 20} };
+};
+
 class BBQFanOnly : public BBQ {
 private:
     std::shared_ptr<TemperatureSensor> m_tempSensor;
     std::shared_ptr<Ventilator> m_fan;
     Fuzzy* m_fuzzy;
     float m_setPoint;        // Setpoint
-    bool m_lidOpenTriggered;
     BBQFanOnlyConfig m_config;
     long m_periodStartMillis;
-    std::array < float, UPDATES_PER_SECOND*   TEMPERATUR_DIFFERENCE_OVER_SEC + 1 > m_tempStore;
+    std::array < float, UPDATES_PER_SECOND * TEMPERATUR_DIFFERENCE_OVER_SEC + 1 > m_tempStore;
 public:
     BBQFanOnly(std::shared_ptr<TemperatureSensor> pTempSensor,
                std::shared_ptr<Ventilator> pFan);
@@ -53,7 +68,6 @@ public:
     virtual void setPoint(float temperature);
     virtual float setPoint() const;
     virtual bool lowCharcoal();
-    virtual bool lidOpen();
 
     // Fuzzy inputs monitoring
     float tempChangeInput() const {

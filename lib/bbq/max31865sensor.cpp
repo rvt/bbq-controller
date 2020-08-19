@@ -31,7 +31,7 @@ void MAX31865sensor::handle() {
         uint8_t fault = readFault();
 
         if (fault != 0) {
-            Serial.print("Fault 0x");
+            Serial.print("MAX31865\nFault 0x");
             Serial.println(fault, HEX);
 
             if (fault & MAX31865_FAULT_HIGHTHRESH) {
