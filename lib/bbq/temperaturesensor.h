@@ -6,3 +6,12 @@ public:
     virtual void handle() {
     };
 };
+
+class DummyTemperatureSensor : public TemperatureSensor {
+public:
+    virtual float get() const {
+        return 0.f;
+    }
+    virtual void handle() {
+    };
+};

@@ -13,50 +13,72 @@ extern "C" void delay(uint16_t);
 #define OUTPUT 0
 #endif
 
-#define PWM_RANGE  512
-#define PWM_FREQUENCY 10000
+#if defined(ESP8266)
+constexpr uint8_t PWM_RESOLUTION = 8;
+constexpr uint16_t PWM_RANGE = (1 << PWM_RESOLUTION) - 1;
+constexpr uint16_t PWM_FREQUENCY = 10000;
+#elif defined(ESP32)
+constexpr uint8_t PWM_RESOLUTION = 8;
+constexpr uint16_t PWM_RANGE = (1 << PWM_RESOLUTION) - 1;
+constexpr uint16_t PWM_FREQUENCY = 25000;
+#else
+#error Must define ESP8266 or ESP32
+#endif
 
+PWMVentilator::PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart) : PWMVentilator(p_pin, p_pwmStart, 0) {
 
-PWMVentilator::PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart) :
+}
+PWMVentilator::PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart, uint8_t p_pwmChannel) : PWMVentilator(p_pin, p_pwmStart, 30, p_pwmChannel) {
+
+}
+
+PWMVentilator::PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart, uint8_t p_pwmMinimum, uint8_t p_pwmChannel) :
     Ventilator(),
     m_pin(p_pin),
-    m_pwmStart(p_pwmStart),
-    m_prevPwmValue(0)  {
+    m_pwmStart(percentmap(p_pwmStart, PWM_RANGE)),
+    m_pwmMinimum(percentmap(p_pwmMinimum, PWM_RANGE)),
+    m_prevPwmValue(0),
+    m_pwmChannel(p_pwmChannel)  {
+#if defined(ESP8266)
     analogWriteRange(PWM_RANGE);
     analogWriteFreq(PWM_FREQUENCY);
     pinMode(p_pin, OUTPUT);
-    // Ensure value is in between right values
-    setPwmStart(m_pwmStart);
+#pragma message "Configuring PWM pin ESP8266 "
+#elif defined(ESP32)
+    ledcAttachPin(p_pin, m_pwmChannel);
+    ledcSetup(m_pwmChannel, PWM_FREQUENCY, PWM_RESOLUTION);
+#endif
 }
 
-void PWMVentilator::setPwmStart(uint8_t p_pwmStart) {
-    m_pwmStart = between(p_pwmStart, (uint8_t)0, (uint8_t)100);
-}
 
+void PWMVentilator::setVentilator(float dutyCycle) {
+    uint16_t pwmValue;
+    bool doWait = false;
 
-void PWMVentilator::setVentilator(const float dutyCycle) {
-    auto  p_speed = dutyCycle;
-
-    int16_t pwmValue;
+    dutyCycle = between(dutyCycle, 0.f, 200.f);
 
     // any speed below 1 is considered off
-    if (p_speed < 1) {
-        pwmValue = 0;
-        p_speed = 0.0f;
-    } else {
-        // Map 0..100% PWM value to PWM fan can handle
-        int16_t startPwm = ((int32_t)PWM_RANGE * (int32_t)m_pwmStart) / 100;
-        pwmValue = fmap(p_speed, 0.f, 100.f, startPwm, PWM_RANGE);
-
+    if (dutyCycle >= 1.f && m_prevPwmValue < 1.0f) {
         // When the fan was off and turns on give it a little 'kick'
         // Currently a hack, need to find a better way!
         // The delay should only happen when turning on
-        if (m_prevPwmValue == 0.0f && p_speed > 0) {
-            analogWrite(m_pin, PWM_RANGE);
-            delay(100);
-        }
+        pwmValue = m_pwmStart;
+        doWait = true;
+    } else if (dutyCycle < 1.f) {
+        pwmValue = 0;
+    } else {
+        pwmValue = fmap(dutyCycle, 0.f, 100.f, m_pwmMinimum, PWM_RANGE);
     }
 
-    analogWrite(m_pin, pwmValue);
-    m_prevPwmValue = p_speed;
+#if defined(ESP8266)
+    analogWrite(m_pin,  between(pwmValue, (uint16_t)0, PWM_RANGE));
+#elif defined(ESP32)
+    ledcWrite(m_pwmChannel, pwmValue);
+#endif
+
+    if (doWait) {
+        delay(250);
+    }
+
+    m_prevPwmValue = dutyCycle;
 }

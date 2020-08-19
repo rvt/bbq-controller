@@ -30,8 +30,5 @@ std::string makeString(std::string format, ...) {
 
     va_end(args_copy) ;
     va_end(args) ;
-
-    // do whatever else with result
-
     return result ;
 }

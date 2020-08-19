@@ -19,7 +19,7 @@ private:
     float m_value;
     const float m_min;             // Minimum value possible
     const float m_max;             // Maximum value possible
-    const float m_velocity;    // Minimum increment
+    const float m_velocity;        // Minimum increment
 private:
     float validValue(float p_value) const ;
 public:
@@ -34,7 +34,7 @@ public:
     * Call at a rate of 50 handles7sec. This is needed because the difference of values is used and
     * they are based on timings
     */
-    void handle();
+    virtual void handle();
 
     virtual float value() const;
     virtual void value(float p_value);

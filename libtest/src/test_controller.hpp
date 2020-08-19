@@ -12,7 +12,7 @@ TEST_CASE("Graph Controller against simulated oven FuzzySet", "[GRAPH][.]") {
     tdf->calculatePertinence(-10);
 }
 
-// Run with :  rm tests; make; ./tests [GRAPH] > out.csv
+// Run with :  date; rm tests; make; ./tests [GRAPH] > out.csv
 // Plot with https://plot.ly/create/#/
 TEST_CASE("Graph Controller against simulated oven", "[GRAPH][.]") {
     MockedOven oven;
@@ -22,34 +22,44 @@ TEST_CASE("Graph Controller against simulated oven", "[GRAPH][.]") {
     std::shared_ptr<MockedFan> uMockedFan(mockedFan);
     BBQFanOnly* bbqFanOnly = new BBQFanOnly(std::move(uMockedTemp), std::move(uMockedFan));
     bbqFanOnly->init();
-    bbqFanOnly->setPoint(130);
+    bbqFanOnly->setPoint(160);
     mockedTemp->set(oven.temperature()); // set temperature sensor to oven temperature
 
-    std::cout << "i,Temperature,setPoint,fan,lastError,change\n";
+    std::cout << "time,Temperature,setPoint,fan,lastError,change\n";
 
-    for (int i = 0; i < 12000000; i = i + 100) {
-        millisStubbed = i;
-        oven.airFlow(mockedFan->mockedSpeed()*.8); // Set airflow of oven to fanspeed
+    uint32_t maxTime = 7200;
+
+    for (uint32_t seconds = 0; seconds < maxTime; seconds++) {
+        millisStubbed = seconds * 1000;
+        oven.airFlow(mockedFan->mockedSpeed()); // Set airflow of oven to fanspeed
         mockedTemp->set(oven.temperature()); // set temperature sensor to oven temperature
-        oven.handle();
 
-        if (i % 5000 == 0 && i > 0) {
-            bbqFanOnly->handle();
-            std::cout
-                    << i / 1000 << ","
-                    << oven.temperature() << ","
-                    << bbqFanOnly->setPoint() << ","
-                    << mockedFan->mockedSpeed() << ","
-                    << bbqFanOnly->lastErrorInput() << ","
-                    << bbqFanOnly->tempChangeInput() << ",";
+        oven.handle(seconds * 1000);
+        bbqFanOnly->handle(seconds * 1000);
 
-            for (int i = 0; i < 20; i++) {
-                std::cout << (30 + i) << ":" << bbqFanOnly->ruleFired(30 + i) << ",";
-
-            };
-
-            std::cout << "\n";
+        if (seconds == 2400) {
+            bbqFanOnly->setPoint(125);
         }
+
+        if (seconds == 3360) {
+            bbqFanOnly->setPoint(110);
+        }
+
+
+        std::cout
+                << seconds << ","
+                << oven.temperature() << ","
+                << bbqFanOnly->setPoint() << ","
+                << mockedFan->mockedSpeed() << ","
+                << bbqFanOnly->lastErrorInput() << ","
+                << bbqFanOnly->tempChangeInput() << ",";
+
+        for (int ir = 0; ir < 20; ir++) {
+            std::cout << (30 + ir) << ":" << bbqFanOnly->ruleFired(30 + ir) << ",";
+
+        };
+
+        std::cout << "\n";
     }
 }
 
@@ -69,7 +79,7 @@ TEST_CASE("Single test", "[SINGLE][.]") {
 
 
     for (int i = 0; i < 120; i = i + 100) {
-        bbqFanOnly->handle();
+        bbqFanOnly->handle(i);
         std::cout
                 << mockedTemp->get() << ","
                 << bbqFanOnly->setPoint() << ","
@@ -93,8 +103,8 @@ TEST_CASE("Should convert char values to other types", "[propertyvalue][ALL][.]"
         millisStubbed = i;
         oven.airFlow(mockedFan->speed()); // Set airflow of oven to fanspeed
         mockedTemp->set(oven.temperature()); // set temperature sensor to oven temperature
-        oven.handle();
-        bbqFanOnly->handle();
+        oven.handle(i);
+        bbqFanOnly->handle(i);
         //std::cout << std::fixed << std::setw(11) << std::setprecision(2) << ((float)i / 1000) << " temp:" << oven.temperature() << " fan speed:" << mockedFan->speed() << " drop30:" << bbqFanOnly->temperatureDrop() << " lid:" << bbqFanOnly->lidOpen() << " lowCharcoal:" <<  bbqFanOnly->lowCharcoal() << "\n";
         //        if (oven.temperature()>120.0) {
         //          oven.lidOpen(true);
@@ -107,7 +117,9 @@ TEST_CASE("Test Oven", "[oven][.]") {
     MockedOven oven;
     int fanSpeed = 100;
 
-    for (int i = 0; i < 6000000; i = i + 100) {
+    std::cout << "time,Temperature\n";
+
+    for (int i = 0; i < 3600; i = i + 100) {
         oven.airFlow(fanSpeed); // Set airflow of oven to fanspeed
 
         if (oven.temperature() > 130 && fanSpeed > 0) {
@@ -118,8 +130,29 @@ TEST_CASE("Test Oven", "[oven][.]") {
             fanSpeed = 100;
         }
 
-        oven.handle();
-        // std::cout << ((float)i/1000) << " temp:" << oven.temperature() << " fan speed:" << fanSpeed << "\n";
+        oven.handle(i);
+        std::cout << ((float)i) << "," << oven.temperature() << "," << fanSpeed << "\n";
+    }
+}
+
+TEST_CASE("Test Oven1", "[oven1][.]") {
+    MockedOven oven;
+    int fanSpeed = 25;
+    std::cout << "time,Temperature,setPoint,fan\n";
+
+    for (int i = 0; i < 3600 * 2; i = i + 1) {
+        oven.airFlow(fanSpeed); // Set airflow of oven to fanspeed
+
+        if (i % 900 == 0) {
+            if (fanSpeed < 50) {
+                fanSpeed = fanSpeed + 50;
+            } else {
+                fanSpeed = fanSpeed - 50;
+            }
+        }
+
+        oven.handle(i);
+        std::cout << ((float)i) << "," << oven.temperature() << ",0," << fanSpeed << "\n";
     }
 }
 
@@ -133,72 +166,72 @@ SCENARIO("shouldDetectLidOpen", "[controller]") {
         bbqFanOnly->init();
         bbqFanOnly->setPoint(180.0f);
 
-        bbqFanOnly->handle();
-        bbqFanOnly->handle();
+        bbqFanOnly->handle(0);
+        bbqFanOnly->handle(0);
         REQUIRE(mockedTemp->get() == Approx(130.0));
-        REQUIRE(bbqFanOnly->lidOpen() == false);
+        // REQUIRE(bbqFanOnly->lidOpen() == false);
 
         WHEN("When temp lowers 1 degree") {
             mockedTemp->set(mockedTemp->get() - 1);
-            bbqFanOnly->handle();
-            THEN("lid should not have been detected as open") {
-                REQUIRE(bbqFanOnly->lidOpen() == false);
-                REQUIRE(mockedFan->speed() == Approx(77.72523));
-            }
+            bbqFanOnly->handle(6000);
+            // THEN("lid should not have been detected as open") {
+            //     // REQUIRE(bbqFanOnly->lidOpen() == false);
+            //     REQUIRE(mockedFan->speed() == Approx(77.72523));
+            // }
         }
 
         WHEN("When temp lowers 3 degree") {
             mockedTemp->set(mockedTemp->get() - 3);
-            bbqFanOnly->handle();
-            THEN("lid should have been detected as open") {
-                REQUIRE(bbqFanOnly->lidOpen() == true);
-                REQUIRE(mockedFan->speed() == 0);
-            }
-            WHEN("When temp stays the same") {
-                bbqFanOnly->handle();
-                THEN("lid should still have the detected as open") {
-                    REQUIRE(bbqFanOnly->lidOpen() == true);
-                    REQUIRE(mockedFan->speed() == 0);
-                }
-            }
+            bbqFanOnly->handle(6000);
+            // THEN("lid should have been detected as open") {
+            //     // REQUIRE(bbqFanOnly->lidOpen() == true);
+            //     REQUIRE(mockedFan->speed() == 0);
+            // }
+            // WHEN("When temp stays the same") {
+            //     bbqFanOnly->handle(6000);
+            //     THEN("lid should still have the detected as open") {
+            //         // REQUIRE(bbqFanOnly->lidOpen() == true);
+            //         REQUIRE(mockedFan->speed() == 0);
+            //     }
+            // }
             WHEN("When temp rises 0.5 degrees") {
                 mockedTemp->set(mockedTemp->get() + 0.5);
-                bbqFanOnly->handle();
-                THEN("lid should still have the detected as open") {
-                    REQUIRE(bbqFanOnly->lidOpen() == true);
-                    REQUIRE(mockedFan->speed() == 0);
-                }
-                WHEN("When lid open fanspeed is set to 25") {
-                    BBQFanOnlyConfig c;
-                    c.fan_speed_lid_open = 25;
-                    bbqFanOnly->config(c);
-                    THEN("lid should still have the detected as open with new fan speed") {
-                        bbqFanOnly->handle();
-                        REQUIRE(bbqFanOnly->lidOpen() == true);
-                        REQUIRE(mockedFan->speed() == Approx(25.0));
-                    }
-                }
-                WHEN("When lid open fanspeed is set to -1") {
-                    BBQFanOnlyConfig c;
-                    c.fan_speed_lid_open = -1;
-                    bbqFanOnly->config(c);
-                    bbqFanOnly->init();
-                    THEN("lid should still have been detected as open while keeping current fan speed") {
-                        bbqFanOnly->handle();
-                        bbqFanOnly->handle();
-                        REQUIRE(bbqFanOnly->lidOpen() == true);
-                        REQUIRE(mockedFan->speed() == Approx(77.66204f));
-                    }
-                }
+                bbqFanOnly->handle(6000);
+                // THEN("lid should still have the detected as open") {
+                //     // REQUIRE(bbqFanOnly->lidOpen() == true);
+                //     REQUIRE(mockedFan->speed() == 0);
+                // }
+                // WHEN("When lid open fanspeed is set to 25") {
+                //     BBQFanOnlyConfig c;
+                //     c.fan_speed_lid_open = 25;
+                //     bbqFanOnly->config(c);
+                //     THEN("lid should still have the detected as open with new fan speed") {
+                //         bbqFanOnly->handle(6000);
+                //         // REQUIRE(bbqFanOnly->lidOpen() == true);
+                //         REQUIRE(mockedFan->speed() == Approx(25.0));
+                //     }
+                // }
+                // WHEN("When lid open fanspeed is set to -1") {
+                //     BBQFanOnlyConfig c;
+                //     c.fan_speed_lid_open = -1;
+                //     bbqFanOnly->config(c);
+                //     bbqFanOnly->init();
+                //     THEN("lid should still have been detected as open while keeping current fan speed") {
+                //         bbqFanOnly->handle(6000);
+                //         bbqFanOnly->handle(6000);
+                //         REQUIRE(bbqFanOnly->lidOpen() == true);
+                //         REQUIRE(mockedFan->speed() == Approx(77.66204f));
+                //     }
+                // }
             }
-            WHEN("When temp rises 3 degrees") {
-                mockedTemp->set(mockedTemp->get() + 3);
-                bbqFanOnly->handle();
-                THEN("lid should have reset to closed") {
-                    REQUIRE(bbqFanOnly->lidOpen() == false);
-                    REQUIRE(mockedFan->speed() == Approx(77.662));
-                }
-            }
+            // WHEN("When temp rises 3 degrees") {
+            //     mockedTemp->set(mockedTemp->get() + 3);
+            //     bbqFanOnly->handle(6000);
+            //     THEN("lid should have reset to closed") {
+            //         REQUIRE(bbqFanOnly->lidOpen() == false);
+            //         REQUIRE(mockedFan->speed() == Approx(77.662));
+            //     }
+            // }
 
         }
 

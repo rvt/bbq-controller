@@ -57,4 +57,14 @@ extern "C" void digitalWrite(uint8_t pin, uint8_t v) {
     digitalWriteStubbed  = v;
 }
 
+extern "C" void ledcSetup(uint8_t p_pwmChannel, uint16_t PWM_FREQUENCY, uint16_t PWM_RESOLUTION) {
+
+}
+extern "C" void ledcAttachPin(uint8_t p_pin, uint8_t p_pwmChannel) {
+
+}
+extern "C" void  ledcWrite(uint8_t m_pwmChannel, uint8_t pwmValue) {
+
+}
+
 #endif

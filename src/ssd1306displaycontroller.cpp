@@ -1,15 +1,17 @@
 
 #include "ssd1306displaycontroller.h"
+//#if defined(ESP8266)
+
 #include <icons.h>
 #include <PubSubClient.h>
-#include <ESP8266WiFi.h>
+//#include <ESP8266WiFi.h>
 #include "icons.h"
 #include <digitalknob.h>
 #include <memory>
 #include <math.h>
-#include "settingsdto.h"
 #include <ventilator.h>
 #include <pwmventilator.h>
+#include <propertyutils.h>
 
 #include <brzo_i2c.h>
 #include "SSD1306Brzo.h"
@@ -26,10 +28,10 @@ extern std::shared_ptr<TemperatureSensor> temperatureSensor2;
 extern std::shared_ptr<Ventilator> ventilator1;
 extern PubSubClient mqttClient;
 extern DigitalKnob digitalKnob;
+extern Properties bbqConfig;
+typedef PropertyValue PV;
 extern std::shared_ptr<AnalogIn> analogIn;
-extern std::unique_ptr<SettingsDTO> settingsDTO;
-extern std::shared_ptr<Ventilator> ventilator1;
-
+extern bool bbqConfigModified;
 
 // Temporary untill we can have the display functions handle object variables
 static std::unique_ptr<NumericKnob> m_temperatureSetPointKnob;
@@ -41,6 +43,7 @@ static std::unique_ptr<NumericKnob> m_menuKnob;
 #define MENU_FONT_SIZE 10
 
 SSD1306DisplayController::SSD1306DisplayController(uint8_t m_wireSda,  uint8_t m_wireScl) :
+    DisplayController(),
     display(new SSD1306Brzo(0x3c, m_wireSda, m_wireScl)),
     ui(new OLEDDisplayUi(display)),
     m_lastMillis(0) {
@@ -64,7 +67,7 @@ void SSD1306DisplayController::init() {
     normalRunScreens = {
         currentTemperatureSetting,
         currentTemperatureSensor1,
-        currentTemperatureSensor2,
+        //currentTemperatureSensor2,
         currentFanSpeed
     };
 
@@ -162,8 +165,9 @@ void SSD1306DisplayController::init() {
     STATE_SETTEMP = new State([&]() {
         if (digitalKnob.isSingle()) {
             float value = round(m_temperatureSetPointKnob->value() * 2.0f) / 2.0f;
-            settingsDTO->data()->setPoint = value;
+            bbqConfig.put("setPoint", PV(value));
             bbqController->setPoint(value);
+            bbqConfigModified = true;
             return 4;
         }
 
@@ -204,7 +208,7 @@ void SSD1306DisplayController::init() {
 
     // Start UI
     // Don´t set this to high as we want to have time left for the controller to do it´s work
-    ui->setTargetFPS(30);
+    ui->setTargetFPS(20);
     ui->setTimePerTransition(250);
 
     ui->setActiveSymbol(activeSymbol);
@@ -222,7 +226,7 @@ void SSD1306DisplayController::init() {
 
 }
 
-uint32_t SSD1306DisplayController::handle() {
+int32_t SSD1306DisplayController::handle() {
     uint32_t budget =  ui->update();
     uint32_t currentMillis = millis();
 
@@ -264,7 +268,6 @@ void SSD1306DisplayController::currentTemperatureSensor2(OLEDDisplay* display, O
 void SSD1306DisplayController::currentFanSpeed(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
     display->setFont(ArialMT_Plain_10);
     display->setTextAlignment(TEXT_ALIGN_RIGHT);
-    float value = ventilator1->speedOverride();
 
     if (!ventilator1->isOverride()) {
         display->drawString(x + 128, y + 20, "Auto");
@@ -275,16 +278,16 @@ void SSD1306DisplayController::currentFanSpeed(OLEDDisplay* display, OLEDDisplay
     char buffer[16];
     display->setFont(ArialMT_Plain_24);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
-    value = ventilator1->speed();
+    float value = ventilator1->speed();
 
     if (value < 0.1) {
         sprintf(buffer, "Off");
     } else {
-        sprintf(buffer, "%3.0f%%", ventilator1->speed());
+        sprintf(buffer, "%3.0f%%", value);
     }
 
-    display->drawString(x + 0 + fan_width + 4, y + 20, buffer);
-    display->drawXbm(x, y + 20, fan_width, fan_height, fan_bits);
+    display->drawString(x + 0 + fan24_width + 4, y + 20, buffer);
+    display->drawXbm(x, y + 20, fan24_width, fan24_height, fan24_bits);
 }
 
 void SSD1306DisplayController::startScreen(OLEDDisplay* display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
@@ -343,7 +346,7 @@ void SSD1306DisplayController::menuOverrideFan(OLEDDisplay* display, OLEDDisplay
     }
 
     display->drawString(x + 40, y + 22, buffer);
-    display->drawXbm(x, y + 20, fan_width, fan_height, fan_bits);
+    display->drawXbm(x, y + 20, fan48_width, fan48_height, fan48_bits);
 }
 
 void SSD1306DisplayController::normalOverlayDisplay(OLEDDisplay* display, OLEDDisplayUiState* state) {
@@ -367,11 +370,13 @@ void SSD1306DisplayController::normalOverlayDisplay(OLEDDisplay* display, OLEDDi
         xPos += (mqttcloud_width + 4);
     }
 
+    /*
     if (bbqController->lidOpen()) {
         display->drawXbm(xPos, 0, bbqlidopen_width, bbqlidopen_height, bbqlidopen_bits);
         xPos += (bbqlidopen_width + 4);
     } else {
         display->drawXbm(xPos, 0, bbqlidclosed_width, bbqlidclosed_height, bbqlidclosed_bits);
         xPos += (bbqlidclosed_width + 4);
-    }
+    }*/
 }
+//#endif

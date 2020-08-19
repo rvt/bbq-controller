@@ -1,130 +1,85 @@
-#include "setup.h"
-
-#ifndef RED_PIN
-#define RED_PIN 0
-#endif
-
-#ifndef MQTT_PREFIX
-#define MQTT_PREFIX                    "UNDEFINED"
-#endif
-
-// Wi-Fi
-#ifndef WIFI_SSID
-#define WIFI_SSID                              ""
-#endif
-
-#ifndef WIFI_PASSWORD
-#define WIFI_PASSWORD                          ""
-#endif
-
-// MQTT server settings
-#ifndef MQTT_SERVER
-#define MQTT_SERVER                            "127.0.0.1"
-#endif
-
-#ifndef MQTT_PORT
-#define MQTT_PORT                              1883
-#endif
-
-#ifndef MQTT_USER
-#define MQTT_USER                              ""
-#endif
-
-#ifndef MQTT_PASS
-#define MQTT_PASS                              ""
-#endif
-
 // How often we are updating the mqtt state in ms
 #ifndef MQTT_STATE_UPDATE_DELAY
 #define MQTT_STATE_UPDATE_DELAY                       5000
 #endif
 
-// MQTT topics : RGBW/00FF1234
-#define MQTT_TOPIC_PREFIX_TEMPLATE             "%s/%s"
+#define MQTT_LASTWILL                           "lastwill"
+#define MQTT_STATUS                           "status"
+#define MQTT_LASTWILL_TOPIC                    "lastwill"
+#define MQTT_LASTWILL_ONLINE                   "online"
+#define MQTT_LASTWILL_OFFLINE                  "offline"
 
-// Last Will and Testament topic : RGBW/00FF1234/lastwill
-#define MQTT_LASTWILL_TOPIC_TEMPLATE           "%s/lastwill"
-#define MQTT_STATUS_TOPIC_TEMPLATE             "%s/status"
-#define MQTT_SUBSCRIBER_TOPIC_TEMPLATE         "%s/+"
-#define TEMPERATURE_DUMMY_TOPIC                "dummy"
-#define MQTT_CONFIG_TOPIC_STATE_TEMPLATE       "%s/config/state"
-#define MQTT_CONFIG_TOPIC                      "config"
-#define MQTT_LASTWILL_ONLINE       "online"
-#define MQTT_LASTWILL_OFFLINE      "offline"
+#if defined(GEEKKCREIT_OLED)
+// Pin usages
+// https://randomnerdtutorials.com/esp8266-pinout-reference-gpios/
 
-// Base hostname, used for the MQTT Client ID and OTA hostname
-#ifndef HOSTNAME_TEMPLATE
-#define HOSTNAME_TEMPLATE                       "BBQ%s"
-#endif
+// Device I used for my little projects
+// https://www.arduino-tech.com/wemos-nodemcu-wifi-for-arduino-and-nodemcu-esp8266-0-96-inch-oled-board/
 
-// Enable console output via telnet OR SERIAL
-// #define ARILUX_DEBUG_TELNET
-//#define DEBUG_SERIAL
+constexpr uint8_t WIRE_SDA = 5; // D1
+constexpr uint8_t WIRE_SCL = 4; // D2
 
-// When set we will pause for any OTA messages before we startup, no commands are handled in this time
-// #define PAUSE_FOR_OTA
-
-#ifndef WIRE_SDA
-#define WIRE_SDA 5
-#endif
-
-#ifndef WIRE_SCL
-#define WIRE_SCL 4
-#endif
-
-
-#ifndef FAN1_PIN
-#define FAN1_PIN 3
-#endif
-
-
-/*
- * Only tested is hardware SPI.
- * Software SPI introduces long delays in Adafruit classes so try to avoid it at all cost
-*/
-#ifndef SPI_SDO_PIN
-#define SPI_SDO_PIN -1 /* Set to -1 for HW SPI, connects to pin 12 on ESP8266 */
-#endif
-
-#ifndef SPI_SDI_PIN
-#define SPI_SDI_PIN -1 /* Set to -1 for HW SPI, connects to pin 13 on ESP8266 */
-#endif
-
-#ifndef SPI_CLK_PIN
-#define SPI_CLK_PIN -1 /* Set to -1 for HW SPI, connects to pin 14 on ESP8266 */
-#endif
+constexpr uint8_t FAN1_PIN = 15;  // D8 OUT PWM
 
 // Pin 15 didn´t make the esp start up so we skipped it and took 2
-#ifndef SPI_MAX31865_CS_PIN
-#define SPI_MAX31865_CS_PIN 2
-#endif
+constexpr uint8_t SPI_MAX31865_CS_PIN = 0;  // D3 OUT
+constexpr uint8_t SPI_MAX31855_CS_PIN = 2; // D4 OUT
 
-#ifndef SPI_MAX31855_CS_PIN
-#define SPI_MAX31855_CS_PIN 15
-#endif
+constexpr uint8_t BUTTON_PIN = 16; // D0 IN
 
-#ifndef BUTTON_PIN
-#define BUTTON_PIN 0
+/*
+* Only tested is hardware SPI.
+* Software SPI introduces long delays in Adafruit classes so try to avoid it at all cost
+*/
+constexpr int8_t SPI_SDO_PIN = -1; /* Set to -1 for HW SPI, connects to pin D6 12 on ESP8266 */
+constexpr int8_t SPI_SDI_PIN = -1; /* Set to -1 for HW SPI, connects to pin D7 13 on ESP8266 */
+constexpr int8_t SPI_CLK_PIN = -1; /* Set to -1 for HW SPI, connects to pin D5 14 on ESP8266 */
+
+#define CONTROLLER_CONFIG_FILENAME "controllerCfg.conf"
+#define BBQ_CONFIG_FILENAME "bbqCfg.conf"
+
+#elif defined(TTG_T_DISPLAY)
+// vhttps://github.com/espressif/arduino-esp32/issues/149
+// esp32-hal.h add
+// #define CONFIG_DISABLE_HAL_LOCKS 1
+
+// Pin Layout https://github.com/Xinyuan-LilyGO/TTGO-T-Display
+// https://nl.aliexpress.com/item/33048962331.html
+constexpr uint8_t FAN1_PIN = 13;    //  OUT PWM
+constexpr uint8_t BUTTON_PIN = 32;  //  IN
+constexpr uint8_t ROTARY_PIN1 = 2;  //  IN
+constexpr uint8_t ROTARY_PIN2 = 15; //  IN
+
+// Pin 15 didn´t make the esp start up so we skipped it and took 2
+constexpr uint8_t SPI_MAX31865_CS_PIN = 33;  // OUT
+constexpr uint8_t SPI_MAX31855_CS_PIN = 39;  // OUT
+
+/*
+* Software SPI from https://github.com/Xinyuan-LilyGO/TTGO-T-Display/issues/14
+* More info on software SPI https://github.com/espressif/arduino-esp32/issues/149
+*/
+constexpr int8_t SPI_SDO_PIN = 27;
+constexpr int8_t SPI_SDI_PIN = 26;
+constexpr int8_t SPI_CLK_PIN = 25;
+
+// Not in use for this environment
+constexpr uint8_t WIRE_SDA = -1;
+constexpr uint8_t WIRE_SCL = -1;
+
+#define CONTROLLER_CONFIG_FILENAME "/controllerCfg.conf"
+#define BBQ_CONFIG_FILENAME "/bbqCfg.conf"
+#else
+#error Unknown environment use TTG_T_DISPLAY or GEEKKCREIT_OLED
 #endif
 
 // The value of the Rref resistor. Use 430.0 for PT100 and 4300.0 for PT1000
-#ifndef RREF_OVEN
-#define RREF_OVEN      430.0
-#endif
+constexpr float RREF_OVEN = 430.0;
+
 
 // The 'nominal' 0-degrees-C resistance of the sensor
 // 100.0 for PT100, 1000.0 for PT1000
-#ifndef RNOMINAL_OVEN
-#define RNOMINAL_OVEN  100.0
-#endif
+constexpr float RNOMINAL_OVEN = 100.0;
 
-#ifndef PWM_FAN
-#define PWM_FAN 1
-#endif
-
-#ifndef ON_OFF_FAN
-#define ON_OFF_FAN 1
 // Period of ON/OF fan in milliseconds
-#define ON_OFF_FAN_PERIOD (30 * 1000)
-#endif
+constexpr uint32_t ON_OFF_FAN_PERIOD = (30 * 1000);
 

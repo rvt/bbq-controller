@@ -1,6 +1,7 @@
 #pragma once
 
 #include "temperaturesensor.h"
+#include <Adafruit_MAX31855.h>
 
 class Adafruit_MAX31855;
 

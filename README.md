@@ -7,55 +7,77 @@ A small hand-held battery operated BBQ/Smoker temperature controller that can ru
 ... and it is also be possible to control and monitor over wifi, but that is optional.
 
 Splash Screen :
+esp2866 splash Screen
 ![Splash Screen](images/splash.png "Splash Screen of Controller")
+esp32 splash screen
+![Splash Screen](icons/splash240.png "Splash Screen of Controller COlor version")
 
 
 # Currently under development - ESP32 Color Version 
 * Test digital thermometer max31855
-* Implement Farenheit display
+* Implement Farenheit display - No requests so very low priority
 
 # Featues
 A Fuzzy logic based BBQ controller based on Fuzzy Logic with the following features:
 
-* Oled display of temperature read out setting of Pit and meat temperature
-* OLed display of fanspeed
+* Oled/color display of temperature read out setting of Pit and meat temperature
 * Get and Set Fuzzy logic sets configuration without re-compilation
-* Store and Load last settings and configuration in EEPROM for offline controlling your BBQ (no WIFI needed)
+* Store and Load last settings and configuration in SPIFFS for offline controlling your BBQ (no WIFI needed)
 * Change temperature setting setpoint with build in menu or over MQTT 
 * Ventilator override over MQTT or via menu
-* Lid open detection can set a predefined fan speed, or keeps current fan speed
+* Lid open detection can set a predefined fan speed, or keeps current fan speed (Currently worked upon again)
 * Tested with OpenHAB + InfluxDB + Grafana
 * Parts of code tested with catch2
-* PWM or ON/OFF ventilator control (with compiler option)
+* PWM or ON/OFF ventilator control (needs recompile)
 
 
 # Note
 
-This is still work in progress and has not yet been field tested and development has been done using a simulator during unit tests so here is my TODO:
-
 * Connect and test MAX31855 temperature sensor for meat monitor
 * Test and implement low charcoal detection
+* Test and implement load open detection
 * Implement 'stall' detection and alerting [More about stall](https://amazingribs.com/more-technique-and-science/more-cooking-science/understanding-and-beating-barbecue-stall-bane-all)
 
 # Hardware Tests
 
 - Tested on wemos ESP8266 [Wemos® Nodemcu Wifi And ESP8266 NodeMCU + 1.3 Inch OLED](https://www.banggood.com/Wemos-Nodemcu-Wifi-And-ESP8266-NodeMCU-1_3-Inch-OLED-Board-White-p-1160048.html)
+- Tested on ttfo_t_display [LiliGO T-Display 1.14" Color Display](https://github.com/Xinyuan-LilyGO/TTGO-T-Display)
 
 # Compilation
 
-To build your version use platform io for compilation: Copy
-```setup_example.h``` to ```setup.h``` and modify the contents to your needs so it can connect to your wifi and potentially your MQTT broker.
-Then run ```pio run``` to compile the binary. This will download the needed dependencies.
+``` bash
+bbq rvt$ pio run
+Processing wemos (platform: espressif8266; framework: arduino; board: esp8285)
+-------------------------------------------------------------------------------------------------------------------
+Verbose mode can be enabled via `-v, --verbose` option
+CONFIGURATION: https://docs.platformio.org/page/boards/espressif8266/esp8285.html
+PLATFORM: Espressif 8266 2.3.3 > Generic ESP8285 Module
+...
+...
+...
+Retrieving maximum program size .pio/build/wemos/firmware.elf
+Checking size .pio/build/wemos/firmware.elf
+Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
+RAM:   [=====     ]  48.3% (used 39576 bytes from 81920 bytes)
+Flash: [=======   ]  71.7% (used 545976 bytes from 761840 bytes)
+========================================== [SUCCESS] Took 10.77 seconds ==========================================
+```
 
 To upload to your wemos device run the following command (OSX):
 ```platformio run --target upload -e wemos --upload-port /dev/cu.SLAB_USBtoUART```
 
-Currently the system is set for *ON OFF* ventilator control. If you need PWM ventilator control you can edit platformio.ini and set -DPWM_FAN=1.
+Currently the system is set for *PWM* ventilator control. If you need ON/OFF ventilator control you can edit platformio.ini and set -DONOFF_FAN=1. (With enough support we can make thos configurable)
 The default duty cycle for *ON OFF* van control is 30 seconds.
 
 For other compiler options check config.h for other options. When time permits I can make them into more options that can be set of MQTT.
 
-# Run unit tests 
+# Configuration
+
+The device will use the know wifi network or it wil present itself as a WIFI accesspoint using
+the wifimanager.
+Just connect to that accesspoint and open a browser to configure WIFI andf MQTT.
+
+# Run unit tests
 
 * requires cmake to be installed, also assumes you ran ```pio run``` before
 
@@ -79,7 +101,7 @@ I use [MQTT Spy](https://github.com/eclipse/paho.mqtt-spy/releases)  to spy for 
 
 ## Status messages
 
-Topic: ```BBQ/XXXXXXXX/config/state```
+Topic: ```BBQ/config/state```
 
 Status messages are send to an MQTT broker each time any of the following variables changed. Status messages are great to monitor the progress during cooking.
 
@@ -98,8 +120,8 @@ Example message:
 
 ### Config messages
 
-Topic: ```BBQ/XXXXXXXX/config```
-Topic: ```BBQ/XXXXXXXX/config/state``` each time any of the variables are changed the configuration is published to this topic
+Topic: ```BBQ/config```
+Topic: ```BBQ/config/state``` each time any of the variables are changed the configuration is published to this topic
 
 The controller uses a single topic to configure the behavior.
 
@@ -118,16 +140,11 @@ The controller uses a single topic to configure the behavior.
 | teh  | float,float, float,float | Fuzzy set for high temperature error |  0-XX | 15.0,200.0, 200.0,200.0 | Celsius | |
 | tcf  | float,float, float,float | Fuzzy set for temperature drop detection |  0-XX | 10.0,20.0, 20.0,30.0 | Celsius | |
 
-Example messages to ```BBQ/XXXXXXXX/config```:
+Example messages to ```BBQ/config```:
 
 * ```sp=130.0``` Set the desired pit temp to 130 degree Celsius
 * ```f1o=55``` Override fan speed to 55%
 * ```f1o=-1 sp=180.0``` Enable auto mode and set desired temp to 180Celsius in one configuration line
-* ```fl1=0.0,0.0,0.0,50.0``` Update Fuzzy Set for fan 1, this will re-configure the BBQ controller
-
-Examples message received on ```BBQ/XXXXXXXX/config/state```:
-
-```sp=150.5 fs1=30 lof=0 fl1=0.0,25.0,25.0,50.0 fm1=25.0,50.0,50.0,75.0 fh1=50.0,200.0,200.0,200.0 tel=0.0,5.0 tem=0.0,10.0,10.0,25.0 teh=10.0,100.0,200.0,200.0 tcs=0.0,0.1 tcm=0.0,0.2,0.2,0.5 tcf=0.2,0.5,2.0,2.0```
 
 ### fs1 with PWM
 
@@ -140,7 +157,7 @@ so the actual range will be translated from 0%..100% (what you see on display) t
 In addition when you start from 0% to it will issue a 100ms delay at 100% to allow the fan to start up.
 note: The 100ms delay is temporary hack
 
-## Hardware needed (under construction)
+## Hardware needed (under construction) please ask if you need any clarification!
 
 * Wemos® Nodemcu Wifi And ESP8266 NodeMCU + 1.3 Inch OLED
 * Linear 10K Potentiometer
@@ -160,7 +177,7 @@ Additional documentation from the official website:
 [MAX31865](https://www.maximintegrated.com/en/products/sensors/MAX31865.html)
 [MAX31855](https://www.maximintegrated.com/en/products/sensors/MAX31855.html)
 
-## Pin Connection
+## ESP8266 Pin Connection
 
 | ESP Pin | Device pin | Device | Note |
 | ---  | ---  | ---    | ---    |
@@ -185,8 +202,8 @@ Additional documentation from the official website:
 * To use Fan control use a mos-fet or transistor for PWM fan control. Alternative you can use ON/OF fan control of PWM is not working out (see also compile options to select between the methods). 
 * If you notice some noise through the Lin-Potentiometer: add a 0.1uF radiaal Elco between the middle pin and DGND.
 
-MAX31855 is a two wire connection to a thermocouple and has a positive and negative side. Make sure you connect them correctly. I don´ think the device will break if incorrectly connected.
-MAX31865 is a 3 or 4 wire connection to a thermocouple. Read this carefully : [Adafruit 4-Wire RTDs](https://learn.adafruit.com/adafruit-max31865-rtd-pt100-amplifier/rtd-wiring-config) The general idea is that if you have a 3 or 4 wire thermocouple you need
+MAX31855 is a two wire connection to a k-type thermocouple and has a positive and negative side. Make sure you connect them correctly. I don´ think the device will break if incorrectly connected.
+MAX31865 is a 3 or 4 wire connection to a PT100 thermocouple. Read this carefully : [Adafruit 4-Wire RTDs](https://learn.adafruit.com/adafruit-max31865-rtd-pt100-amplifier/rtd-wiring-config) The general idea is that if you have a 3 or 4 wire thermocouple you need
 to reconfigure the shield accordingly. When incorrectly connected you won´ break the device but you will get incorrect readings.
 
 

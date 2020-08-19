@@ -12,32 +12,40 @@
 #include <cstdlib>
 #include <algorithm>
 
-#define FAN_SPEED_LID_OPEN 0
-#define FAN_LOW_DEFAULT std::array<float, 4> { {0, 25, 25, 50} };
-#define FAN_MEDIUM_DEFAULT std::array<float, 4> { {25, 50, 50, 75} };
-#define FAN_HIGH_DEFAULT std::array<float, 4> { {50, 75, 100, 100} };
+constexpr uint8_t UPDATES_PER_SECOND = 1; // numnber of fuzzy calculations per second
+constexpr uint8_t TEMPERATUR_DIFFERENCE_OVER_SEC = 5;
 
-#define TEMP_ERROR_LOW_DEFAULT std::array<float, 2> { {0, 5} };
-#define TEMP_ERROR_MEDIUM_DEFAULT std::array<float, 4> { {0, 10, 10, 25} };
-#define TEMP_ERROR_HIGH_DEFAULT std::array<float, 4> { {10, 100, 200, 200} };
+struct BBQFanOnlyConfig_org {
+    int8_t fan_speed_lid_open = 0;
+    std::array<float, 4> fan_lower  = std::array<float, 4> { {-10, -2, -2, 1} };
+    std::array<float, 4> fan_steady  = std::array<float, 4> { {-2, 0, 0, 2} };
+    std::array<float, 4> fan_higher = std::array<float, 4> { {1, 2, 2, 10} };
 
-#define TEMP_CHANGE_LOW_DEFAULT std::array<float, 2> { {0, 0.5} };
-#define TEMP_CHANGE_MEDIUM_DEFAULT std::array<float, 4> { {0, 1, 1, 2.5} };
-#define TEMP_CHANGE_FAST_DEFAULT std::array<float, 4> { {1, 2.5, 20, 20} };
+    std::array<float, 4> temp_error_low = std::array<float, 4> { {-5, 0, 0, 5} };
+    std::array<float, 4> temp_error_medium  = std::array<float, 4> { {0, 10, 10, 20} };
+    std::array<float, 4> temp_error_hight = std::array<float, 4> { {15, 30, 200, 200} };
+
+    // Change per 5 seconds
+    std::array<float, 4> temp_change_slow = std::array<float, 4> { {-0.1, 0, 0, 0.1} };
+    std::array<float, 4> temp_change_medium = std::array<float, 4> { {0, 0.2, 0.2, 0.5} };
+    std::array<float, 4> temp_change_fast = std::array<float, 4> { {0.2, 1, 20, 20} };
+};
+
 
 struct BBQFanOnlyConfig {
-    int8_t fan_speed_lid_open = FAN_SPEED_LID_OPEN;
-    std::array<float, 4> fan_low  = FAN_LOW_DEFAULT;
-    std::array<float, 4> fan_medium  = FAN_MEDIUM_DEFAULT;
-    std::array<float, 4> fan_high = FAN_HIGH_DEFAULT;
+    int8_t fan_speed_lid_open = 0;
+    std::array<float, 4> fan_lower  = std::array<float, 4> { {-5, -2, -2, 1} };
+    std::array<float, 4> fan_steady  = std::array<float, 4> { {-1, 0, 0, 1} };
+    std::array<float, 4> fan_higher = std::array<float, 4> { {1, 2, 2, 5} };
 
-    std::array<float, 2> temp_error_low = TEMP_ERROR_LOW_DEFAULT;
-    std::array<float, 4> temp_error_medium  = TEMP_ERROR_MEDIUM_DEFAULT;
-    std::array<float, 4> temp_error_hight = TEMP_ERROR_HIGH_DEFAULT;
+    std::array<float, 4> temp_error_low = std::array<float, 4> { {-5, 0, 0, 5} };
+    std::array<float, 4> temp_error_medium  = std::array<float, 4> { {0, 20, 20, 40} };
+    std::array<float, 4> temp_error_hight = std::array<float, 4> { {20, 75, 200, 200} };
 
-    std::array<float, 2> temp_change_slow = TEMP_CHANGE_LOW_DEFAULT;
-    std::array<float, 4> temp_change_medium = TEMP_CHANGE_MEDIUM_DEFAULT;
-    std::array<float, 4> temp_change_fast = TEMP_CHANGE_FAST_DEFAULT;
+    // Change per 5 seconds
+    std::array<float, 4> temp_change_slow = std::array<float, 4> { {-2, 0, 0, 2} };
+    std::array<float, 4> temp_change_medium = std::array<float, 4> { {0, 2, 2, 4} };
+    std::array<float, 4> temp_change_fast = std::array<float, 4> { {2, 10, 20, 20} };
 };
 
 class BBQFanOnly : public BBQ {
@@ -46,12 +54,9 @@ private:
     std::shared_ptr<Ventilator> m_fan;
     Fuzzy* m_fuzzy;
     float m_setPoint;        // Setpoint
-    float m_tempLastError;   // Last temperature error input
-    float m_fanCurrentSpeed; // current fan speed
-    float m_tempLast;        // Temperature that is bassed through a filter
-    float m_lastTempChange;      // Keep
-    bool m_lidOpenTriggered;
     BBQFanOnlyConfig m_config;
+    long m_periodStartMillis;
+    std::array < float, UPDATES_PER_SECOND * TEMPERATUR_DIFFERENCE_OVER_SEC + 1 > m_tempStore;
 public:
     BBQFanOnly(std::shared_ptr<TemperatureSensor> pTempSensor,
                std::shared_ptr<Ventilator> pFan);
@@ -59,15 +64,20 @@ public:
     /**
      * Very important, call this once in 5 seconds
      */
-    virtual void handle();
+    virtual void handle(const uint32_t millis);
     virtual void setPoint(float temperature);
     virtual float setPoint() const;
     virtual bool lowCharcoal();
-    virtual bool lidOpen();
 
     // Fuzzy inputs monitoring
-    float tempChangeInput() const;
-    float lastErrorInput() const;
+    float tempChangeInput() const {
+        return m_tempStore.front() - m_tempStore.back();
+    }
+
+    float lastErrorInput() const {
+        return m_tempStore.front() - m_setPoint;
+    }
+
     bool ruleFired(uint8_t i);
     void config(const BBQFanOnlyConfig& p_config);
     BBQFanOnlyConfig config() const;
@@ -78,30 +88,21 @@ public:
      */
     template<std::size_t SIZE>
     static FuzzySet* fuzzyFromVector(std::array<float, SIZE>& data, bool flipped) {
-        std::array<float, SIZE> cpy = data;
-
-        // Only flip and negate when we have a dataset of 4 items
-        if (flipped && (SIZE == 4)) {
-            std::reverse(cpy.begin(), cpy.end());
-            std::for_each(cpy.begin(), cpy.end(), [](float & el) {
-                el *= -1;
-            });
-        }
-
-        FuzzySet* fs;
+        static_assert(SIZE == 2 || SIZE == 4, "Must be 2 or 4");
 
         if (SIZE == 2) {
-            fs = new FuzzySet(-cpy[1], -cpy[0], cpy[0], cpy[1]);
-        } else if (SIZE == 4) {
-            fs = new FuzzySet(cpy[0], cpy[1], cpy[2], cpy[3]);
+            return new FuzzySet(-data[1], -data[0], data[0], data[1]);
+        } else if (flipped) {
+            return new FuzzySet(-data[3], -data[2], -data[1], -data[0]);
         } else {
-            fs = new FuzzySet(0, 0, 0, 0);
+            return new FuzzySet(data[0], data[1], data[2], data[3]);
         }
-
-        return fs;
     }
 
     void init();
+    virtual const char* name() const {
+        return "fuzzy";
+    }
 
 private:
     FuzzyRule* joinSingle(int rule, FuzzySet* fi, FuzzySet* fo);
