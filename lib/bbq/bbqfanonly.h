@@ -35,7 +35,7 @@ struct BBQFanOnlyConfig_org {
 struct BBQFanOnlyConfig {
     int8_t fan_speed_lid_open = 0;
     std::array<float, 4> fan_lower  = std::array<float, 4> { {-5, -2, -2, 1} };
-    std::array<float, 4> fan_steady  = std::array<float, 4> { {-1, 0, 0, 1} };
+    std::array<float, 4> fan_steady  = std::array<float, 4> { {-2, 0, 0, 2} };
     std::array<float, 4> fan_higher = std::array<float, 4> { {1, 2, 2, 5} };
 
     std::array<float, 4> temp_error_low = std::array<float, 4> { {-5, 0, 0, 5} };

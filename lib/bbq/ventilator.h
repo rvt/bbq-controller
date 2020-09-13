@@ -31,6 +31,14 @@ public:
     }
 
     /**
+     * Increase the speed of the fan with a specific value
+     */
+    void increasePercent(const float p_speed) {
+        if (p_speed > 0 && m_speed < 1.0) m_speed = 1.0;
+        speed(m_speed + m_speed/100 * p_speed);
+    }
+
+    /**
      * Returns current required speed
      * Value is guaranteed to be 0..100
      */

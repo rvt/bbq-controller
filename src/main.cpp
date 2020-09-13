@@ -24,8 +24,6 @@ extern "C" {
 #include <SPIFFS.h>
 
 #elif defined(ESP8266)
-#include <ESP_EEPROM.h>
-#include <crceeprom.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <LittleFS.h>
@@ -55,6 +53,7 @@ extern "C" {
 #include <settings.h>
 
 #include <SPI.h> // Include for harware SPI
+#include <Wire.h> 
 #include <max31855sensor.h>
 #include <max31865sensor.h>
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient/releases/tag/v2.6
@@ -68,6 +67,7 @@ extern "C" {
 #include <bbq.h>
 #include <demo.h>
 #include <statemachine.h>
+#include <StreamUtils.h>
 
 typedef PropertyValue PV ;
 
@@ -177,7 +177,7 @@ bool loadConfig(const char* filename, Properties& properties) {
                 Serial.print(F("Loading config : "));
                 Serial.println(filename);
                 deserializeProperties<32>(configFile, properties);
-                //   serializeProperties<32>(Serial, properties);
+                serializeProperties<32>(Serial, properties);
             }
 
             configFile.close();
@@ -209,7 +209,7 @@ bool saveConfig(const char* filename, Properties& properties) {
             Serial.print(F("Saving config : "));
             Serial.println(filename);
             serializeProperties<32>(configFile, properties);
-            // serializeProperties<32>(Serial, properties);
+            serializeProperties<32>(Serial, properties);
             ret = true;
         } else {
             Serial.print(F("Failed to write file"));
@@ -235,7 +235,8 @@ bool saveConfig(const char* filename, Properties& properties) {
 * lc = Low charcoal alert
 */
 void publishToMQTT(const char* topic, const char* payload);
-void publishStatusToMqtt() {
+
+void publishStatusToMqttLine() {
 
     auto format = "to=%.2f t2=%.2f sp=%.2f f1=%.2f lo=%i lc=%i f1o=%.1f";
     char buffer[(4 + 6) * 6 + 16]; // 10 characters per item times extra items to be sure
@@ -257,6 +258,38 @@ void publishStatusToMqtt() {
     }
 
     lastMeasurementCRC = thisCrc;
+}
+
+void publishStatusToMqttJson() {
+
+    auto format = "{\"to\":%.2f,\"t2\":%.2f,\"sp\":%.2f,\"f1\":%.2f,\"lo\":%i,\"lc\":%i,\"f1o\":%.1f}";
+    char buffer[(4 + 6) * 6 + 16]; // 10 characters per item times extra items to be sure
+    sprintf(buffer, format,
+            temperatureSensor1->get(),
+            temperatureSensor2->get(),
+            bbqController->setPoint(),
+            ventilator1->speed(),
+            false, // bbqController->lidOpen(),
+            bbqController->lowCharcoal(),
+            ventilator1->speedOverride()
+           );
+
+    // Quick hack to only update when data actually changed
+    uint16_t thisCrc = crc16((uint8_t*)buffer, std::strlen(buffer));
+
+    if (thisCrc != lastMeasurementCRC) {
+        publishToMQTT("status", buffer);
+    }
+
+    lastMeasurementCRC = thisCrc;
+}
+
+void publishStatusToMqtt() {
+    if (controllerConfig.get("statusJson")) {
+        publishStatusToMqttJson();
+    } else {
+        publishStatusToMqttLine();
+    }
 }
 
 /**
@@ -345,6 +378,13 @@ void handleCmd(const char* topic, const char* p_payload) {
         // Update the bbqController with new values
         bbqController->config(config);
         bbqController->init();
+    }
+
+    if (std::strstr(topicPos, "/setup") != nullptr) {
+        StringStream stream;
+        stream.print(payloadBuffer);
+        deserializeProperties<32>(stream, controllerConfig);
+        controllerConfigModified=true;
     }
 
     if (strstr(topicPos, "/reset") != nullptr) {
@@ -635,7 +675,7 @@ void setupWifiManager() {
     // Set configuration portal
     wm.setShowStaticFields(false);
     wm.setConfigPortalBlocking(false); // Must be blocking or else AP stays active
-    wm.setDebugOutput(true);
+    wm.setDebugOutput(false);
     wm.setWebServerCallback(serverOnlineCallback);
     wm.setSaveParamsCallback(saveParamCallback);
     wm.setHostname(controllerConfig.get("mqttClientID"));
@@ -680,6 +720,7 @@ void setupDefaults() {
     controllerConfigModified |= controllerConfig.putNotContains("mqttUsername", PV(""));
     controllerConfigModified |= controllerConfig.putNotContains("mqttPassword", PV(""));
     controllerConfigModified |= controllerConfig.putNotContains("mqttPort", PV(1883));
+    controllerConfigModified |= controllerConfig.putNotContains("statusJson", PV(true));
 }
 
 void setup() {

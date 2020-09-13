@@ -27,7 +27,7 @@ TEST_CASE("Graph Controller against simulated oven", "[GRAPH][.]") {
 
     std::cout << "time,Temperature,setPoint,fan,lastError,change\n";
 
-    uint32_t maxTime = 7200;
+    uint32_t maxTime = 3000;
 
     for (uint32_t seconds = 0; seconds < maxTime; seconds++) {
         millisStubbed = seconds * 1000;
