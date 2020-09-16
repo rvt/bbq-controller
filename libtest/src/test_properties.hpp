@@ -48,6 +48,14 @@ TEST_CASE("Scenario Properties", "[properties]") {
         REQUIRE_THAT((const char*)properties.get("charValue"), Equals("string value"));
     }
 
+    SECTION("Should keep type") {
+        Stream streamFirst("floatValue=F-12.6\n");
+        deserializeProperties<32>(streamFirst, properties);
+        Stream streamSecond("floatValue=S22.8\n");
+        deserializeProperties<32>(streamSecond, properties);
+        REQUIRE((float)properties.get("floatValue") == Approx(22.8));
+    }
+
     SECTION("Should read without new line termination") {
         Stream stream("longValue=L689876");
         deserializeProperties<32>(stream, properties);

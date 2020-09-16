@@ -155,7 +155,7 @@ To change the start % issue the following command:
 
 topic: ```BBQ/<your device>/setup```
 
-value: ```fStartPWM=F50``` (no range checking done, ensure it´s >0 and <100)
+value: ```fStartPWM=L50``` (no range checking done, ensure it´s >0 and <100)
 
 This means that if the controller range is mapped from 0..100% to PWM range 50%..100%,
 thus 1% required results in 50.5% PWM to the fan.

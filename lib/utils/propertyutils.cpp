@@ -8,8 +8,6 @@
 #include <stdio.h>
 #include <cstring>
 
-static PropertyValue emptyProperty("0");
-
 PropertyValue::PropertyValue(int32_t p_long) : m_long{p_long}, m_type{Type::LONG} {
 }
 PropertyValue::PropertyValue(const char* p_char) : m_string{p_char}, m_type{Type::STRING} {
@@ -20,7 +18,8 @@ PropertyValue::PropertyValue(float p_float) : m_float{p_float}, m_type{Type::FLO
 }
 PropertyValue::PropertyValue(bool p_bool) : m_bool{p_bool}, m_type{Type::BOOL} {
 }
-
+PropertyValue::PropertyValue() : m_type{Type::EMPTY} {
+}
 PropertyValue::~PropertyValue() {
     destroy();
 }
@@ -61,6 +60,9 @@ void PropertyValue::copy(const PropertyValue& value) {
 
         case Type::STRING:
             new (&m_string) auto(value.m_string);
+            break;
+
+        case Type::EMPTY:
             break;
     }
 
@@ -171,6 +173,27 @@ bool PropertyValue::asBool() const {
     }
 }
 
+PropertyValue::Type PropertyValue::type() const {
+    return m_type;
+}
+
+static PropertyValue::Type charToType(char dataType) {
+    switch (dataType) {
+        case 'B':
+            return PropertyValue::Type::BOOL;
+        case 'L':
+            return PropertyValue::Type::LONG;
+        case 'S':
+            return PropertyValue::Type::STRING;
+        case 'F':
+            return PropertyValue::Type::FLOAT;
+        default:
+            return PropertyValue::Type::EMPTY;
+            break;
+    }
+}
+
+
 //////////////////////////////////////////////////////////////////
 
 
@@ -212,7 +235,8 @@ const PropertyValue& Properties::get(const std::string& p_entry) const {
     if (m_type.find(p_entry) != m_type.end()) {
         return m_type.at(p_entry);
     } else {
-        return emptyProperty;
+        static auto pv = PropertyValue();
+        return pv;
     }
 }
 
@@ -269,6 +293,9 @@ void Properties::serializeProperties(char* v, size_t desiredCapacity, Stream& de
             case PropertyValue::Type::STRING:
                 snprintf(v, desiredCapacity, "%s=%c%s", it->first.c_str(), 'S', (const char*)it->second);
                 break;
+            case PropertyValue::Type::EMPTY:
+                // Not found propery type
+                break;
         }
 
         device.print(v);
@@ -288,25 +315,31 @@ void Properties::deserializeProperties(char* buffer, size_t desiredCapacity, Str
                 *buffPtr = 0; // null terminate after variable name
                 buffPtr = getNextNonSpaceChar(++buffPtr);
                 // Data type of this variable
-                char dataType = *buffPtr;
+                PropertyValue::Type dataType = charToType(*buffPtr);
                 // trim variable name and variable
                 char* variableName = stripWS_LT(buffer);
                 char* variableValue = stripWS_LT(++buffPtr);
 
+                // If the entry already exists, we must ensure type is the same
+                PropertyValue::Type currentType = get(variableName).type();
+                if (currentType!=PropertyValue::Type::EMPTY) {
+                    dataType = currentType;                
+                }
+
                 switch (dataType) {
-                    case 'B':
+                    case PropertyValue::Type::BOOL:
                         put(variableName, PropertyValue::boolProperty(variableValue));
                         break;
 
-                    case 'L':
+                    case PropertyValue::Type::LONG:
                         put(variableName, PropertyValue::longProperty(variableValue));
                         break;
 
-                    case 'S':
+                    case PropertyValue::Type::STRING:
                         put(variableName, PropertyValue(variableValue));
                         break;
 
-                    case 'F':
+                    case PropertyValue::Type::FLOAT:
                         put(variableName, PropertyValue::floatProperty(variableValue));
                         break;
 

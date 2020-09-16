@@ -13,20 +13,22 @@ private:
         float m_float;
         std::string m_string;
         bool m_bool;
-    };
+    };    
+    
+    friend class Properties;
 
+public:
     enum Type {
         LONG,
         FLOAT,
         STRING,
-        BOOL
+        BOOL,
+        EMPTY
     } m_type;
-    friend class Properties;
 
-public:
     friend void serializeProperties(char* v, std::size_t desiredCapacity, Stream& device, const Properties& p);
 
-    explicit PropertyValue() = delete;
+    explicit PropertyValue();
     explicit PropertyValue(int32_t p_long);
     explicit PropertyValue(const char* p_char);
     explicit PropertyValue(const std::string& p_string);
@@ -52,6 +54,9 @@ public:
     bool asBool() const;
     float asFloat() const;
     long asLong() const;
+
+    Type type() const;
+    static Type charToType(char type);
 
     //////////////////////////////////////////////////////////////////
 
