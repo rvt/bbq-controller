@@ -177,7 +177,7 @@ bool loadConfig(const char* filename, Properties& properties) {
                 Serial.print(F("Loading config : "));
                 Serial.println(filename);
                 deserializeProperties<32>(configFile, properties);
-                serializeProperties<32>(Serial, properties);
+                // serializeProperties<32>(Serial, properties);
             }
 
             configFile.close();
@@ -209,7 +209,7 @@ bool saveConfig(const char* filename, Properties& properties) {
             Serial.print(F("Saving config : "));
             Serial.println(filename);
             serializeProperties<32>(configFile, properties);
-            serializeProperties<32>(Serial, properties);
+            // serializeProperties<32>(Serial, properties);
             ret = true;
         } else {
             Serial.print(F("Failed to write file"));
