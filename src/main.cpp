@@ -53,7 +53,7 @@ extern "C" {
 #include <settings.h>
 
 #include <SPI.h> // Include for harware SPI
-#include <Wire.h> 
+#include <Wire.h>
 #include <max31855sensor.h>
 #include <max31865sensor.h>
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient/releases/tag/v2.6
@@ -209,7 +209,7 @@ bool saveConfig(const char* filename, Properties& properties) {
             Serial.print(F("Saving config : "));
             Serial.println(filename);
             serializeProperties<32>(configFile, properties);
-            // serializeProperties<32>(Serial, properties);
+            //serializeProperties<32>(Serial, properties);
             ret = true;
         } else {
             Serial.print(F("Failed to write file"));
@@ -233,62 +233,44 @@ bool saveConfig(const char* filename, Properties& properties) {
 * f1 = Speed of fan 1
 * lo = Lid open alert
 * lc = Low charcoal alert
+* ft = Type of ventilator
 */
 void publishToMQTT(const char* topic, const char* payload);
 
-void publishStatusToMqttLine() {
-
-    auto format = "to=%.2f t2=%.2f sp=%.2f f1=%.2f lo=%i lc=%i f1o=%.1f";
-    char buffer[(4 + 6) * 6 + 16]; // 10 characters per item times extra items to be sure
-    sprintf(buffer, format,
-            temperatureSensor1->get(),
-            temperatureSensor2->get(),
-            bbqController->setPoint(),
-            ventilator1->speed(),
-            false, // bbqController->lidOpen(),
-            bbqController->lowCharcoal(),
-            ventilator1->speedOverride()
-           );
-
-    // Quick hack to only update when data actually changed
-    uint16_t thisCrc = crc16((uint8_t*)buffer, std::strlen(buffer));
-
-    if (thisCrc != lastMeasurementCRC) {
-        publishToMQTT("status", buffer);
-    }
-
-    lastMeasurementCRC = thisCrc;
-}
-
-void publishStatusToMqttJson() {
-
-    auto format = "{\"to\":%.2f,\"t2\":%.2f,\"sp\":%.2f,\"f1\":%.2f,\"lo\":%i,\"lc\":%i,\"f1o\":%.1f}";
-    char buffer[(4 + 6) * 6 + 16]; // 10 characters per item times extra items to be sure
-    sprintf(buffer, format,
-            temperatureSensor1->get(),
-            temperatureSensor2->get(),
-            bbqController->setPoint(),
-            ventilator1->speed(),
-            false, // bbqController->lidOpen(),
-            bbqController->lowCharcoal(),
-            ventilator1->speedOverride()
-           );
-
-    // Quick hack to only update when data actually changed
-    uint16_t thisCrc = crc16((uint8_t*)buffer, std::strlen(buffer));
-
-    if (thisCrc != lastMeasurementCRC) {
-        publishToMQTT("status", buffer);
-    }
-
-    lastMeasurementCRC = thisCrc;
-}
-
 void publishStatusToMqtt() {
+    char* format;
+    char* buffer;
+
+    // Can we do better than this?
     if (controllerConfig.get("statusJson")) {
-        publishStatusToMqttJson();
+        static char f[] = "{\"to\":%.2f,\"t2\":%.2f,\"sp\":%.2f,\"f1\":%.2f,\"lo\":%i,\"lc\":%i,\"f1o\":%.1f,\"ft\":%i}";
+        static char b[sizeof(f) + 3 * 8 + 10]; // 2 bytes per extra item + 10 extra
+        format = f;
+        buffer = b;
     } else {
-        publishStatusToMqttLine();
+        static char f[] = "to=%.2f t2=%.2f sp=%.2f f1=%.2f lo=%i lc=%i f1o=%.1f ft=%i";
+        static char b[sizeof(f) + 3 * 8 + 10]; // 2 bytes per extra item + 10 extra
+        format = f;
+        buffer = b;
+    }
+
+    sprintf(buffer, format,
+            temperatureSensor1->get(),
+            temperatureSensor2->get(),
+            bbqController->setPoint(),
+            ventilator1->speed(),
+            false, // bbqController->lidOpen(),
+            bbqController->lowCharcoal(),
+            ventilator1->speedOverride(),
+            (int16_t)controllerConfig.get("fanType")
+           );
+
+    // Quick hack to only update when data actually changed
+    uint16_t thisCrc = crc16((uint8_t*)buffer, std::strlen(buffer));
+
+    if (thisCrc != lastMeasurementCRC) {
+        publishToMQTT("status", buffer);
+        lastMeasurementCRC = thisCrc;
     }
 }
 
@@ -315,6 +297,7 @@ void publishToMQTT(const char* topic, const char* payload) {
 /**
  * Handle incomming MQTT requests
  */
+void setupIOHardware();
 void handleCmd(const char* topic, const char* p_payload) {
     auto topicPos = topic + strlen(controllerConfig.get("mqttBaseTopic"));
     Serial.print(F("Handle command : "));
@@ -339,10 +322,16 @@ void handleCmd(const char* topic, const char* p_payload) {
 
             // Fan On/Off controller duty cycle
             if (std::strcmp(values.key(), "ood") == 0) {
-                int32_t v = values;
-                v = between(v, (int32_t)5000, (int32_t)120000);
+                int32_t v = between((int32_t)values, (int32_t)5000, (int32_t)120000);
                 controllerConfig.put("fOnOffDuty", PV(v));
-                //ventilator1.reset(new OnOffVentilator(FAN1_PIN, (int32_t)controllerConfig.get("fOnOffDuty")));
+                controllerConfigModified = true;
+            }
+
+            if (std::strcmp(values.key(), "ft") == 0) {
+                int32_t v = between((int32_t)values, 0, 1);
+                controllerConfig.put("fanType", PV(v));
+                controllerConfigModified = true;
+                setupIOHardware();
             }
 
             // Lid open fan speed
@@ -380,11 +369,13 @@ void handleCmd(const char* topic, const char* p_payload) {
         bbqController->init();
     }
 
-    if (std::strstr(topicPos, "/setup") != nullptr) {
+    if (std::strstr(topicPos, "/controllerConfig") != nullptr) {
+        Serial.println("controllerConfig received");
         StringStream stream;
         stream.print(payloadBuffer);
         deserializeProperties<32>(stream, controllerConfig);
-        controllerConfigModified=true;
+        controllerConfigModified = true;
+        setupIOHardware();
     }
 
     if (strstr(topicPos, "/reset") != nullptr) {
@@ -436,7 +427,6 @@ void setupMQTT() {
 ///////////////////////////////////////////////////////////////////////////
 //  IOHardware
 ///////////////////////////////////////////////////////////////////////////
-
 void setupIOHardware() {
     // Sensor 2 is generally used to measure the temperature of the pit itself
     auto sensor2 = new Adafruit_MAX31855(SPI_CLK_PIN, SPI_MAX31855_CS_PIN, SPI_SDO_PIN);
@@ -449,32 +439,34 @@ void setupIOHardware() {
     sensor1->begin(MAX31865_3WIRE);
     temperatureSensor1.reset(sensor1);
 
+    // Get the old fan so we can copy it´s settings
+    std::shared_ptr<Ventilator> oldFan = ventilator1;
+    if ((int16_t)controllerConfig.get("fanType") == 0) {
+        //ventilator1.reset(new StefansPWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));
+        ventilator1.reset(new PWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));        
+    } else {
+        ventilator1.reset(new OnOffVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fOnOffDuty")));
+    }
+    if (oldFan.get() != nullptr) {
+        ventilator1->speedOverride(oldFan->speedOverride());
+        ventilator1->setOn(oldFan->isOn());
+    }
 
-    //ventilator1.reset(new StefansPWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));
-#if defined(PWM_FAN)
-    ventilator1.reset(new PWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));
-#elif defined(ONOFF_FAN)
-    ventilator1.reset(new OnOffVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fOnOffDuty")));
-#endif
     digitalKnob.init();
 #if defined(TTG_T_DISPLAY)
     rotary1.init();
     rotary2.init();
 #endif
+
+    bbqController.reset(new BBQFanOnly(temperatureSensor1, ventilator1));
+    bbqController->init();
+    bbqController->setPoint(bbqConfig.get("setPoint"));
 }
 
 ///////////////////////////////////////////////////////////////////////////
 //  BBQT Controller
 ///////////////////////////////////////////////////////////////////////////
 
-/**
- * Create the bbqController with required support hardware
- */
-void setupBBQController() {
-    bbqController.reset(new BBQFanOnly(temperatureSensor1, ventilator1));
-    bbqController->init();
-    bbqController->setPoint(bbqConfig.get("setPoint"));
-}
 
 ///////////////////////////////////////////////////////////////////////////
 //  WiFi
@@ -710,6 +702,7 @@ void setupDefaults() {
 
     bbqConfigModified |= bbqConfig.putNotContains("setPoint", PV(20.f));
 
+    controllerConfigModified |= controllerConfig.putNotContains("fanType", PV(0));
     controllerConfigModified |= controllerConfig.putNotContains("fOnOffDuty", PV(30 * 1000));
     controllerConfigModified |= controllerConfig.putNotContains("fStartPWM", PV(50));
 
@@ -744,7 +737,6 @@ void setup() {
     setupDefaults();
 
     setupIOHardware();
-    setupBBQController();
     displayController->init();
     displayController->handle();
     setupMQTT();

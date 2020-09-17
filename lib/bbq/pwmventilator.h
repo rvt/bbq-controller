@@ -17,6 +17,9 @@ public:
     PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart);
     PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart, uint8_t p_pwmChannel);
     PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart, uint8_t m_pwmMinimum, uint8_t p_pwmChannel);
+
+    virtual ~PWMVentilator();
+
 private:
     virtual void setVentilator(float dutyCycle);
     virtual void handle(const uint32_t millis) {};

@@ -16,7 +16,6 @@
 #include <FuzzyIO.h>
 #include <FuzzySet.h>
 #include <FuzzyRuleAntecedent.h>
-
 #include <cmath>
 
 #define TEMP_ERROR_INPUT 1

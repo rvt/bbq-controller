@@ -50,12 +50,18 @@ PWMVentilator::PWMVentilator(uint8_t p_pin, uint8_t p_pwmStart, uint8_t p_pwmMin
 #endif
 }
 
+PWMVentilator::~PWMVentilator() {
+#if defined(ESP32)
+    ledcDetachPin(m_pin);
+#endif
+}
+
 
 void PWMVentilator::setVentilator(float dutyCycle) {
     uint16_t pwmValue;
     bool doWait = false;
 
-    dutyCycle = between(dutyCycle, 0.f, 200.f);
+    dutyCycle = between(dutyCycle, 0.f, 100.f);
 
     // any speed below 1 is considered off
     if (dutyCycle >= 1.f && m_prevPwmValue < 1.0f) {

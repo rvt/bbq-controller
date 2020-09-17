@@ -181,12 +181,16 @@ static PropertyValue::Type charToType(char dataType) {
     switch (dataType) {
         case 'B':
             return PropertyValue::Type::BOOL;
+
         case 'L':
             return PropertyValue::Type::LONG;
+
         case 'S':
             return PropertyValue::Type::STRING;
+
         case 'F':
             return PropertyValue::Type::FLOAT;
+
         default:
             return PropertyValue::Type::EMPTY;
             break;
@@ -293,6 +297,7 @@ void Properties::serializeProperties(char* v, size_t desiredCapacity, Stream& de
             case PropertyValue::Type::STRING:
                 snprintf(v, desiredCapacity, "%s=%c%s", it->first.c_str(), 'S', (const char*)it->second);
                 break;
+
             case PropertyValue::Type::EMPTY:
                 // Not found propery type
                 break;
@@ -322,8 +327,9 @@ void Properties::deserializeProperties(char* buffer, size_t desiredCapacity, Str
 
                 // If the entry already exists, we must ensure type is the same
                 PropertyValue::Type currentType = get(variableName).type();
-                if (currentType!=PropertyValue::Type::EMPTY) {
-                    dataType = currentType;                
+
+                if (currentType != PropertyValue::Type::EMPTY) {
+                    dataType = currentType;
                 }
 
                 switch (dataType) {

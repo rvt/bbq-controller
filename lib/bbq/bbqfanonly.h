@@ -56,7 +56,7 @@ private:
     float m_setPoint;        // Setpoint
     BBQFanOnlyConfig m_config;
     long m_periodStartMillis;
-    std::array < float, UPDATES_PER_SECOND * TEMPERATUR_DIFFERENCE_OVER_SEC + 1 > m_tempStore;
+    std::array < float, UPDATES_PER_SECOND* TEMPERATUR_DIFFERENCE_OVER_SEC + 1 > m_tempStore;
 public:
     BBQFanOnly(std::shared_ptr<TemperatureSensor> pTempSensor,
                std::shared_ptr<Ventilator> pFan);

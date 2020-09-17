@@ -13,8 +13,8 @@ private:
         float m_float;
         std::string m_string;
         bool m_bool;
-    };    
-    
+    };
+
     friend class Properties;
 
 public:

@@ -110,13 +110,14 @@ Status messages are send to an MQTT broker each time any of the following variab
 | f1o  | float | Ventilator 1 speed override  | -1..100  | %  | When set > -1 it´s in override mode |
 | lo   | bool | Lid Open detection  | 0 or 1  | 1 When lid open is detected  |
 | lc   | bool | Low Charcoal detection  | 0 or 1  | 1 When low charcoal is detected |
+| ft   | long | Type of fan PWM or OnOff  | 0 or 1  | 0 for PWM 1 for OnOff |
 
 Example message:
-```to=130.5 t2=60.2 sp=130.0 f1=25 lo=0 lc=0 f1o=-1```
+```to=130.5 t2=60.2 sp=130.0 f1=25 lo=0 lc=0 f1o=-1 ft=1```
 
 __Note: To switch to JSON outout issue the following MQTT command__
 
-topic: ```BBQ/<your device>/setup```
+topic: ```BBQ/<your device>/controllerConfig```
 
 value: ```statusJson=B1```
 
@@ -141,6 +142,7 @@ The controller uses a single topic to configure the behavior.
 | tem  | float,float, float,float | Fuzzy set for medium temperature error |  0-XX | 0.0,15.0, 15.0,30.0 | Celsius | |
 | teh  | float,float, float,float | Fuzzy set for high temperature error |  0-XX | 15.0,200.0, 200.0,200.0 | Celsius | |
 | tcf  | float,float, float,float | Fuzzy set for temperature drop detection |  0-XX | 10.0,20.0, 20.0,30.0 | Celsius | |
+| ft | long | 0 for PWM, 1 for OnOff ventilator type | 0,1 | | |
 
 Example messages to ```BBQ/config```:
 
@@ -153,12 +155,24 @@ Example messages to ```BBQ/config```:
 Ventilators controlled by PWM do have an issue that they don´t run very well on lower ranges, or they won´t start up well.
 To change the start % issue the following command:
 
-topic: ```BBQ/<your device>/setup```
+topic: ```BBQ/<your device>/controllerConfig```
 
 value: ```fStartPWM=L50``` (no range checking done, ensure it´s >0 and <100)
 
 This means that if the controller range is mapped from 0..100% to PWM range 50%..100%,
 thus 1% required results in 50.5% PWM to the fan.
+
+### Setup type of Ventilator
+
+Not all ventilator can be controller well with PWM, this is why we can also use
+a On/Off type fan. Default duty cycle is 30 seconds but can be changed with ood command.
+
+topic: ```BBQ/<your device>/controllerConfig```
+
+value: ```fanType=L1``` Set type of fan to On/Off
+
+value: ```fanType=L0``` Set type of fan to PWM (25Khz for ESP32)
+
 
 ## Hardware ESP8266 needed (under construction) please ask if you need any clarification!
 
