@@ -62,9 +62,6 @@ Flash: [=======   ]  71.7% (used 545976 bytes from 761840 bytes)
 To upload to your wemos device run the following command (OSX):
 ```platformio run --target upload -e wemos --upload-port /dev/cu.SLAB_USBtoUART```
 
-Currently the system is set for *PWM* ventilator control. If you need ON/OFF ventilator control you can edit platformio.ini and set -DONOFF_FAN=1. (With enough support we can make thos configurable)
-The default duty cycle for *ON OFF* van control is 30 seconds.
-
 For other compiler options check config.h for other options. When time permits I can make them into more options that can be set of MQTT.
 
 # Configuration
@@ -150,18 +147,6 @@ Example messages to ```BBQ/config```:
 * ```f1o=55``` Override fan speed to 55%
 * ```f1o=-1 sp=180.0``` Enable auto mode and set desired temp to 180Celsius in one configuration line
 
-### PWM minimal speed
-
-Ventilators controlled by PWM do have an issue that they don´t run very well on lower ranges, or they won´t start up well.
-To change the start % issue the following command:
-
-topic: ```BBQ/<your device>/controllerConfig```
-
-value: ```fStartPWM=L50``` (no range checking done, ensure it´s >0 and <100)
-
-This means that if the controller range is mapped from 0..100% to PWM range 50%..100%,
-thus 1% required results in 50.5% PWM to the fan.
-
 ### Setup type of Ventilator
 
 Not all ventilator can be controller well with PWM, this is why we can also use
@@ -169,9 +154,55 @@ a On/Off type fan. Default duty cycle is 30 seconds but can be changed with ood 
 
 topic: ```BBQ/<your device>/controllerConfig```
 
-value: ```fanType=L1``` Set type of fan to On/Off
+value: ```fan1Type=L1``` Set type of fan to On/Off
 
-value: ```fanType=L0``` Set type of fan to PWM (25Khz for ESP32)
+value: ```fan1Type=L0``` Set type of fan to PWM (25Khz for ESP32)
+
+### OnOff type duty cycle
+
+Set´s the duty cycle in ms of the OnOff fan type 15.000 to 30.000 seems to be a good time
+
+topic: ```BBQ/<your device>/controllerConfig```
+
+value: ```fan1DutyCycle=L25000``` (no range checking done, ensure it´s >0 )
+
+### PWM minimal speed
+
+Ventilators controlled by PWM do have an issue that they don´t run very well on lower ranges, or they won´t start up well.
+To change the start % issue the following command:
+
+topic: ```BBQ/<your device>/controllerConfig```
+
+value: ```fan1Start=L50``` (no range checking done, ensure it´s >0 and <100)
+
+This means that if the controller range is mapped from 0..100% to PWM range 50%..100%,
+thus 1% required results in 50.5% PWM to the fan.
+
+## Setting up temperature sensors
+
+Temperature sensor 1 is always connected to the BBQ Controller but you can select the type of sensor.
+Temparature sensor 2 is the sensor to be used as your free probe.
+
+Example: First sensor set as MAX31856 while the other is used for NTC
+
+topic: ```BBQ/<your device>/controllerConfig```
+
+value: ```sensor1Type=0``` // 0 == MAX31856 1 == MAX31855 2 = NTC
+
+value: ```sensor2Type=2``` // 0 == MAX31856 1 == MAX31855 2 = NTC
+
+### Setting up NTC sensor
+
+For both sensors we use the steinhart calculations to correct for non-linearity of the NTC sensor.
+You can setup R, c1, c2, c3 and the potential offset.
+
+[Temperature-Probe-Cooking](https://www.instructables.com/id/ESP32-NTP-Temperature-Probe-Cooking-Thermometer-Wi/)
+
+topic: ```BBQ/<your device>/controllerConfig```
+
+value: ```NTC1Stein=Sr1=10000, c1=-.0050990868, c2=0.0011737742, c3=-0.0000031896162 o=0``` 
+
+value: ```NTC1Pin=L36``` // Use pin 36 of the esp32 as analog 1 for NTC sensor 1
 
 
 ## Hardware ESP8266 needed (under construction) please ask if you need any clarification!

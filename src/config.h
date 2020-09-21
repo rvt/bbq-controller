@@ -79,7 +79,3 @@ constexpr float RREF_OVEN = 430.0;
 // The 'nominal' 0-degrees-C resistance of the sensor
 // 100.0 for PT100, 1000.0 for PT1000
 constexpr float RNOMINAL_OVEN = 100.0;
-
-// Period of ON/OF fan in milliseconds
-constexpr uint32_t ON_OFF_FAN_PERIOD = (30 * 1000);
-

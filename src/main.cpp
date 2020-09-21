@@ -56,6 +56,7 @@ extern "C" {
 #include <Wire.h>
 #include <max31855sensor.h>
 #include <max31865sensor.h>
+#include <NTCSensor.h>
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient/releases/tag/v2.6
 
 #include <config.h>
@@ -77,6 +78,7 @@ uint32_t counter50TimesSec = 1;
 // Number calls per second we will be handling
 #define FRAMES_PER_SECOND        50
 #define EFFECT_PERIOD_CALLBACK   (1000 / FRAMES_PER_SECOND)
+constexpr uint8_t LINE_BUFFER_SIZE = 64;
 
 // Keep track when the last time we ran the effect state changes
 uint32_t effectPeriodStartMillis = 0;
@@ -176,8 +178,8 @@ bool loadConfig(const char* filename, Properties& properties) {
             if (configFile) {
                 Serial.print(F("Loading config : "));
                 Serial.println(filename);
-                deserializeProperties<32>(configFile, properties);
-                // serializeProperties<32>(Serial, properties);
+                deserializeProperties<LINE_BUFFER_SIZE>(configFile, properties);
+                // serializeProperties<LINE_BUFFER_SIZE>(Serial, properties);
             }
 
             configFile.close();
@@ -208,8 +210,8 @@ bool saveConfig(const char* filename, Properties& properties) {
         if (configFile) {
             Serial.print(F("Saving config : "));
             Serial.println(filename);
-            serializeProperties<32>(configFile, properties);
-            //serializeProperties<32>(Serial, properties);
+            serializeProperties<LINE_BUFFER_SIZE>(configFile, properties);
+            // serializeProperties<LINE_BUFFER_SIZE>(Serial, properties);
             ret = true;
         } else {
             Serial.print(F("Failed to write file"));
@@ -262,7 +264,7 @@ void publishStatusToMqtt() {
             false, // bbqController->lidOpen(),
             bbqController->lowCharcoal(),
             ventilator1->speedOverride(),
-            (int16_t)controllerConfig.get("fanType")
+            (int16_t)controllerConfig.get("fan1Type")
            );
 
     // Quick hack to only update when data actually changed
@@ -323,13 +325,13 @@ void handleCmd(const char* topic, const char* p_payload) {
             // Fan On/Off controller duty cycle
             if (std::strcmp(values.key(), "ood") == 0) {
                 int32_t v = between((int32_t)values, (int32_t)5000, (int32_t)120000);
-                controllerConfig.put("fOnOffDuty", PV(v));
+                controllerConfig.put("fanOnOffDutyCycle", PV(v));
                 controllerConfigModified = true;
             }
 
             if (std::strcmp(values.key(), "ft") == 0) {
                 int32_t v = between((int32_t)values, 0, 1);
-                controllerConfig.put("fanType", PV(v));
+                controllerConfig.put("fan1Type", PV(v));
                 controllerConfigModified = true;
                 setupIOHardware();
             }
@@ -373,7 +375,7 @@ void handleCmd(const char* topic, const char* p_payload) {
         Serial.println("controllerConfig received");
         StringStream stream;
         stream.print(payloadBuffer);
-        deserializeProperties<32>(stream, controllerConfig);
+        deserializeProperties<LINE_BUFFER_SIZE>(stream, controllerConfig);
         controllerConfigModified = true;
         setupIOHardware();
     }
@@ -427,31 +429,78 @@ void setupMQTT() {
 ///////////////////////////////////////////////////////////////////////////
 //  IOHardware
 ///////////////////////////////////////////////////////////////////////////
-void setupIOHardware() {
-    // Sensor 2 is generally used to measure the temperature of the pit itself
-    auto sensor2 = new Adafruit_MAX31855(SPI_CLK_PIN, SPI_MAX31855_CS_PIN, SPI_SDO_PIN);
-    sensor2->begin();
-    temperatureSensor2.reset(new MAX31855sensor(sensor2));
-    //temperatureSensor2.reset(new DummyTemperatureSensor());
 
-    // Sensor 1 is generally used for the temperature of the bit
-    auto sensor1 = new MAX31865sensor(SPI_MAX31865_CS_PIN, SPI_SDI_PIN, SPI_SDO_PIN, SPI_CLK_PIN, RNOMINAL_OVEN, RREF_OVEN);
-    sensor1->begin(MAX31865_3WIRE);
-    temperatureSensor1.reset(sensor1);
-
+Ventilator* createVentilator(uint8_t num) {
     // Get the old fan so we can copy it´s settings
     std::shared_ptr<Ventilator> oldFan = ventilator1;
-    if ((int16_t)controllerConfig.get("fanType") == 0) {
-        //ventilator1.reset(new StefansPWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));
-        ventilator1.reset(new PWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fStartPWM")));        
+
+    Ventilator* ventilator;
+    if (num == 0) {
+        //ventilator1.reset(new StefansPWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fan1Start")));
+        ventilator = new PWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fan1Start"));
     } else {
-        ventilator1.reset(new OnOffVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fOnOffDuty")));
-    }
-    if (oldFan.get() != nullptr) {
-        ventilator1->speedOverride(oldFan->speedOverride());
-        ventilator1->setOn(oldFan->isOn());
+        ventilator = new OnOffVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fanOnOffDutyCycle"));
     }
 
+    if (oldFan.get() != nullptr) {
+        ventilator->speedOverride(oldFan->speedOverride());
+        ventilator->setOn(oldFan->isOn());
+    }
+
+    return ventilator;
+}
+
+void getRc1c2c3(const char* buffer, float* r, float* c1, float* c2, float* c3, float* o) {
+    char buf[64];
+    strncpy(buf, buffer, strlen(buf));
+    OptParser::get(buf, ',', [&r, &c1, &c2, &c3, &o](OptValue value) {
+        if (std::strcmp(value.key(), "r") == 0) {
+            *r = (float)value;
+        } else if (std::strcmp(value.key(), "c1") == 0) {
+            *c1 = (float)value;
+        } else if (std::strcmp(value.key(), "c2") == 0) {
+            *c2 = (float)value;
+        } else if (std::strcmp(value.key(), "c3") == 0) {
+            *c3 = (float)value;
+        } else if (std::strcmp(value.key(), "o") == 0) {
+            *o = (float)value;
+        }
+    });
+}
+
+TemperatureSensor* createTemperatureSensor(uint8_t num) {
+    switch (num) {
+        case 0: {
+            MAX31865sensor* sensor1 = new MAX31865sensor(SPI_MAX31865_CS_PIN, SPI_SDI_PIN, SPI_SDO_PIN, SPI_CLK_PIN, RNOMINAL_OVEN, RREF_OVEN);
+            sensor1->begin(MAX31865_3WIRE);
+            return sensor1;
+            break;
+        }
+        case 1: {
+            Adafruit_MAX31855* sensor2 = new Adafruit_MAX31855(SPI_CLK_PIN, SPI_MAX31855_CS_PIN, SPI_SDO_PIN);
+            sensor2->begin();
+            return new MAX31855sensor(sensor2);
+            break;
+        }
+        case 2: {
+            char parameter[16];
+            float r,c1,c2,c3,offset;
+            snprintf(parameter, sizeof(parameter), "NTC%dStein", num);
+            getRc1c2c3(controllerConfig.get(parameter), &r, &c1, &c2, &c3, &offset);
+            snprintf(parameter, sizeof(parameter), "NTC%dPin", num);
+            uint8_t pin = (int16_t)controllerConfig.get(parameter);
+            return new NTCSensor(pin, offset, r, c1, c2, c3);  
+            break;
+        }
+    }
+    return nullptr;
+}
+
+void setupIOHardware() {
+    temperatureSensor2.reset(createTemperatureSensor((int16_t)controllerConfig.get("sensor2Type")));
+    temperatureSensor1.reset(createTemperatureSensor((int16_t)controllerConfig.get("sensor1Type")));
+    ventilator1.reset(createVentilator((int16_t)controllerConfig.get("fan1Type")));
+    
     digitalKnob.init();
 #if defined(TTG_T_DISPLAY)
     rotary1.init();
@@ -702,18 +751,27 @@ void setupDefaults() {
 
     bbqConfigModified |= bbqConfig.putNotContains("setPoint", PV(20.f));
 
-    controllerConfigModified |= controllerConfig.putNotContains("fanType", PV(0));
-    controllerConfigModified |= controllerConfig.putNotContains("fOnOffDuty", PV(30 * 1000));
-    controllerConfigModified |= controllerConfig.putNotContains("fStartPWM", PV(50));
+    controllerConfigModified |= controllerConfig.putNotContains("fan1Type", PV(0)); // 0=PWM 1=OnOff
+    controllerConfigModified |= controllerConfig.putNotContains("fan1DutyCycle", PV(30 * 1000));
+    controllerConfigModified |= controllerConfig.putNotContains("fan1Start", PV(50));
+
+    controllerConfigModified |= controllerConfig.putNotContains("sensor1Type", PV(0)); // 0 == MAX31856 1 == MAX31855 2 = NTC
+    controllerConfigModified |= controllerConfig.putNotContains("sensor2Type", PV(2));
+
+    controllerConfigModified |= controllerConfig.putNotContains("NTC1Pin", PV(36));
+    controllerConfigModified |= controllerConfig.putNotContains("NTC1Stein", PV("r1=10000, c1=-.0050990868, c2=0.0011737742, c3=-0.0000031896162, o=0.0"));
+
+    controllerConfigModified |= controllerConfig.putNotContains("NTC2Pin", PV(36));
+    controllerConfigModified |= controllerConfig.putNotContains("NTC2Stein", PV("r1=10000, c1=-.0050990868, c2=0.0011737742, c3=-0.0000031896162, o=0.0"));
 
     controllerConfigModified |= controllerConfig.putNotContains("mqttClientID", PV(mqttClientID));
-    controllerConfig.put("mqttBaseTopic", PV(mqttBaseTopic));
-    controllerConfig.put("mqttLastWillTopic", PV(mqttLastWillTopic));
     controllerConfigModified |= controllerConfig.putNotContains("mqttServer", PV(""));
     controllerConfigModified |= controllerConfig.putNotContains("mqttUsername", PV(""));
     controllerConfigModified |= controllerConfig.putNotContains("mqttPassword", PV(""));
     controllerConfigModified |= controllerConfig.putNotContains("mqttPort", PV(1883));
     controllerConfigModified |= controllerConfig.putNotContains("statusJson", PV(true));
+    controllerConfig.put("mqttBaseTopic", PV(mqttBaseTopic));
+    controllerConfig.put("mqttLastWillTopic", PV(mqttLastWillTopic));
 }
 
 void setup() {

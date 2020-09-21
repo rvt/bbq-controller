@@ -17,9 +17,9 @@ void MAX31855sensor::handle() {
     uint8_t fault = m_MAX31855->readError();
 
     if (fault != 0) {
-        Serial.print("MAX31855\nFault 0x");
-        Serial.println(fault, HEX);
-        Serial.print(F("Thermocouple error(s): "));
+        // Serial.print("MAX31855\nFault 0x");
+        // Serial.println(fault, HEX);
+        // Serial.print(F("Thermocouple error(s): "));
 
         if (fault & MAX31855_ERR_OC) {
             Serial.print(F("[open circuit] "));
