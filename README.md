@@ -187,9 +187,9 @@ Example: First sensor set as MAX31856 while the other is used for NTC
 
 topic: ```BBQ/<your device>/controllerConfig```
 
-value: ```sensor1Type=0``` // 0 == MAX31856 1 == MAX31855 2 = NTC
+value: ```sensor1Type=L0``` // 0 == MAX31856 1 == MAX31855 2 = NTC
 
-value: ```sensor2Type=2``` // 0 == MAX31856 1 == MAX31855 2 = NTC
+value: ```sensor2Type=L2``` // 0 == MAX31856 1 == MAX31855 2 = NTC
 
 ### Setting up NTC sensor
 
