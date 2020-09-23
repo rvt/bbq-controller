@@ -468,8 +468,8 @@ void getRc1c2c3(const char* buffer, float* r, float* c1, float* c2, float* c3, f
     });
 }
 
-TemperatureSensor* createTemperatureSensor(uint8_t num) {
-    switch (num) {
+TemperatureSensor* createTemperatureSensor(uint8_t sensorNumber, uint8_t sensorType) {
+    switch (sensorType) {
         case 0: {
             MAX31865sensor* sensor1 = new MAX31865sensor(SPI_MAX31865_CS_PIN, SPI_SDI_PIN, SPI_SDO_PIN, SPI_CLK_PIN, RNOMINAL_OVEN, RREF_OVEN);
             sensor1->begin(MAX31865_3WIRE);
@@ -485,9 +485,9 @@ TemperatureSensor* createTemperatureSensor(uint8_t num) {
         case 2: {
             char parameter[16];
             float r,c1,c2,c3,offset;
-            snprintf(parameter, sizeof(parameter), "NTC%dStein", num);
+            snprintf(parameter, sizeof(parameter), "NTC%dStein", sensorNumber);
             getRc1c2c3(controllerConfig.get(parameter), &r, &c1, &c2, &c3, &offset);
-            snprintf(parameter, sizeof(parameter), "NTC%dPin", num);
+            snprintf(parameter, sizeof(parameter), "NTC%dPin", sensorNumber);
             uint8_t pin = (int16_t)controllerConfig.get(parameter);
             return new NTCSensor(pin, offset, r, c1, c2, c3);  
             break;
@@ -497,8 +497,8 @@ TemperatureSensor* createTemperatureSensor(uint8_t num) {
 }
 
 void setupIOHardware() {
-    temperatureSensor2.reset(createTemperatureSensor((int16_t)controllerConfig.get("sensor2Type")));
-    temperatureSensor1.reset(createTemperatureSensor((int16_t)controllerConfig.get("sensor1Type")));
+    temperatureSensor2.reset(createTemperatureSensor(2, (int16_t)controllerConfig.get("sensor2Type")));
+    temperatureSensor1.reset(createTemperatureSensor(1, (int16_t)controllerConfig.get("sensor1Type")));
     ventilator1.reset(createVentilator((int16_t)controllerConfig.get("fan1Type")));
     
     digitalKnob.init();
