@@ -1,5 +1,6 @@
 #include "pwmventilator.h"
 #include <utils.h>
+#include <math.h>
 
 #ifndef UNIT_TEST
 #include <Arduino.h>
@@ -13,7 +14,9 @@ extern "C" void delay(uint16_t);
 #define OUTPUT 0
 #endif
 
-constexpr uint8_t FAN_KICK_TIME = 500;
+// Time in ms we run the fan at FAN_KICK_DUTY when the fan comes out of full stop
+constexpr uint16_t FAN_KICK_TIME = 500;
+constexpr float FAN_KICK_DUTY = 75.0f;
 
 #if defined(ESP8266)
 constexpr uint8_t PWM_RESOLUTION = 8;
@@ -44,8 +47,8 @@ uint8_t pwm_bit_depth_for_frequency(float frequency) {
   return {};
 }
 
-uint32_t pwm_max_duty_for_frequency(uint8_t bit_depth) {
-  return (uint32_t(1) << pwm_bit_depth_for_frequency(PWM_FREQUENCY)) - 1;
+uint32_t pwm_max_duty_for_frequency(uint16_t frequency) {
+  return (uint32_t(1) << pwm_bit_depth_for_frequency(frequency)) - 1;
 }
 
 
@@ -58,7 +61,11 @@ PWMVentilator::PWMVentilator(uint8_t p_pin, uint8_t p_dutyStart, uint8_t p_pwmCh
     m_prevPwmValue(0),
     m_kickTime(0),
     m_isKick(false),
+#if defined(ESP8266)
+    m_maxDuty(PWM_RANGE),
+#elif defined(ESP32)
     m_maxDuty(pwm_max_duty_for_frequency(PWM_FREQUENCY)),
+#endif
     m_dutyStart(p_dutyStart),
     m_pwmChannel(p_pwmChannel)  {
 #if defined(ESP8266)
@@ -90,7 +97,7 @@ void PWMVentilator::setVentilator(float dutyCycle) {
         // When the fan was off and turns on give it a little 'kick'
         // Currently a hack, need to find a better way!
         // The delay should only happen when turning on
-        dutyCycle = 75.0f;
+        dutyCycle = FAN_KICK_DUTY;
         m_kickTime = millis();
         m_isKick = true;
     } else if (dutyCycle < 1.f) {
@@ -100,7 +107,7 @@ void PWMVentilator::setVentilator(float dutyCycle) {
     }
 
     // From here dutyCycle is the 'real' duty cycle, not remapped
-    const float duty_rounded = roundf((dutyCycle / 100.f) * m_maxDuty);
+    const float duty_rounded = round((dutyCycle / 100.f) * m_maxDuty);
     const uint32_t pwmValue = dutyCycle = static_cast<uint32_t>(duty_rounded);    
 
 #if defined(ESP8266)
