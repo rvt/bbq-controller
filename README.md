@@ -156,7 +156,7 @@ topic: ```BBQ/<your device>/controllerConfig```
 
 value: ```fan1Type=L1``` Set type of fan to On/Off
 
-value: ```fan1Type=L0``` Set type of fan to PWM (25Khz for ESP32)
+value: ```fan1Type=L0``` Set type of fan to PWM (19Khz for ESP32)
 
 ### OnOff type duty cycle
 
@@ -176,7 +176,12 @@ topic: ```BBQ/<your device>/controllerConfig```
 value: ```fan1Start=L50``` (no range checking done, ensure it´s >0 and <100)
 
 This means that if the controller range is mapped from 0..100% to PWM range 50%..100%,
-thus 1% required results in 50.5% PWM to the fan.
+thus 1% required results in 50.5% duty cycke to the fan. 
+How to test what value work for you. In the menu turn the fan off and wait untill the fan stops.
+Then in the menu set it to 1%. The fan should startup and slow down again. If it keeps running,
+you found the correct value.
+
+Note: The fan get's 'kicked' for 500ms at 75% duty cycle to get it into motion.
 
 ## Setting up temperature sensors
 
