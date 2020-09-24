@@ -17,7 +17,7 @@ constexpr uint8_t FAN_KICK_TIME = 500;
 
 #if defined(ESP8266)
 constexpr uint8_t PWM_RESOLUTION = 8;
-constexpr uint16_t PWM_RANGE = (1 << PWM_RESOLUTION) - 1;
+constexpr uint16_t PWM_RANGE = (uint16_t(1) << PWM_RESOLUTION) - 1;
 constexpr uint16_t PWM_FREQUENCY = 10000;
 #elif defined(ESP32)
 constexpr uint16_t PWM_FREQUENCY = 19531;
