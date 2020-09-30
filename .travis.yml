@@ -57,4 +57,4 @@ script:
     - cd build
     - cmake ../
     - make
-#    - ./tests
+    - ./tests
