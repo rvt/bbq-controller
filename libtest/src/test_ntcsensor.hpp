@@ -3,7 +3,7 @@
 #include "arduinostubs.hpp"
 
 #include <memory>
-#include <ntcsensor.h>
+#include <NTCSensor.h>
 #include <array>
 
 
