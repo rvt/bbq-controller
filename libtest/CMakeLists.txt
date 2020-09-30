@@ -27,7 +27,7 @@ set(LIB_SOURCES
     ../.pio/libdeps/wemos/opt-parser/src/optparser.cpp
     ../lib/bbq/bbqfanonly.cpp
     ../lib/bbq/pwmventilator.cpp
-    ../lib/bbq/ntcsensor.cpp
+    ../lib/bbq/NTCSensor.cpp
     ../lib/bbq/onoffventilator.cpp
     ../lib/bbq/analogin.cpp
     ../lib/bbq/numericknob.cpp
