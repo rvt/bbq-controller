@@ -6,7 +6,7 @@
 #include <cstring>
 #include <string>
 #include <optparser.h>
-#include <propertyUtils.h>
+#include <propertyutils.h>
 #include <iostream>
 #include <algorithm>
 
