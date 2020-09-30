@@ -26,8 +26,6 @@ public:
         EMPTY
     } m_type;
 
-    friend void serializeProperties(char* v, std::size_t desiredCapacity, Stream& device, const Properties& p);
-
     explicit PropertyValue();
     explicit PropertyValue(int32_t p_long);
     explicit PropertyValue(const char* p_char);
@@ -108,6 +106,8 @@ private:
 
 public:
     template<std::size_t desiredCapacity>
+    friend void serializeProperties(Stream& device, Properties& properties, bool showPassword);
+    template<std::size_t desiredCapacity>
     friend void serializeProperties(Stream& device, Properties& properties);
     template<std::size_t desiredCapacity>
     friend void deserializeProperties(Stream& device, Properties& properties);
@@ -124,16 +124,24 @@ public:
 private:
     char* stripWS_LT(char* str);
     char* getNextNonSpaceChar(char* buffer);
-    void serializeProperties(char* v, size_t desiredCapacity, Stream& device);
+    void serializeProperties(char* v, size_t desiredCapacity, Stream& device, bool showPassword);
     void deserializeProperties(char* buffer, size_t desiredCapacity, Stream& device);
 };
+
+template<std::size_t desiredCapacity>
+void serializeProperties(Stream& device, Properties& p, bool showPassword) {
+    static_assert(desiredCapacity > 0, "Must be > 0");
+    char buffer[desiredCapacity];
+    p.serializeProperties(buffer, desiredCapacity, device, showPassword);
+}
 
 template<std::size_t desiredCapacity>
 void serializeProperties(Stream& device, Properties& p) {
     static_assert(desiredCapacity > 0, "Must be > 0");
     char buffer[desiredCapacity];
-    p.serializeProperties(buffer, desiredCapacity, device);
+    p.serializeProperties(buffer, desiredCapacity, device, false);
 }
+
 
 template<std::size_t desiredCapacity>
 void deserializeProperties(Stream& device, Properties& p) {

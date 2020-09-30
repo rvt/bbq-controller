@@ -6,6 +6,7 @@
 #include <cstring>
 #include <string>
 #include <optparser.h>
+#include <propertyUtils.h>
 #include <iostream>
 #include <algorithm>
 
@@ -85,3 +86,38 @@ inline T between(const T& n, const T& lower, const T& upper) {
 inline float percentmap(float value, float out_max) {
     return value * out_max / 100.f;
 }
+
+template <typename T>
+void getOptValue(const OptValue& value, const char* param,  T& n, const T& lower, const T& upper) {
+    if (std::strcmp(value.key(), param) == 0) {
+        int32_t n = between((int32_t)value, lower, upper);
+    }
+}
+template <typename T>
+bool getOptValue(const OptValue& value, const char* param, T& n) {
+    bool found = false;
+
+    if (std::strcmp(value.key(), param) == 0) {
+        n = (T)value;
+        found = true;
+    }
+
+    return found;
+}
+
+/**
+ * parse a value from a string parameter
+ * eg, it will get n1 from a string like : n=100, n1=200, n3=400
+ */
+template <typename T, std::size_t desiredCapacity>
+bool getStringParameter(const char* value, const char* param, T& n) {
+    static_assert(desiredCapacity > 0, "Must be > 0");
+    char buffer[desiredCapacity];
+    strncpy(buffer, value, desiredCapacity);
+    bool found = false;
+    OptParser::get(buffer, [&n, &param, &found](OptValue value) {
+        found = found || getOptValue(value, param, n);
+    });
+    return found;
+}
+

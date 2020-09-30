@@ -78,7 +78,8 @@ uint32_t counter50TimesSec = 1;
 // Number calls per second we will be handling
 #define FRAMES_PER_SECOND        50
 #define EFFECT_PERIOD_CALLBACK   (1000 / FRAMES_PER_SECOND)
-constexpr uint8_t LINE_BUFFER_SIZE = 64;
+constexpr uint8_t LINE_BUFFER_SIZE = 128;
+constexpr uint8_t PARAMETER_SIZE = 16;
 
 // Keep track when the last time we ran the effect state changes
 uint32_t effectPeriodStartMillis = 0;
@@ -211,7 +212,7 @@ bool saveConfig(const char* filename, Properties& properties) {
             Serial.print(F("Saving config : "));
             Serial.println(filename);
             serializeProperties<LINE_BUFFER_SIZE>(configFile, properties);
-            // serializeProperties<LINE_BUFFER_SIZE>(Serial, properties);
+            serializeProperties<LINE_BUFFER_SIZE>(Serial, properties, false);
             ret = true;
         } else {
             Serial.print(F("Failed to write file"));
@@ -284,7 +285,7 @@ void publishToMQTT(const char* topic, const char* payload) {
         return;
     }
 
-    char buffer[65];
+    char buffer[LINE_BUFFER_SIZE];
     const char* mqttBaseTopic = controllerConfig.get("mqttBaseTopic");
     snprintf(buffer, sizeof(buffer), "%s/%s", mqttBaseTopic, topic);
 
@@ -293,8 +294,6 @@ void publishToMQTT(const char* topic, const char* payload) {
         Serial.println(F("Failed to publish"));
     }
 }
-
-/////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Handle incomming MQTT requests
@@ -308,7 +307,7 @@ void handleCmd(const char* topic, const char* p_payload) {
     Serial.println(p_payload);
 
     // Look for a temperature setPoint topic
-    char payloadBuffer[32];
+    char payloadBuffer[LINE_BUFFER_SIZE];
     strncpy(payloadBuffer, p_payload, sizeof(payloadBuffer));
 
     if (std::strstr(topicPos, "/config") != nullptr) {
@@ -318,9 +317,7 @@ void handleCmd(const char* topic, const char* p_payload) {
         OptParser::get(payloadBuffer, [&config, &temperature](OptValue values) {
 
             // Copy setpoint value
-            if (std::strcmp(values.key(), "sp") == 0) {
-                temperature = values;
-            }
+            getOptValue<float>(values, "sp", temperature);
 
             // Fan On/Off controller duty cycle
             if (std::strcmp(values.key(), "ood") == 0) {
@@ -365,18 +362,89 @@ void handleCmd(const char* topic, const char* p_payload) {
             bbqConfigModified = true;
         }
 
-        Serial.println("Config received");
+        Serial.println(F("Config received"));
         // Update the bbqController with new values
         bbqController->config(config);
         bbqController->init();
     }
 
     if (std::strstr(topicPos, "/controllerConfig") != nullptr) {
-        Serial.println("controllerConfig received");
+        Serial.println(F("controllerConfig received"));
         StringStream stream;
         stream.print(payloadBuffer);
         deserializeProperties<LINE_BUFFER_SIZE>(stream, controllerConfig);
         controllerConfigModified = true;
+        setupIOHardware();
+    }
+
+    if (std::strstr(topicPos, "/steinhart") != nullptr) {
+        float r = 0.f, r1 = 0.f, r2 = 0.f, r3 = 0.f, t1 = 0.f, t2 = 0.f, t3 = 0.f;
+        int16_t config = 0;
+        int16_t sensorNumber = 0;
+        char buffer[LINE_BUFFER_SIZE];
+        strncpy(buffer, payloadBuffer, LINE_BUFFER_SIZE);
+
+        // Get the sensor number
+        OptParser::get(buffer, [&sensorNumber](OptValue value) {
+            getOptValue(value, "ntc", sensorNumber);
+        });
+
+        sensorNumber = between(sensorNumber, (int16_t)1, (int16_t) 10);
+
+        if (sensorNumber != 0) {
+            Serial.println(F("steinhart received"));
+
+            // Get previous parameters
+            char parameter[PARAMETER_SIZE];
+            snprintf(parameter, sizeof(parameter), "NTC%dSteinCal", sensorNumber);
+            getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "r", r);
+            getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "r1", r1);
+            getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "r2", r2);
+            getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "r3", r3);
+            getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "t1", t1);
+            getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "t2", t2);
+            getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "t3", t3);
+            getStringParameter<int16_t, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "c", config);
+            // Udate from given
+            Serial.println(payloadBuffer);
+            OptParser::get(payloadBuffer, [&r, &config, &r1, &r2, &r3, &t1, &t2, &t3](OptValue value) {
+                // Copy setpoint value
+                bool found = false;
+                found = found || getOptValue(value, "r", r);
+                found = found || getOptValue(value, "r1", r1);
+                found = found || getOptValue(value, "r2", r2);
+                found = found || getOptValue(value, "r3", r3);
+                found = found || getOptValue(value, "t1", t1);
+                found = found || getOptValue(value, "t2", t2);
+                found = found || getOptValue(value, "t3", t3);
+                found = found || getOptValue(value, "c", config);
+                controllerConfigModified = found;
+            });
+
+            // Store given variables
+            char buffer[LINE_BUFFER_SIZE];
+            snprintf(buffer, sizeof(buffer), "c=%i r=%g r1=%g t1=%g r2=%g t2=%g r3=%g t3=%g", config, r, r1, t1, r2, t2, r3, t3);
+            controllerConfig.put(parameter, PV(buffer));
+
+            if ((r != 0.0f && r1 != 0.0f && r2 != 0.0f && r3 != 0.0f) &&
+                (t1 != t2 && t2 != t3 && t1 != t3)) {
+                // Calculate steinart
+                float ka, kb, kc;
+                NTCSensor::calculateSteinhart(r, r1, t1, r2, t2, r3, t3, ka, kb, kc);
+
+                char buffer[LINE_BUFFER_SIZE];
+                snprintf(buffer, sizeof(buffer), "c=%i r=%g ka=%g kb=%g kc=%g", config, r, ka, kb, kc);
+                snprintf(parameter, sizeof(parameter), "NTC%dStein", sensorNumber);
+                controllerConfig.put(parameter, PV(buffer));
+                Serial.println(buffer);
+                setupIOHardware();
+                Serial.print(F("Updated steinhart"));
+            } else {
+                Serial.print(F("Not all steinhart variables known."));
+            }
+
+        }
+
         setupIOHardware();
     }
 
@@ -385,25 +453,6 @@ void handleCmd(const char* topic, const char* p_payload) {
             shouldRestart = millis();
         }
     }
-
-    // Dummy data topic during testing
-    // With ot we can simulate a oven temperature
-    // BBQ/xxxxxx/dummy
-#ifdef DEMO_MODE
-
-    if (strstr(topicPos, TEMPERATURE_DUMMY_TOPIC) != nullptr) {
-        OptParser::get(p_payload, [](OptValue v) {
-            if (strcmp(v.key(), "t1") == 0) {
-                mockedTemp1->set(v);
-            }
-
-            if (strcmp(v.key(), "t2") == 0) {
-                mockedTemp2->set(v);
-            }
-        });
-    }
-
-#endif
 }
 
 /**
@@ -412,7 +461,7 @@ void handleCmd(const char* topic, const char* p_payload) {
 void setupMQTT() {
 
     mqttClient.setCallback([](char* p_topic, byte * p_payload, uint16_t p_length) {
-        char mqttReceiveBuffer[64];
+        char mqttReceiveBuffer[LINE_BUFFER_SIZE];
         //Serial.println(p_topic);
 
         if (p_length >= sizeof(mqttReceiveBuffer)) {
@@ -435,6 +484,7 @@ Ventilator* createVentilator(uint8_t num) {
     std::shared_ptr<Ventilator> oldFan = ventilator1;
 
     Ventilator* ventilator;
+
     if (num == 0) {
         //ventilator1.reset(new StefansPWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fan1Start")));
         ventilator = new PWMVentilator(FAN1_PIN, (int16_t)controllerConfig.get("fan1Start"));
@@ -450,25 +500,9 @@ Ventilator* createVentilator(uint8_t num) {
     return ventilator;
 }
 
-void getRc1c2c3(const char* buffer, float* r, float* c1, float* c2, float* c3, float* o) {
-    char buf[64];
-    strncpy(buf, buffer, strlen(buf));
-    OptParser::get(buf, ',', [&r, &c1, &c2, &c3, &o](OptValue value) {
-        if (std::strcmp(value.key(), "r") == 0) {
-            *r = (float)value;
-        } else if (std::strcmp(value.key(), "c1") == 0) {
-            *c1 = (float)value;
-        } else if (std::strcmp(value.key(), "c2") == 0) {
-            *c2 = (float)value;
-        } else if (std::strcmp(value.key(), "c3") == 0) {
-            *c3 = (float)value;
-        } else if (std::strcmp(value.key(), "o") == 0) {
-            *o = (float)value;
-        }
-    });
-}
-
 TemperatureSensor* createTemperatureSensor(uint8_t sensorNumber, uint8_t sensorType) {
+    sensorNumber = between(sensorNumber, (uint8_t)1, (uint8_t)10);
+
     switch (sensorType) {
         case 0: {
             MAX31865sensor* sensor1 = new MAX31865sensor(SPI_MAX31865_CS_PIN, SPI_SDI_PIN, SPI_SDO_PIN, SPI_CLK_PIN, RNOMINAL_OVEN, RREF_OVEN);
@@ -476,23 +510,33 @@ TemperatureSensor* createTemperatureSensor(uint8_t sensorNumber, uint8_t sensorT
             return sensor1;
             break;
         }
+
         case 1: {
             Adafruit_MAX31855* sensor2 = new Adafruit_MAX31855(SPI_CLK_PIN, SPI_MAX31855_CS_PIN, SPI_SDO_PIN);
             sensor2->begin();
             return new MAX31855sensor(sensor2);
             break;
         }
+
         case 2: {
-            char parameter[16];
-            float r,c1,c2,c3,offset;
+            char parameter[PARAMETER_SIZE];
+            float r, ka, kb, kc;
+            int16_t config;
             snprintf(parameter, sizeof(parameter), "NTC%dStein", sensorNumber);
-            getRc1c2c3(controllerConfig.get(parameter), &r, &c1, &c2, &c3, &offset);
+            getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "r", r);
+            getStringParameter<int16_t, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "c", config);
+            getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "ka", ka);
+            getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "kb", kb);
+            getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "kc", kc);
+
             snprintf(parameter, sizeof(parameter), "NTC%dPin", sensorNumber);
             uint8_t pin = (int16_t)controllerConfig.get(parameter);
-            return new NTCSensor(pin, offset, r, c1, c2, c3);  
+
+            return new NTCSensor(pin, config, 0.0f, 0.1f, r, ka, kb, kc);
             break;
         }
     }
+
     return nullptr;
 }
 
@@ -500,7 +544,7 @@ void setupIOHardware() {
     temperatureSensor2.reset(createTemperatureSensor(2, (int16_t)controllerConfig.get("sensor2Type")));
     temperatureSensor1.reset(createTemperatureSensor(1, (int16_t)controllerConfig.get("sensor1Type")));
     ventilator1.reset(createVentilator((int16_t)controllerConfig.get("fan1Type")));
-    
+
     digitalKnob.init();
 #if defined(TTG_T_DISPLAY)
     rotary1.init();
@@ -758,18 +802,24 @@ void setupDefaults() {
     controllerConfigModified |= controllerConfig.putNotContains("sensor1Type", PV(0)); // 0 == MAX31856 1 == MAX31855 2 = NTC
     controllerConfigModified |= controllerConfig.putNotContains("sensor2Type", PV(2));
 
-    controllerConfigModified |= controllerConfig.putNotContains("NTC1Pin", PV(36));
-    controllerConfigModified |= controllerConfig.putNotContains("NTC1Stein", PV("r1=10000, c1=-.0050990868, c2=0.0011737742, c3=-0.0000031896162, o=0.0"));
-
-    controllerConfigModified |= controllerConfig.putNotContains("NTC2Pin", PV(36));
-    controllerConfigModified |= controllerConfig.putNotContains("NTC2Stein", PV("r1=10000, c1=-.0050990868, c2=0.0011737742, c3=-0.0000031896162, o=0.0"));
-
     controllerConfigModified |= controllerConfig.putNotContains("mqttClientID", PV(mqttClientID));
     controllerConfigModified |= controllerConfig.putNotContains("mqttServer", PV(""));
     controllerConfigModified |= controllerConfig.putNotContains("mqttUsername", PV(""));
     controllerConfigModified |= controllerConfig.putNotContains("mqttPassword", PV(""));
     controllerConfigModified |= controllerConfig.putNotContains("mqttPort", PV(1883));
     controllerConfigModified |= controllerConfig.putNotContains("statusJson", PV(true));
+
+    for (uint8_t i = 1; i < 10; i++) {
+        char parameter[PARAMETER_SIZE];
+        snprintf(parameter, sizeof(parameter), "NTC%dSteinCal", i);
+        controllerConfigModified |= controllerConfig.putNotContains(parameter, PV(""));
+        snprintf(parameter, sizeof(parameter), "NTC%dStein", i);
+        controllerConfigModified |= controllerConfig.putNotContains(parameter, PV("c=0 r=10000 ka=0.00113837 kb=0.000232453 kc=9.48887e-08"));
+        snprintf(parameter, sizeof(parameter), "NTC%dPin", i);
+        controllerConfigModified |= controllerConfig.putNotContains(parameter, PV(36));
+    }
+
+
     controllerConfig.put("mqttBaseTopic", PV(mqttBaseTopic));
     controllerConfig.put("mqttLastWillTopic", PV(mqttLastWillTopic));
 }

@@ -12,14 +12,14 @@ private:
     bool m_isKick;
     const uint32_t m_maxDuty;
     const uint8_t m_dutyStart;
-    const uint8_t m_pwmChannel;    
+    const uint8_t m_pwmChannel;
 public:
     /**
      * p_pin : Pin to setup PWM for the fan
      * p_dutyStart : Minimum duty cycle where the fan can run, below that we set the pwm to 0 (0..100%)
      */
     PWMVentilator(uint8_t p_pin, uint8_t p_dutyStart);
-    PWMVentilator(uint8_t p_pin, uint8_t p_dutyStart, uint8_t p_pwmChannel);    
+    PWMVentilator(uint8_t p_pin, uint8_t p_dutyStart, uint8_t p_pwmChannel);
     PWMVentilator(uint8_t p_pin, uint8_t p_dutyStart, uint8_t m_dutyMinimum, uint8_t p_pwmChannel);
 
     virtual ~PWMVentilator();

@@ -27,6 +27,7 @@ set(LIB_SOURCES
     ../.pio/libdeps/wemos/opt-parser/src/optparser.cpp
     ../lib/bbq/bbqfanonly.cpp
     ../lib/bbq/pwmventilator.cpp
+    ../lib/bbq/ntcsensor.cpp
     ../lib/bbq/onoffventilator.cpp
     ../lib/bbq/analogin.cpp
     ../lib/bbq/numericknob.cpp
@@ -43,6 +44,7 @@ set(LIB_HEADERS
     ../.pio/libdeps/wemos/opt-parser/src
     ../lib/bbq
     ../lib/utils
+    Arduino.h
 )
 
 include_directories(catch2 ${LIB_HEADERS})

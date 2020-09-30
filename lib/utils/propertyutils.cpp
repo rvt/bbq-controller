@@ -278,7 +278,7 @@ char* Properties::getNextNonSpaceChar(char* buffer) {
     return buffer;
 }
 
-void Properties::serializeProperties(char* v, size_t desiredCapacity, Stream& device) {
+void Properties::serializeProperties(char* v, size_t desiredCapacity, Stream& device, bool showPassword) {
     for (auto it = m_type.begin(); it != m_type.end(); ++it) {
 
         switch (it->second.m_type) {
@@ -295,7 +295,15 @@ void Properties::serializeProperties(char* v, size_t desiredCapacity, Stream& de
                 break;
 
             case PropertyValue::Type::STRING:
-                snprintf(v, desiredCapacity, "%s=%c%s", it->first.c_str(), 'S', (const char*)it->second);
+                if (!showPassword && (
+                        strstr(it->first.c_str(), "Password") != nullptr ||
+                        strstr(it->first.c_str(), "password") != nullptr
+                    )) {
+                    snprintf(v, desiredCapacity, "%s=%c**********", it->first.c_str(), 'S');
+                } else {
+                    snprintf(v, desiredCapacity, "%s=%c%s", it->first.c_str(), 'S', (const char*)it->second);
+                }
+
                 break;
 
             case PropertyValue::Type::EMPTY:

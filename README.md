@@ -205,10 +205,11 @@ You can setup R, c1, c2, c3 and the potential offset.
 
 topic: ```BBQ/<your device>/controllerConfig```
 
-value: ```NTC1Stein=Sr1=10000, c1=-.0050990868, c2=0.0011737742, c3=-0.0000031896162 o=0``` 
+value: ```NTC1Stein=Sr=10000 c=0 c1=-.0050990868 c2=0.0011737742 c3=-0.0000031896162 o=0``` 
 
 value: ```NTC1Pin=L36``` // Use pin 36 of the esp32 as analog 1 for NTC sensor 1
 
+Note: For correct ADC conversion use pin number above 32, this is because the ESP32 shares ADC2 with WIFI functions, therefor we can use ADC1 which si connected to pin 32..39
 
 ## Hardware ESP8266 needed (under construction) please ask if you need any clarification!
 

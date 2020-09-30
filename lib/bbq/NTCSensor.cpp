@@ -1,25 +1,41 @@
 #include "NTCSensor.h"
 #include <math.h>
+
+#ifndef UNIT_TEST
 #include <Arduino.h>
+#else
+extern "C" uint32_t analogRead(uint8_t);
+#define INPUT_PULLUP 2
+#define A0 0xa0
+#endif
 
+constexpr float ZERO_KELVIN = -273.15f;
+NTCSensor::NTCSensor(int8_t p_pin, float p_offset, float p_r1, float p_ka, float p_kb, float p_kc) :
+    NTCSensor(p_pin, false, p_offset, 0.1f, p_r1, p_ka, p_kb, p_kc) {
 
-NTCSensor::NTCSensor(int8_t p_pin, float p_offset, float p_r1, float p_c1, float p_c2, float p_c3) :
+}
+
+NTCSensor::NTCSensor(int8_t p_pin, bool p_upDownStream, float p_offset, float p_alpha, float p_r1, float p_ka, float p_kb, float p_kc) :
     TemperatureSensor(),
     m_pin(p_pin),
-    m_r1(p_r1),
+    m_upDownStream(p_upDownStream),
     m_offset(p_offset),
-    m_c1(p_c1),
-    m_c2(p_c2),
-    m_c3(p_c3),
+    m_alpha(p_alpha),
+    m_r1(p_r1),
+    m_ka(p_ka),
+    m_kb(p_kb),
+    m_kc(p_kc),
     m_lastTemp(0.0f),
     m_recover(0),
     m_state(READY) {
 
 #if defined(ESP32)
     analogReadResolution(12);
-    analogSetSamples(4);
-    analogSetClockDiv(1);
-    analogSetPinAttenuation(m_pin, ADC_0db);
+    // These two do not work, possible because we take to much time between start and end??
+    //    analogSetSamples(4);
+    //    analogSetClockDiv(1);
+    // End
+    analogSetPinAttenuation(m_pin, ADC_11db); // ADC_11db to measure 0--3.3V
     adcAttachPin(m_pin);
 #elif defined(ESP8266)
 #endif
@@ -50,16 +66,25 @@ void NTCSensor::handle() {
             break;
 
         case DONE:
+            // TODO: SEE https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/adc.html
+            // Iw possible we can read the internal calibration of the reference voltage
             m_state = READY;
-            float Vo = adcEnd(m_pin);
-            float R2 = m_r1 * (4096.0f / Vo - 1.0f);
+            float Vo;
+            if (m_upDownStream) {
+                Vo = adcEnd(m_pin);
+            } else {
+                Vo = 4095.0f - adcEnd(m_pin);
+            }
+
+            float R2 = m_r1 * (4095.0f / Vo - 1.0f);
             float logR2 = log(R2);
-            float degreesC = (1.0f / (m_c1 + m_c2 * logR2 + m_c3 * logR2 * logR2 * logR2));
-            degreesC = degreesC - 273.15f;
+            float degreesC = m_ka + m_kb * logR2 + m_kc * logR2 * logR2 * logR2;
+            degreesC = 1.0f / degreesC + ZERO_KELVIN;
+
             // T = (T * 9.0f) / 5.0f + 32.0f;
             // float farenheit = ((degreesC * 9) / 5) + 32.
             // Filter
-            m_lastTemp = m_lastTemp + (degreesC - m_lastTemp) * 0.1f;
+            m_lastTemp = m_lastTemp + (degreesC - m_lastTemp) * m_alpha;
             break;
     }
 
@@ -67,16 +92,39 @@ void NTCSensor::handle() {
 #elif defined(ESP8266)
 // This portion of code was not tested on ESP2866
 void NTCSensor::handle() {
-    float Vo = analogRead(A0);
-    float R2 = m_r1 * (1023.0 / Vo - 1.0);
+    float Vo;
+    if (m_upDownStream) {
+        Vo = analogRead(A0);
+    } else {
+        Vo = 1023.0f - analogRead(A0);
+    }
 
-    
+    float R2 = m_r1 * (1023.0f / Vo - 1.0f);
     float logR2 = log(R2);
-    float degreesC = (1.0f / (m_c1 + m_c2 * logR2 + m_c3 * logR2 * logR2 * logR2));
-    degreesC = degreesC - 273.15f;
+    float degreesC = m_ka + m_kb * logR2 + m_kc * logR2 * logR2 * logR2;
+    degreesC = 1.0f / degreesC + ZERO_KELVIN;
+
     // T = (T * 9.0f) / 5.0f + 32.0f;
     // float farenheit = ((degreesC * 9) / 5) + 32.
     // Filter
-    m_lastTemp = m_lastTemp + (degreesC - m_lastTemp) * 0.1f;
+    m_lastTemp = m_lastTemp + (degreesC - m_lastTemp) * m_alpha;
 }
 #endif
+
+void NTCSensor::calculateSteinhart(float r, float r1, float t1, float r2, float t2, float r3, float t3, float& a, float& b, float& c) {
+    float l1 = log(r1);
+    float l2 = log(r2);
+    float l3 = log(r3);
+
+    float y1 = 1.0f / (t1 - ZERO_KELVIN);
+    float y2 = 1.0f / (t2 - ZERO_KELVIN);
+    float y3 = 1.0f / (t3 - ZERO_KELVIN);
+
+    float g2 = (y2 - y1) / (l2 - l1);
+    float g3 = (y3 - y1) / (l3 - l1);
+
+    c = (g3 - g2) / (l3 - l2) * 1.0f / (l1 + l2 + l3);
+    b = g2 - c * (l1 * l1 + l1 * l2 + l2 * l2);
+    a = y1 - (b + l1 * l1 * c) * l1;
+}
+
