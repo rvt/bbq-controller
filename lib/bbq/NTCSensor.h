@@ -23,7 +23,7 @@ class NTCSensor : public TemperatureSensor {
 private:
     const int8_t m_pin;
     const bool m_upDownStream;
-    const float m_offset;
+    const int16_t m_offset;
     const float m_alpha;
     const float m_r1;
     const float m_ka;
@@ -37,11 +37,11 @@ private:
         DONE
     } m_state;
 public:
-    NTCSensor(int8_t p_pin, float p_offset, float p_r1, float p_ka, float p_kb, float p_kc);
-    NTCSensor(int8_t p_pin, float p_offset, float p_alpha, float p_r1, float p_ka, float p_kb, float p_kc);
+    NTCSensor(int8_t p_pin, int16_t p_offset, float p_r1, float p_ka, float p_kb, float p_kc);
+    NTCSensor(int8_t p_pin, int16_t p_offset, float p_alpha, float p_r1, float p_ka, float p_kb, float p_kc);
     // p_upDownStream=false DOWNSTREAM (NTC is at GND)
     // p_upDownStream=true UPSTREAM
-    NTCSensor(int8_t p_pin, bool p_upDownStream, float p_offset, float p_alpha, float p_r1, float p_ka, float p_kb, float p_kc);
+    NTCSensor(int8_t p_pin, bool p_upDownStream, int16_t p_offset, float p_alpha, float p_r1, float p_ka, float p_kb, float p_kc);
     virtual float get() const;
 
     // Call handle a few times a second

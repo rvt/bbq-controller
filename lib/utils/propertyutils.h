@@ -139,7 +139,7 @@ template<std::size_t desiredCapacity>
 void serializeProperties(Stream& device, Properties& p) {
     static_assert(desiredCapacity > 0, "Must be > 0");
     char buffer[desiredCapacity];
-    p.serializeProperties(buffer, desiredCapacity, device, false);
+    p.serializeProperties(buffer, desiredCapacity, device, true);
 }
 
 

@@ -10,12 +10,12 @@ extern "C" uint32_t analogRead(uint8_t);
 #endif
 
 constexpr float ZERO_KELVIN = -273.15f;
-NTCSensor::NTCSensor(int8_t p_pin, float p_offset, float p_r1, float p_ka, float p_kb, float p_kc) :
+NTCSensor::NTCSensor(int8_t p_pin, int16_t p_offset, float p_r1, float p_ka, float p_kb, float p_kc) :
     NTCSensor(p_pin, false, p_offset, 0.1f, p_r1, p_ka, p_kb, p_kc) {
 
 }
 
-NTCSensor::NTCSensor(int8_t p_pin, bool p_upDownStream, float p_offset, float p_alpha, float p_r1, float p_ka, float p_kb, float p_kc) :
+NTCSensor::NTCSensor(int8_t p_pin, bool p_upDownStream, int16_t p_offset, float p_alpha, float p_r1, float p_ka, float p_kb, float p_kc) :
     TemperatureSensor(),
     m_pin(p_pin),
     m_upDownStream(p_upDownStream),
@@ -69,14 +69,13 @@ void NTCSensor::handle() {
             // TODO: SEE https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/adc.html
             // Iw possible we can read the internal calibration of the reference voltage
             m_state = READY;
-            float Vo;
+            float R2;
             if (m_upDownStream) {
-                Vo = adcEnd(m_pin);
+                R2 = m_r1 * (4095.0f / (adcEnd(m_pin) + m_offset) - 1.0f);
             } else {
-                Vo = 4095.0f - adcEnd(m_pin);
+                R2 = m_r1 / (4095.0f / (adcEnd(m_pin) + m_offset) - 1.0f);
             }
 
-            float R2 = m_r1 * (4095.0f / Vo - 1.0f);
             float logR2 = log(R2);
             float degreesC = m_ka + m_kb * logR2 + m_kc * logR2 * logR2 * logR2;
             degreesC = 1.0f / degreesC + ZERO_KELVIN;
@@ -92,14 +91,13 @@ void NTCSensor::handle() {
 #elif defined(ESP8266)
 // This portion of code was not tested on ESP2866
 void NTCSensor::handle() {
-    float Vo;
+    float R2;
     if (m_upDownStream) {
-        Vo = analogRead(A0);
+        R2 = m_r1 * (1023.0f / (analogRead(A0) + m_offset) - 1.0f);
     } else {
-        Vo = 1023.0f - analogRead(A0);
+        R2 = m_r1 / (1023.0f / (analogRead(A0) + m_offset) - 1.0f);
     }
 
-    float R2 = m_r1 * (1023.0f / Vo - 1.0f);
     float logR2 = log(R2);
     float degreesC = m_ka + m_kb * logR2 + m_kc * logR2 * logR2 * logR2;
     degreesC = 1.0f / degreesC + ZERO_KELVIN;

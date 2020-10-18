@@ -205,13 +205,32 @@ You can setup R, c1, c2, c3 and the potential offset.
 
 topic: ```BBQ/<your device>/controllerConfig```
 
-value: ```NTC1Stein=Sr=10000 c=0 c1=-.0050990868 c2=0.0011737742 c3=-0.0000031896162 o=0``` 
+value: ```NTC1Stein=Sr=10000 c1=-.0050990868 c2=0.0011737742 c3=-0.0000031896162 c=0 o=0```
 
 value: ```NTC1Pin=L36``` // Use pin 36 of the esp32 as analog 1 for NTC sensor 1
 
 Note: For correct ADC conversion use pin number above 32, this is because the ESP32 shares ADC2 with WIFI functions, therefor we can use ADC1 which si connected to pin 32..39
 
-## Hardware ESP8266 needed (under construction) please ask if you need any clarification!
+```r``` is the resistor you use in your serial devider circuit.
+```c ``` is the downstream/upstream configuration. When c=0 then it's downstream configuration.
+```o``` is a offset that can be applied to offset any linear offset from the AD converter. If the temperature measured shows to high, then this number should be positive.
+
+### Let the controller calculate the steinhart cooeficients
+
+Take 3 temperatures and with a multimeter check the resistor. Then send this
+to the topic.
+
+topic: ```BBQ/<your device>/steinhart```
+
+value: ```ntc=1 r=4700 r1=2000 r2=8900 r3=35500 t1=88 t2=47 t3=16 c=0 o=0```
+
+```r``` is the resistor you use in your serial devider circuit.
+```c ``` is the downstream/upstream configuration. When c=0 then it's downstream configuration.
+```o``` is a offset that can be applied to offset any linear offset from the AD converter. If the temperature measured shows to high, then this number should be positive.
+
+The controller will now calculate the steinhart cooeficients and stores them.
+
+## Hardware ESP8266 needed (under construction) please ask if you need any clarification
 
 * Wemos® Nodemcu Wifi And ESP8266 NodeMCU + 1.3 Inch OLED
 * Linear 10K Potentiometer
@@ -293,6 +312,7 @@ Additional documentation from the official website:
 | 15   | Rotary Pin 2 (might need pullup of 10K to 3.3V) |
 | 33   | Chip Select to MAX31865 |
 | 39   | Chip Select ro MAX31855 |
+| 36   | Analog in for NTC temperature sensor  (Devider with an additional resister) |
 | 27   | SPI SDO Pin to MAX31865 and MAX31855 |
 | 26   | SPI SDI Pin to MAX31865 |
 | 25   | SPI CLK Pin to MAX31865 and MAX31855 |

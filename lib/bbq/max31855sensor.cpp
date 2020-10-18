@@ -21,6 +21,7 @@ void MAX31855sensor::handle() {
         // Serial.println(fault, HEX);
         // Serial.print(F("Thermocouple error(s): "));
 
+/*
         if (fault & MAX31855_ERR_OC) {
             Serial.print(F("[open circuit] "));
         }
@@ -32,8 +33,8 @@ void MAX31855sensor::handle() {
         if (fault & MAX31855_ERR_VCC) {
             Serial.print(F("[short to VCC] "));
         }
-
         Serial.println();
+*/
         return;
     }
 

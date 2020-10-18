@@ -380,6 +380,7 @@ void handleCmd(const char* topic, const char* p_payload) {
     if (std::strstr(topicPos, "/steinhart") != nullptr) {
         float r = 0.f, r1 = 0.f, r2 = 0.f, r3 = 0.f, t1 = 0.f, t2 = 0.f, t3 = 0.f;
         int16_t config = 0;
+        int16_t offset = 0;
         int16_t sensorNumber = 0;
         char buffer[LINE_BUFFER_SIZE];
         strncpy(buffer, payloadBuffer, LINE_BUFFER_SIZE);
@@ -405,9 +406,10 @@ void handleCmd(const char* topic, const char* p_payload) {
             getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "t2", t2);
             getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "t3", t3);
             getStringParameter<int16_t, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "c", config);
+            getStringParameter<int16_t, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "o", offset);
             // Udate from given
             Serial.println(payloadBuffer);
-            OptParser::get(payloadBuffer, [&r, &config, &r1, &r2, &r3, &t1, &t2, &t3](OptValue value) {
+            OptParser::get(payloadBuffer, [&r, &config, &r1, &r2, &r3, &t1, &t2, &t3, &offset](OptValue value) {
                 // Copy setpoint value
                 bool found = false;
                 found = found || getOptValue(value, "r", r);
@@ -418,12 +420,13 @@ void handleCmd(const char* topic, const char* p_payload) {
                 found = found || getOptValue(value, "t2", t2);
                 found = found || getOptValue(value, "t3", t3);
                 found = found || getOptValue(value, "c", config);
+                found = found || getOptValue(value, "o", offset);
                 controllerConfigModified = found;
             });
 
             // Store given variables
             char buffer[LINE_BUFFER_SIZE];
-            snprintf(buffer, sizeof(buffer), "c=%i r=%g r1=%g t1=%g r2=%g t2=%g r3=%g t3=%g", config, r, r1, t1, r2, t2, r3, t3);
+            snprintf(buffer, sizeof(buffer), "c=%i o=%i r=%g r1=%g t1=%g r2=%g t2=%g r3=%g t3=%g", config, offset, r, r1, t1, r2, t2, r3, t3);
             controllerConfig.put(parameter, PV(buffer));
 
             if ((r != 0.0f && r1 != 0.0f && r2 != 0.0f && r3 != 0.0f) &&
@@ -433,7 +436,7 @@ void handleCmd(const char* topic, const char* p_payload) {
                 NTCSensor::calculateSteinhart(r, r1, t1, r2, t2, r3, t3, ka, kb, kc);
 
                 char buffer[LINE_BUFFER_SIZE];
-                snprintf(buffer, sizeof(buffer), "c=%i r=%g ka=%g kb=%g kc=%g", config, r, ka, kb, kc);
+                snprintf(buffer, sizeof(buffer), "c=%i o=%i r=%g ka=%g kb=%g kc=%g", config, offset, r, ka, kb, kc);
                 snprintf(parameter, sizeof(parameter), "NTC%dStein", sensorNumber);
                 controllerConfig.put(parameter, PV(buffer));
                 Serial.println(buffer);
@@ -521,18 +524,20 @@ TemperatureSensor* createTemperatureSensor(uint8_t sensorNumber, uint8_t sensorT
         case 2: {
             char parameter[PARAMETER_SIZE];
             float r, ka, kb, kc;
-            int16_t config;
+            int16_t config=0;
+            int16_t offset=0;
             snprintf(parameter, sizeof(parameter), "NTC%dStein", sensorNumber);
             getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "r", r);
             getStringParameter<int16_t, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "c", config);
             getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "ka", ka);
             getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "kb", kb);
             getStringParameter<float, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "kc", kc);
+            getStringParameter<int16_t, LINE_BUFFER_SIZE>(controllerConfig.get(parameter), "o", offset);
 
             snprintf(parameter, sizeof(parameter), "NTC%dPin", sensorNumber);
             uint8_t pin = (int16_t)controllerConfig.get(parameter);
-
-            return new NTCSensor(pin, config, 0.0f, 0.1f, r, ka, kb, kc);
+            return new NTCSensor(pin, (boolean)config, offset, 0.1f, r, ka, kb, kc);
+            
             break;
         }
     }
@@ -541,7 +546,7 @@ TemperatureSensor* createTemperatureSensor(uint8_t sensorNumber, uint8_t sensorT
 }
 
 void setupIOHardware() {
-    temperatureSensor2.reset(createTemperatureSensor(2, (int16_t)controllerConfig.get("sensor2Type")));
+    temperatureSensor2.reset(createTemperatureSensor(1, (int16_t)controllerConfig.get("sensor2Type")));
     temperatureSensor1.reset(createTemperatureSensor(1, (int16_t)controllerConfig.get("sensor1Type")));
     ventilator1.reset(createVentilator((int16_t)controllerConfig.get("fan1Type")));
 
@@ -814,7 +819,7 @@ void setupDefaults() {
         snprintf(parameter, sizeof(parameter), "NTC%dSteinCal", i);
         controllerConfigModified |= controllerConfig.putNotContains(parameter, PV(""));
         snprintf(parameter, sizeof(parameter), "NTC%dStein", i);
-        controllerConfigModified |= controllerConfig.putNotContains(parameter, PV("c=0 r=10000 ka=0.00113837 kb=0.000232453 kc=9.48887e-08"));
+        controllerConfigModified |= controllerConfig.putNotContains(parameter, PV("c=0 r=10000 ka=0.00113837 kb=0.000232453 kc=9.48887e-08 o=0"));
         snprintf(parameter, sizeof(parameter), "NTC%dPin", i);
         controllerConfigModified |= controllerConfig.putNotContains(parameter, PV(36));
     }

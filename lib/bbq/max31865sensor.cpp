@@ -31,6 +31,7 @@ void MAX31865sensor::handle() {
         uint8_t fault = readFault();
 
         if (fault != 0) {
+/*
             Serial.print("MAX31865\nFault 0x");
             Serial.println(fault, HEX);
 
@@ -57,6 +58,7 @@ void MAX31865sensor::handle() {
             if (fault & MAX31865_FAULT_OVUV) {
                 Serial.println(F("Under/Over voltage"));
             }
+            */
 
             clearFault();
             return;
