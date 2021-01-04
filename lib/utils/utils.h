@@ -5,7 +5,7 @@
 #include <array>
 #include <cstring>
 #include <string>
-#include <optparser.h>
+#include <optparser.hpp>
 #include <propertyutils.h>
 #include <iostream>
 #include <algorithm>

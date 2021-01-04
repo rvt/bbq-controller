@@ -45,7 +45,7 @@ extern "C" {
 #include "ssd1306displaycontroller.h"
 #include "TTGO_T_DisplayController.h"
 #include <propertyutils.h>
-#include <optparser.h>
+#include <optparser.hpp>
 #include <utils.h>
 #include <icons.h>
 #include <pwmventilator.h>
@@ -67,7 +67,7 @@ extern "C" {
 #include <bbqfanonly.h>
 #include <bbq.h>
 #include <demo.h>
-#include <statemachine.h>
+#include <statemachine.hpp>
 #include <StreamUtils.h>
 
 typedef PropertyValue PV ;
@@ -134,7 +134,7 @@ WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
 // State machine states and configurations
-std::unique_ptr<StateMachine> bootSequence(nullptr);
+StateMachine* bootSequence;
 
 #define MQTT_SERVER_LENGTH 40
 #define MQTT_PORT_LENGTH 5
@@ -626,35 +626,35 @@ void serverOnlineCallback() {
  */
 void setupWIFIReconnectManager() {
     // Statemachine to handle (re)connection to MQTT
-    State* BOOTSEQUENCESTART;
-    State* DELAYEDMQTTCONNECTION;
-    State* TESTMQTTCONNECTION;
-    State* CONNECTMQTT;
-    State* PUBLISHONLINE;
-    State* SUBSCRIBECOMMANDTOPIC;
-    State* WAITFORCOMMANDCAPTURE;
+    State* BOOTSEQUENCESTART = new State;
+    State* DELAYEDMQTTCONNECTION = new StateTimed {1500};
+    State* TESTMQTTCONNECTION = new State;
+    State* CONNECTMQTT = new State;
+    State* PUBLISHONLINE = new State;
+    State* SUBSCRIBECOMMANDTOPIC = new State;
+    State* WAITFORCOMMANDCAPTURE = new StateTimed { 3000 };
 
-    BOOTSEQUENCESTART = new State([]() {
-        return 2;
+    BOOTSEQUENCESTART->setRunnable([TESTMQTTCONNECTION]() {
+        return TESTMQTTCONNECTION;
     });
-    DELAYEDMQTTCONNECTION = new StateTimed(1500, []() {
+    DELAYEDMQTTCONNECTION->setRunnable([DELAYEDMQTTCONNECTION, TESTMQTTCONNECTION]() {
         hasMqttConfigured =
             controllerConfig.contains("mqttServer") &&
             std::strlen((const char*)controllerConfig.get("mqttServer")) > 0;
 
         if (!hasMqttConfigured) {
-            return 1;
+            return DELAYEDMQTTCONNECTION;
         }
 
-        return 2;
+        return TESTMQTTCONNECTION;
     });
-    TESTMQTTCONNECTION = new State([]() {
+    TESTMQTTCONNECTION->setRunnable([DELAYEDMQTTCONNECTION, TESTMQTTCONNECTION, CONNECTMQTT]() {
         if (mqttClient.connected())  {
             if (WiFi.status() != WL_CONNECTED) {
                 mqttClient.disconnect();
             }
 
-            return 1;
+            return DELAYEDMQTTCONNECTION;
         }
 
         // For some reason the access point active, so we disable it explicitly
@@ -662,12 +662,12 @@ void setupWIFIReconnectManager() {
         if (WiFi.status() == WL_CONNECTED) {
             WiFi.mode(WIFI_STA);
         } else {
-            return 2;
+            return TESTMQTTCONNECTION;
         }
 
-        return 3;
+        return CONNECTMQTT;
     });
-    CONNECTMQTT = new State([]() {
+    CONNECTMQTT->setRunnable([PUBLISHONLINE, DELAYEDMQTTCONNECTION]() {
         mqttClient.setServer(
             controllerConfig.get("mqttServer"),
             (int16_t)controllerConfig.get("mqttPort")
@@ -682,41 +682,34 @@ void setupWIFIReconnectManager() {
                 1,
                 MQTT_LASTWILL_OFFLINE)
            ) {
-            return 4;
+            return PUBLISHONLINE;
         }
 
-        return 1;
+        return DELAYEDMQTTCONNECTION;
     });
-    PUBLISHONLINE = new State([]() {
+    PUBLISHONLINE->setRunnable([SUBSCRIBECOMMANDTOPIC]() {
         publishToMQTT(
             MQTT_LASTWILL_TOPIC,
             MQTT_LASTWILL_ONLINE);
-        return 5;
+        return SUBSCRIBECOMMANDTOPIC;
     });
-    SUBSCRIBECOMMANDTOPIC = new State([]() {
+    SUBSCRIBECOMMANDTOPIC->setRunnable([WAITFORCOMMANDCAPTURE, DELAYEDMQTTCONNECTION]() {
         char mqttSubscriberTopic[32];
         strncpy(mqttSubscriberTopic, controllerConfig.get("mqttBaseTopic"), sizeof(mqttSubscriberTopic));
         strncat(mqttSubscriberTopic, "/+", sizeof(mqttSubscriberTopic));
 
         if (mqttClient.subscribe(mqttSubscriberTopic, 0)) {
-            return 6;
+            // Serial.println(mqttSubscriberTopic);
+            return WAITFORCOMMANDCAPTURE;
         }
 
         mqttClient.disconnect();
-        return 1;
+        return DELAYEDMQTTCONNECTION;
     });
-    WAITFORCOMMANDCAPTURE = new StateTimed(3000, []() {
-        return 2;
+    WAITFORCOMMANDCAPTURE->setRunnable([TESTMQTTCONNECTION]() {
+        return TESTMQTTCONNECTION;
     });
-    bootSequence.reset(new StateMachine({
-        BOOTSEQUENCESTART, // 0
-        DELAYEDMQTTCONNECTION,// 1
-        TESTMQTTCONNECTION, // 2
-        CONNECTMQTT, // 3
-        PUBLISHONLINE, // 4
-        SUBSCRIBECOMMANDTOPIC, // 5
-        WAITFORCOMMANDCAPTURE // 6
-    }));
+    bootSequence = new StateMachine { BOOTSEQUENCESTART };
     bootSequence->start();
 }
 

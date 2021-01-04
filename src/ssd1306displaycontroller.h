@@ -8,7 +8,7 @@
 #include <algorithm>
 
 #include <bbqfanonly.h>
-#include <statemachine.h>
+#include <statemachine.hpp>
 #include <digitalinput.h>
 #include <numericknob.h>
 #include <OLEDDisplayUi.h>
@@ -66,6 +66,16 @@ private:
     OLEDDisplayUi* ui;
     uint32_t m_lastMillis;
 
+    State* STATE_STARTSCREEN = new State;
+    State* STATE_WAITLOGO = new StateTimed{2500};
+    State* STATE_CHANGETORUNSCREEN = new State;
+    State* STATE_RUNSCREEN = new State;
+    State* STATE_CHANGETOMENUSCREEN = new State;
+    State* STATE_CHANGETOMENUBUTTONRELEASE = new State;
+    State* STATE_SELECTMENUITEM = new State;
+    State* STATE_SETTEMP = new State;
+    State* STATE_SETFAN = new State;
+    
     void toStringIp(const IPAddress& ip, char* ipAddress) {
         snprintf(ipAddress, 16, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
     };

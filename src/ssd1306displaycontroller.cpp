@@ -81,63 +81,53 @@ void SSD1306DisplayController::init() {
         menuOverrideFan
     };
 
-    State* STATE_STARTSCREEN;
-    State* STATE_WAITLOGO;
-    State* STATE_CHANGETORUNSCREEN;
-    State* STATE_RUNSCREEN;
-    State* STATE_CHANGETOMENUSCREEN;
-    State* STATE_SELECTMENUITEM;
-    State* STATE_SETTEMP;
-    State* STATE_SETFAN;
-    State* STATE_CHANGETOMENUBUTTONRELEASE;
-
-    STATE_STARTSCREEN = new State([&]() {
+    STATE_STARTSCREEN->setRunnable([&]() {
         ui->setOverlays(displayOverlay.data(), displayOverlay.size());
         ui->setFrames(startScreens.data(), startScreens.size());
-        return 1;
+        return STATE_WAITLOGO;
     });
 
-    STATE_WAITLOGO = new StateTimed((2500), [&]() {
+    STATE_WAITLOGO->setRunnable([&]() {
         // Display splash screen
-        return 2;
+        return STATE_CHANGETORUNSCREEN;
     });
 
-    STATE_CHANGETORUNSCREEN = new State([&]() {
+    STATE_CHANGETORUNSCREEN->setRunnable([&]() {
         ui->setOverlays(displayOverlay.data(), displayOverlay.size());
         ui->setFrames(normalRunScreens.data(), normalRunScreens.size());
         ui->enableAllIndicators();
         ui->enableAutoTransition();
-        return 3;
+        return STATE_RUNSCREEN;
     });
 
-    STATE_RUNSCREEN = new State([&]() {
+    STATE_RUNSCREEN->setRunnable([&]() {
         if (digitalKnob.isEdgeUp()) {
             std::static_pointer_cast<PWMVentilator>(ventilator1)->setOn(false);
-            return 5;
+            return STATE_CHANGETOMENUBUTTONRELEASE;
         }
 
-        return 3;
+        return STATE_RUNSCREEN;
     });
 
-    STATE_CHANGETOMENUBUTTONRELEASE = new State([&]() {
+    STATE_CHANGETOMENUBUTTONRELEASE->setRunnable([&]() {
         if (digitalKnob.current() == false) {
             // Clears the internal status so we don´t get a false click later
             digitalKnob.reset();
-            return 4;
+            return STATE_CHANGETOMENUSCREEN;
         }
 
-        return 5;
+        return STATE_SELECTMENUITEM;
     });
 
-    STATE_CHANGETOMENUSCREEN = new State([&]() {
+    STATE_CHANGETOMENUSCREEN->setRunnable([&]() {
         ui->setFrames(menuScreens.data(), menuScreens.size());
         ui->switchToFrame(0);
         ui->disableAutoTransition();
         m_menuKnob->value(0);
-        return 6;
+        return STATE_SELECTMENUITEM;
     });
 
-    STATE_SELECTMENUITEM = new State([&]() {
+    STATE_SELECTMENUITEM->setRunnable([&]() {
         uint8_t menu = ((int)round(m_menuKnob->value()));
 
         if (digitalKnob.isSingle()) {
@@ -146,65 +136,53 @@ void SSD1306DisplayController::init() {
             switch (menu) {
                 case 0 :
                     std::static_pointer_cast<PWMVentilator>(ventilator1)->setOn(true);
-                    return 2;
+                    return STATE_CHANGETORUNSCREEN;
 
                 case 1 :
                     m_temperatureSetPointKnob->value(bbqController->setPoint());
-                    return 7;
+                    return STATE_SETTEMP;
 
                 case 2 :
                     m_fanOverrideKnob->value(ventilator1->speedOverride());
-                    return 8;
+                    return STATE_SETFAN;
             };
         }
 
         m_menuKnob->handle();
-        return 6;
+        return STATE_SELECTMENUITEM;
     });
 
-    STATE_SETTEMP = new State([&]() {
+    STATE_SETTEMP->setRunnable([&]() {
         if (digitalKnob.isSingle()) {
             float value = round(m_temperatureSetPointKnob->value() * 2.0f) / 2.0f;
             bbqConfig.put("setPoint", PV(value));
             bbqController->setPoint(value);
             bbqConfigModified = true;
-            return 4;
+            return STATE_CHANGETOMENUSCREEN;
         }
 
         if (!digitalKnob.isLong()) {
             m_temperatureSetPointKnob->handle();
         }
 
-        return 7;
+        return STATE_SETTEMP;
     });
 
-    STATE_SETFAN = new State([&]() {
+    STATE_SETFAN->setRunnable([&]() {
         if (digitalKnob.isSingle()) {
             float value = round(m_fanOverrideKnob->value());
             ventilator1->speedOverride(value);
-            return 4;
+            return STATE_CHANGETOMENUSCREEN;
         }
 
         if (!digitalKnob.isLong()) {
             m_fanOverrideKnob->handle();
         }
 
-        return 8;
+        return STATE_SETFAN;
     });
 
-    menuSequence.reset(new StateMachine({
-        STATE_STARTSCREEN,// 0
-        STATE_WAITLOGO, // 1
-        STATE_CHANGETORUNSCREEN,// 2
-        STATE_RUNSCREEN,// 3
-        STATE_CHANGETOMENUSCREEN,// 4
-        STATE_CHANGETOMENUBUTTONRELEASE,// 5
-        STATE_SELECTMENUITEM,// 6
-        STATE_SETTEMP,// 7
-        STATE_SETFAN// 8
-    }));
-
-
+    menuSequence.reset(new StateMachine { STATE_STARTSCREEN });
 
     // Start UI
     // Don´t set this to high as we want to have time left for the controller to do it´s work

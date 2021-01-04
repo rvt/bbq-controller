@@ -54,6 +54,8 @@ constexpr uint8_t ITFT_WHITE = 15;
 constexpr int16_t RIGHT_DISTANCE = 10;
 constexpr int16_t LEFT_DISTANCE = 10;
 
+
+
 // Takes around 35ms to render a full screen BMP
 void drawBmp(TFT_eSPI* tft, int16_t x, int16_t y, const uint8_t* bmp, const uint32_t length) {
 
@@ -286,128 +288,109 @@ void TTGO_T_DisplayController::init() {
             return menuOverrideFan(tft, x, y);
         }
     };
-
-    State* STATE_STARTSCREEN;
-    State* STATE_WAITLOGO;
-    State* STATE_CHANGETORUNSCREEN;
-    State* STATE_RUNSCREEN;
-    State* STATE_CHANGETOMENUSCREEN;
-    State* STATE_SELECTMENUITEM;
-    State* STATE_SETTEMP;
-    State* STATE_SETFAN;
-    State* STATE_CHANGETOMENUBUTTONRELEASE;
-
     // 0
-    STATE_STARTSCREEN = new State([&]() {
+    STATE_STARTSCREEN->setRunnable([&]() {
         m_rotator->setUnderlays(displayOverlay);
         m_rotator->setFrames(startScreens);
-        return 1;
+        return STATE_WAITLOGO;
     });
 
     // 1
-    STATE_WAITLOGO = new StateTimed((2500), [&]() {
+    STATE_WAITLOGO->setRunnable([&]() {
         // Display splash screen
-        return 2;
+        return STATE_CHANGETORUNSCREEN;
     });
 
     // 2
-    STATE_CHANGETORUNSCREEN = new State([&]() {
+    STATE_CHANGETORUNSCREEN->setRunnable([&]() {
+        Serial.println("3");
         m_rotator->setFrames(normalRunScreens);
         m_rotator->setAutoTransition(true);
         m_currentInput = nullptr;
-        return 3;
+        return STATE_RUNSCREEN;
     });
 
     // 3
-    STATE_RUNSCREEN = new State([&]() {
+    STATE_RUNSCREEN->setRunnable([&]() {
         if (digitalKnob.isEdgeUp()) {
-            return 4;
+            return STATE_CHANGETOMENUSCREEN;
         }
 
-        return 3;
+        return STATE_RUNSCREEN;
     });
 
     // 4
-    STATE_CHANGETOMENUSCREEN = new State([&]() {
+    STATE_CHANGETOMENUSCREEN->setRunnable([&]() {
         digitalKnob.reset();
         m_rotator->setFrames(menuScreens);
         m_rotator->setAutoTransition(false);
         m_menuKnob->value(0);
         m_currentInput = m_menuKnob;
-        return 6;
+        return STATE_SELECTMENUITEM;
     });
 
     // 5
-    STATE_CHANGETOMENUBUTTONRELEASE = new State([&]() {
+    STATE_CHANGETOMENUBUTTONRELEASE->setRunnable([&]() {
         //        if (digitalKnob.current() == false) {
         // Clears the internal status so we don´t get a false click later
         //            digitalKnob.reset();
         //            return 4;
         //        }
 
-        return 4;
+        return STATE_CHANGETOMENUSCREEN;
     });
 
     // 6
-    STATE_SELECTMENUITEM = new State([&]() {
+    STATE_SELECTMENUITEM->setRunnable([&]() {
         if (digitalKnob.isEdgeUp()) {
             uint8_t menu = ((int)round(m_menuKnob->value()));
             m_rotator->switchToFrame(menu);
 
             switch (menu) {
                 case 0:
-                    return 2;
+                    return STATE_CHANGETORUNSCREEN;
 
                 case 1:
                     m_temperatureSetPointKnob->value(bbqController->setPoint());
                     m_currentInput = m_temperatureSetPointKnob;
-                    return 7;
+                    return STATE_SETTEMP;
 
                 case 2:
                     m_fanOverrideKnob->value(ventilator1->speedOverride());
                     m_currentInput = m_fanOverrideKnob;
-                    return 8;
+                    return STATE_SETFAN;
             };
         }
 
-        return 6;
+        return STATE_SELECTMENUITEM;
     });
 
     // 7
-    STATE_SETTEMP = new State([&]() {
+    STATE_SETTEMP->setRunnable([&]() {
         if (digitalKnob.isEdgeUp()) {
             float value = round(m_temperatureSetPointKnob->value() * 2.0f) / 2.0f;
             bbqConfig.put("setPoint", PV(value));
             bbqController->setPoint(value);
             bbqConfigModified = true;
-            return 4;
+            return STATE_CHANGETOMENUSCREEN;
         }
 
-        return 7;
+        return STATE_SETTEMP;
     });
 
     // 8
-    STATE_SETFAN = new State([&]() {
+    STATE_SETFAN->setRunnable([&]() {
         if (digitalKnob.isEdgeUp()) {
             float value = round(m_fanOverrideKnob->value());
             ventilator1->speedOverride(value);
-            return 4;
+            return STATE_CHANGETOMENUSCREEN;
         }
 
-        return 8;
+        return STATE_SETFAN;
     });
 
-    menuSequence.reset(new StateMachine({
-        STATE_STARTSCREEN,               // 0
-        STATE_WAITLOGO,                  // 1
-        STATE_CHANGETORUNSCREEN,         // 2
-        STATE_RUNSCREEN,                 // 3
-        STATE_CHANGETOMENUSCREEN,        // 4
-        STATE_CHANGETOMENUBUTTONRELEASE, // 5
-        STATE_SELECTMENUITEM,            // 6
-        STATE_SETTEMP,                   // 7
-        STATE_SETFAN                     // 8
-    }));
+    // TODO: use DeletingStateMachine
+    menuSequence.reset(new StateMachine { STATE_STARTSCREEN });
 
     //Set up the display
     m_tft->init();

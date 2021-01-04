@@ -1,7 +1,7 @@
 #include <catch2/catch.hpp>
 
 #include <memory>
-#include <optparser.h>
+#include <optparser.hpp>
 #include <utils.h>
 #include <array>
 

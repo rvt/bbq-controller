@@ -7,7 +7,7 @@
 #include <algorithm>
 
 #include <bbqfanonly.h>
-#include <statemachine.h>
+#include <statemachine.hpp>
 #include <digitalinput.h>
 #include <numericknob.h>
 #include <SPI.h>
@@ -85,6 +85,16 @@ protected:
     NumericInput* m_menuKnob;
     NumericInput* m_currentInput;
     uint32_t m_counter;
+
+    State* STATE_STARTSCREEN = new State;
+    State* STATE_WAITLOGO = new StateTimed{2500};
+    State* STATE_CHANGETORUNSCREEN = new State;
+    State* STATE_RUNSCREEN = new State;
+    State* STATE_CHANGETOMENUSCREEN = new State;
+    State* STATE_CHANGETOMENUBUTTONRELEASE = new State;
+    State* STATE_SELECTMENUITEM = new State;
+    State* STATE_SETTEMP = new State;
+    State* STATE_SETFAN = new State;
 
 public:
     TTGO_T_DisplayController();
