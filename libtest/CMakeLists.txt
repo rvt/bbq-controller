@@ -24,7 +24,7 @@ set(LIB_SOURCES
     ../.pio/libdeps/wemos/eFLL/FuzzyRuleAntecedent.cpp
     ../.pio/libdeps/wemos/eFLL/FuzzyRuleConsequent.cpp
     ../.pio/libdeps/wemos/eFLL/FuzzySet.cpp
-    ../.pio/libdeps/wemos/opt-parser/src/optparser.cpp
+    ../.pio/libdeps/wemos/rvt-OptionParser/src/optparser.cpp
     ../lib/bbq/bbqfanonly.cpp
     ../lib/bbq/pwmventilator.cpp
     ../lib/bbq/NTCSensor.cpp
@@ -41,7 +41,7 @@ set(LIB_SOURCES
 set(LIB_HEADERS
     stubs
     ../.pio/libdeps/wemos/eFLL
-    ../.pio/libdeps/wemos/opt-parser/src
+    ../.pio/libdeps/wemos/rvt-OptionParser/src
     ../lib/bbq
     ../lib/utils
     Arduino.h
