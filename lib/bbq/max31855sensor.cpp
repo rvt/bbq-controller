@@ -1,44 +1,40 @@
 #include "max31855sensor.h"
-#include <Adafruit_MAX31855.h>
 
-#define MAX31855_ERR_OC  0x1
-#define MAX31855_ERR_GND 0x2
-#define MAX31855_ERR_VCC 0x4
-
-MAX31855sensor::MAX31855sensor(Adafruit_MAX31855* p_MAX31855) :
+MAX31855sensor::MAX31855sensor(MAX31855* p_MAX31855) :
     TemperatureSensor(),
     m_MAX31855(p_MAX31855),
-    m_lastTemp(-1.0) {
+    m_lastTemp(-1.0),
+    m_faultCode(0),
+    m_temp_sum(0.0f),
+    m_samplecount(0) {
 }
 
 void MAX31855sensor::handle() {
-    float temperature = m_MAX31855->readCelsius();
+    uint8_t fault = m_MAX31855->read();
+    float measured = m_MAX31855->getTemperature();
+    //float measured = m_MAX31855->getInternal();
 
-    uint8_t fault = m_MAX31855->readError();
 
     if (fault != 0) {
-        // Serial.print("MAX31855\nFault 0x");
-        // Serial.println(fault, HEX);
-        // Serial.print(F("Thermocouple error(s): "));
+        m_faultCode = m_MAX31855->getStatus();
+        Serial.println (m_faultCode);
+    } else {
+        constexpr uint8_t SAMPLES = 5; // at 50Hz about 2 samples per sec
+        m_temp_sum += measured;
+        m_samplecount += 1;
+//      Serial.print ("measured:");
+//      Serial.println (measured);
 
-/*
-        if (fault & MAX31855_ERR_OC) {
-            Serial.print(F("[open circuit] "));
+        if (m_samplecount >= SAMPLES) {
+            m_lastTemp = m_lastTemp + ((m_temp_sum / m_samplecount) - m_lastTemp) * 0.25f;
+            m_temp_sum = 0.0f;
+            m_samplecount = 0;
         }
-
-        if (fault & MAX31855_ERR_GND) {
-            Serial.print(F("[short to GND] "));
-        }
-
-        if (fault & MAX31855_ERR_VCC) {
-            Serial.print(F("[short to VCC] "));
-        }
-        Serial.println();
-*/
-        return;
     }
+}
 
-    m_lastTemp = m_lastTemp + (temperature - m_lastTemp) * 0.1f;
+uint16_t MAX31855sensor::faultCode() const {
+    return m_faultCode;
 }
 
 float MAX31855sensor::get() const {

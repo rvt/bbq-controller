@@ -508,15 +508,15 @@ TemperatureSensor* createTemperatureSensor(uint8_t sensorNumber, uint8_t sensorT
 
     switch (sensorType) {
         case 0: {
-            MAX31865sensor* sensor1 = new MAX31865sensor(SPI_MAX31865_CS_PIN, SPI_SDI_PIN, SPI_SDO_PIN, SPI_CLK_PIN, RNOMINAL_OVEN, RREF_OVEN);
+            MAX31865sensor* sensor1 = new MAX31865sensor{SPI_MAX31865_CS_PIN, SPI_SDI_PIN, SPI_SDO_PIN, SPI_CLK_PIN, RNOMINAL_OVEN, RREF_OVEN};
             sensor1->begin(MAX31865_3WIRE);
             return sensor1;
             break;
         }
 
         case 1: {
-            Adafruit_MAX31855* sensor2 = new Adafruit_MAX31855(SPI_CLK_PIN, SPI_MAX31855_CS_PIN, SPI_SDO_PIN);
-            sensor2->begin();
+            auto* sensor2 = new MAX31855;
+            sensor2->begin(SPI_CLK_PIN, SPI_MAX31855_CS_PIN, SPI_SDO_PIN);
             return new MAX31855sensor(sensor2);
             break;
         }

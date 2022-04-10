@@ -11,8 +11,8 @@ set -e
 # ping ARILUX00879231.local
 #./generateHtmlArray.sh 
 #platformio run
-platformio run --target upload -e ttgo-t-display
-platformio device monitor --baud 115200
+pio run --target upload -e ttgo-t-display
+pio device monitor --baud 115200
 
 echo "
 #include <WebServer.h>
