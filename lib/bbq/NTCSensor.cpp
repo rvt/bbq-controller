@@ -49,44 +49,20 @@ float NTCSensor::get() const {
 // With an additional filter
 #if defined(ESP32)
 void NTCSensor::handle() {
-    switch (m_state) {
-        case READY:
-            adcStart(m_pin);
-            m_state = BUZY;
-            m_recover = 0;
-            break;
-
-        case BUZY:
-            if (!adcBusy(m_pin)) {
-                m_state = DONE;
-            } else if (++m_recover == 255) {
-                m_state = READY;
-            }
-
-            break;
-
-        case DONE:
-            // TODO: SEE https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/adc.html
-            // Iw possible we can read the internal calibration of the reference voltage
-            m_state = READY;
-            float R2;
-            if (m_upDownStream) {
-                R2 = m_r1 * (4095.0f / (adcEnd(m_pin) + m_offset) - 1.0f);
-            } else {
-                R2 = m_r1 / (4095.0f / (adcEnd(m_pin) + m_offset) - 1.0f);
-            }
-
-            float logR2 = log(R2);
-            float degreesC = m_ka + m_kb * logR2 + m_kc * logR2 * logR2 * logR2;
-            degreesC = 1.0f / degreesC + ZERO_KELVIN;
-
-            // T = (T * 9.0f) / 5.0f + 32.0f;
-            // float farenheit = ((degreesC * 9) / 5) + 32.
-            // Filter
-            m_lastTemp = m_lastTemp + (degreesC - m_lastTemp) * m_alpha;
-            break;
+    float R2;
+    float adc = (float)analogRead(m_pin) + m_offset;
+    if (m_upDownStream) {
+        R2 = m_r1 * (4095.0f / adc - 1.0f);
+    } else {
+        R2 = m_r1 / (4095.0f / adc - 1.0f);
     }
 
+    float logR2 = log(R2);
+    float degreesC = m_ka + m_kb * logR2 + m_kc * logR2 * logR2 * logR2;
+    degreesC = 1.0f / degreesC + ZERO_KELVIN;
+
+    // Filter
+    m_lastTemp = m_lastTemp + (degreesC - m_lastTemp) * m_alpha;
 }
 #elif defined(ESP8266)
 // This portion of code was not tested on ESP2866
