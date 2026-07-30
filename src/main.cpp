@@ -42,8 +42,11 @@ extern "C" {
 
 
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
+#if defined(GEEKKCREIT_OLED)
 #include "ssd1306displaycontroller.h"
+#elif defined(TTG_T_DISPLAY)
 #include "TTGO_T_DisplayController.h"
+#endif
 #include <propertyutils.h>
 #include <optparser.hpp>
 #include <utils.h>
@@ -515,8 +518,8 @@ TemperatureSensor* createTemperatureSensor(uint8_t sensorNumber, uint8_t sensorT
         }
 
         case 1: {
-            auto* sensor2 = new MAX31855;
-            sensor2->begin(SPI_CLK_PIN, SPI_MAX31855_CS_PIN, SPI_SDO_PIN);
+            auto* sensor2 = new MAX31855(SPI_MAX31855_CS_PIN, SPI_SDO_PIN, SPI_CLK_PIN);
+            sensor2->begin();
             return new MAX31855sensor(sensor2);
             break;
         }
